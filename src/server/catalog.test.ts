@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseCatalogParams } from "../domain/catalog";
-import { getCatalog } from "./catalog";
+import { getCatalog, getLatestCars } from "./catalog";
 
 describe("live Trust Encar catalog", () => {
   afterEach(() => {
@@ -28,5 +28,12 @@ describe("live Trust Encar catalog", () => {
     expect(result.total).toBe(159958);
     expect(result.makes).toEqual(["Kia"]);
     expect(result.cars[0]).toMatchObject({ id: "42569219", make: "Kia", model: "Sportage", priceRub: 4217024 });
+  });
+
+  it("keeps the static home page buildable when the live source is unavailable", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
+
+    await expect(getLatestCars(4)).resolves.toEqual([]);
   });
 });

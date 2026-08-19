@@ -133,8 +133,8 @@ export async function getLatestCars(limit = 4) {
   try {
     const live = await getLiveCatalog(parseCatalogParams({ country: "kr" }));
     return live.cars.slice(0, limit);
-  } catch (error) {
-    if (!hasDatabase()) throw error;
+  } catch {
+    if (!hasDatabase()) return [] as Car[];
   }
   const result = await query<CarRow>("SELECT * FROM cars WHERE status = 'active' ORDER BY year DESC, updated_at DESC LIMIT $1", [limit]);
   return result.rows.map(toCar);
