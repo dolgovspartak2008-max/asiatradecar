@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function NotFound() { return <section className="page-section"><div className="container empty-state"><p className="eyebrow">404</p><h1>Страница не найдена</h1><p>Вернитесь на главную или откройте каталог автомобилей.</p><div><Link className="button" href="/">На главную</Link> <Link className="button button-ghost" href="/catalog?country=kr">Каталог</Link></div></div></section>; }
