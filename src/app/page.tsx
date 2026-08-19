@@ -1,7 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
-import { VideoHero } from "@/components/video-hero";
 import { site } from "@/config/site";
 
 const stages = [
@@ -16,8 +16,20 @@ export default async function Home() {
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization).replace(/</g, "\\u003c") }} />
     <section className="hero">
-      <VideoHero />
-      <div className="container hero-content"><p className="eyebrow">Автомобили из Азии под ключ</p><h1>Ваш автомобиль.<br/><em>Наш маршрут.</em></h1><p className="hero-lead">Подбор, проверка, выкуп и доставка в Россию — с понятными этапами и предварительным расчётом расходов.</p><div className="hero-buttons"><Link className="button" href="/catalog?country=kr">Смотреть автомобили</Link><Link className="button button-ghost" href="/calculator">Рассчитать стоимость</Link></div><ul className="hero-facts"><li><Icon name="shield" />Проверка до выкупа</li><li><Icon name="calculator" />Расчёт по статьям</li><li><Icon name="route" />Сопровождение маршрута</li></ul></div>
+      <Image className="hero-image" src="/media/hero-import.png" alt="Чёрный автомобиль на горной дороге" fill sizes="100vw" priority />
+      <div className="hero-shade" />
+      <div className="container hero-content">
+        <h1><span>Импорт автомобилей</span><strong>со всего мира</strong></h1>
+        <p className="hero-lead">Полный цикл под ключ</p>
+        <p className="hero-values">Быстро <i/> Честно <i/> Прозрачно</p>
+        <div className="hero-buttons"><Link className="button hero-cta" href="/calculator">Рассчитать стоимость <Icon name="arrow" /></Link></div>
+        <ul className="hero-facts">
+          <li><Icon name="shield" /><span>Прозрачные<br/>условия</span></li>
+          <li><Icon name="calculator" /><span>Фиксируем<br/>стоимость</span></li>
+          <li><Icon name="route" /><span>Доставка<br/>до вашего города</span></li>
+          <li><Icon name="check" /><span>Гарантия<br/>на всех этапах</span></li>
+        </ul>
+      </div>
     </section>
 
     <section className="section countries"><div className="container content-sheet"><div className="journey-hint"><Icon name="route"/><span>Листайте страницу — автомобиль движется по общему маршруту. При прокрутке назад он возвращается.</span></div><div className="section-heading"><div><p className="eyebrow">Направления</p><h2>Выберите рынок</h2></div><p>Начинаем с подтверждённого источника по Корее. Остальные направления подключим только после проверки данных.</p></div><div className="country-grid"><Link className="country-card active" href="/catalog?country=kr"><span className="country-code">KR</span><div><h3>Южная Корея</h3><p>Полный каталог из разрешённого источника</p></div><Icon name="arrow" /></Link><div className="country-card disabled"><span className="country-code">JP</span><div><h3>Япония</h3><p>Источник готовится</p></div></div><div className="country-card disabled"><span className="country-code">CN</span><div><h3>Китай</h3><p>Источник готовится</p></div></div></div></div></section>

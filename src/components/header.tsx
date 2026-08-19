@@ -12,7 +12,7 @@ export function Header() {
       <Logo />
       <nav className="desktop-nav" aria-label="Основная навигация">{nav.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}</nav>
       <div className="header-actions">
-        <Link className="icon-button" href="/catalog/favorites" aria-label="Избранные автомобили"><Icon name="heart" /></Link>
+        <a className="icon-button header-call" href={site.phone ? `tel:${site.phone.replace(/[^+\d]/g, "")}` : "/#request"} aria-label={site.phone ? `Позвонить: ${site.phone}` : "Заказать звонок"}><Icon name="phone" /></a>
         {site.phone && <a className="header-phone" href={`tel:${site.phone.replace(/[^+\d]/g, "")}`}>{site.phone}</a>}
         <Link className="button button-small" href="/#request">Подобрать авто</Link>
         <MobileMenu />

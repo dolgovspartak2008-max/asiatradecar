@@ -4,12 +4,16 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 const car = <g className="journey-car-shape">
-  <path className="car-body" d="M-28-13C-24-24-16-31 0-33 16-31 24-24 28-13l3 35c0 8-6 14-14 14h-34c-8 0-14-6-14-14Z"/>
-  <path className="car-glass" d="M-17-11c3-9 8-14 17-16 9 2 14 7 17 16l-4 9h-26Z"/>
-  <path className="car-glass" d="m-17 4 4 18h26l4-18Z"/>
-  <rect x="-34" y="-12" width="7" height="15" rx="3"/><rect x="27" y="-12" width="7" height="15" rx="3"/>
-  <rect x="-34" y="17" width="7" height="14" rx="3"/><rect x="27" y="17" width="7" height="14" rx="3"/>
-  <path className="car-light" d="m-22-15 8-8M22-15l-8-8"/>
+  <path className="car-body" d="M-27-25C-22-34-13-39 0-40c13 1 22 6 27 15l5 47c1 10-6 18-16 19h-32c-10-1-17-9-16-19Z"/>
+  <path className="car-hood" d="M-22-23C-15-31 15-31 22-23l-4 13h-36Z"/>
+  <path className="car-windshield" d="M-18-7h36l-5 14h-26Z"/>
+  <path className="car-roof" d="M-13 9h26l3 17h-32Z"/>
+  <path className="car-rear-glass" d="m-16 28 4 7h24l4-7Z"/>
+  <path className="car-detail" d="M0-31v62M-23-8h46M-25 27h50"/>
+  <rect className="car-wheel" x="-35" y="-17" width="7" height="16" rx="3"/><rect className="car-wheel" x="28" y="-17" width="7" height="16" rx="3"/>
+  <rect className="car-wheel" x="-35" y="18" width="7" height="15" rx="3"/><rect className="car-wheel" x="28" y="18" width="7" height="15" rx="3"/>
+  <path className="car-mirror" d="m-28-8-8 4v7l8-1M28-8l8 4v7l-8-1"/>
+  <path className="car-light" d="m-22-25 9-3M22-25l-9-3M-20 35h8M20 35h-8"/>
 </g>;
 
 export function GlobalJourney() {
@@ -88,6 +92,8 @@ export function GlobalJourney() {
       </g>
       <g className="map-roads"><path d="M84 312C258 238 390 352 542 292S825 196 1040 345"/><path d="M184 473C344 398 488 500 652 431s259-82 392-5"/></g>
       <g className="map-rivers"><path d="M168 153c35 76 8 134-51 201s-39 133 31 202"/><path d="M483 132c-28 87 9 145 69 201s59 131 16 206"/><path d="M811 172c44 73 22 133-28 192s-34 128 31 174"/></g>
+      <g className="map-minor-roads"><path d="M116 188 244 235 363 202 486 261 614 221 739 271 859 245 970 318"/><path d="M132 408 259 371 388 426 518 372 661 486 794 450 916 493"/><path d="M276 132 352 228 331 346 417 482M711 161 676 278 751 391 720 532"/></g>
+      <g className="map-places"><circle cx="238" cy="281" r="3"/><circle cx="407" cy="347" r="3"/><circle cx="600" cy="407" r="3"/><circle cx="779" cy="405" r="3"/><circle cx="930" cy="477" r="3"/><circle cx="333" cy="214" r="2.5"/><circle cx="517" cy="287" r="2.5"/><circle cx="701" cy="324" r="2.5"/><circle cx="846" cy="285" r="2.5"/></g>
 
       <g className="journey-desktop" data-journey-route>
         <path className="journey-route-base" d="M1054 622C1005 570 963 531 930 477S844 407 779 405 672 443 600 407 495 333 407 347 307 326 238 281 163 264 120 238"/>

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildFeedPageUrl, normalizeFeedCar, normalizeTrustEncarRecord } from "./sync";
+import { parseCatalogParams } from "./catalog";
+import * as sync from "./sync";
+
+const { buildFeedPageUrl, normalizeFeedCar, normalizeTrustEncarRecord } = sync;
 
 describe("authorized catalog feed", () => {
   it("normalizes a real provider record without inventing absent fields", () => {
@@ -56,5 +59,42 @@ describe("authorized catalog feed", () => {
     });
     expect(car.photos).toHaveLength(1);
     expect(car.photos[0]).toBe("https://trust-encar.ru/images/carpicture06/pic4256/42569219_001.jpg");
+  });
+
+  it("extracts the public live-catalog bootstrap from the catalog page", () => {
+    const parseBootstrap = Reflect.get(sync, "parseTrustEncarBootstrap");
+    expect(parseBootstrap).toBeTypeOf("function");
+    if (typeof parseBootstrap !== "function") return;
+
+    const html = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>
+      <script>window.TE_CATALOG_SSR = {"total":159958,"facets":{"facets":{"marks":[{"value":"19","name":"Kia","count":12000}]}}};</script>`;
+
+    expect(parseBootstrap(html)).toEqual({
+      ajaxUrl: "https://trust-encar.ru/wp-admin/admin-ajax.php",
+      nonce: "public-nonce",
+      total: 159958,
+      makes: [{ id: "19", name: "Kia" }]
+    });
+  });
+
+  it("maps local filters to the Trust Encar search API", () => {
+    const buildBody = Reflect.get(sync, "buildTrustEncarSearchBody");
+    expect(buildBody).toBeTypeOf("function");
+    if (typeof buildBody !== "function") return;
+
+    const body = buildBody(
+      "search_db",
+      parseCatalogParams({ make: "Kia", yearFrom: "2021", priceTo: "3500000", page: "3", sort: "price-asc" }),
+      { nonce: "public-nonce", makes: [{ id: "19", name: "Kia" }] }
+    );
+
+    expect(body.toString()).toContain("action=search_db");
+    expect(body.toString()).toContain("nonce=public-nonce");
+    expect(body.toString()).toContain("page=2");
+    expect(body.toString()).toContain("marka_id=19");
+    expect(body.toString()).toContain("year_from=2021");
+    expect(body.toString()).toContain("priceRubTo=3500000");
+    expect(body.toString()).toContain("field_sort=FINISH_RUB");
+    expect(body.toString()).toContain("order_by=ASC");
   });
 });

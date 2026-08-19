@@ -1,3 +1,5 @@
+import type { CatalogFilters } from "./catalog";
+
 export type FeedCar = {
   id: string;
   slug: string;
@@ -20,6 +22,13 @@ export type FeedCar = {
   priceKrw: number;
   photos: string[];
   details: Record<string, unknown>;
+};
+
+export type TrustEncarBootstrap = {
+  ajaxUrl: string;
+  nonce: string;
+  total: number;
+  makes: Array<{ id: string; name: string }>;
 };
 
 type FeedCarInput = Partial<Omit<FeedCar, "slug" | "status" | "country" | "details">> & {
@@ -48,6 +57,73 @@ const numberFrom = (value: unknown) => {
 };
 
 const textFrom = (value: unknown) => String(value ?? "").trim();
+
+export function parseTrustEncarBootstrap(html: string): TrustEncarBootstrap {
+  const configMatch = html.match(/(?:var\s+|window\.)TE_CATALOG\s*=\s*(\{.*?\});/s);
+  const ssrMatch = html.match(/window\.TE_CATALOG_SSR\s*=\s*(\{.*?\});/s);
+  if (!configMatch || !ssrMatch) throw new Error("Trust Encar не вернул конфигурацию каталога");
+
+  const config = JSON.parse(configMatch[1]) as { ajaxUrl?: unknown; nonce?: unknown };
+  const ssr = JSON.parse(ssrMatch[1]) as {
+    total?: unknown;
+    facets?: { facets?: { marks?: Array<{ value?: unknown; name?: unknown }> } };
+  };
+  const ajaxUrl = textFrom(config.ajaxUrl);
+  const nonce = textFrom(config.nonce);
+  const url = new URL(ajaxUrl);
+  if (url.protocol !== "https:" || (url.hostname !== "trust-encar.ru" && !url.hostname.endsWith(".trust-encar.ru"))) {
+    throw new Error("Trust Encar вернул недопустимый адрес каталога");
+  }
+  if (!nonce) throw new Error("Trust Encar не вернул ключ публичного каталога");
+
+  const makes = (ssr.facets?.facets?.marks ?? []).flatMap((mark) => {
+    const id = textFrom(mark.value);
+    const name = textFrom(mark.name);
+    return id && name ? [{ id, name }] : [];
+  });
+  return { ajaxUrl, nonce, total: numberFrom(ssr.total), makes };
+}
+
+export function buildTrustEncarSearchBody(
+  action: "search_db" | "ajax_catalog_count_db",
+  filters: CatalogFilters,
+  bootstrap: Pick<TrustEncarBootstrap, "nonce" | "makes">
+) {
+  const body = new URLSearchParams({
+    action,
+    nonce: bootstrap.nonce,
+    page: String(Math.floor(filters.offset / Math.max(1, filters.limit)))
+  });
+  const makeName = filters.make || bootstrap.makes.find((make) => filters.q?.toLowerCase().startsWith(make.name.toLowerCase()))?.name;
+  const make = bootstrap.makes.find((item) => item.name.toLowerCase() === makeName?.toLowerCase());
+  const values: Array<[string, string | number | undefined]> = [
+    ["marka_id", make?.id],
+    ["year_from", filters.yearFrom],
+    ["year_to", filters.yearTo],
+    ["priceRubFrom", filters.priceFrom],
+    ["priceRubTo", filters.priceTo],
+    ["mileage_to", filters.mileageTo],
+    ["fuel", filters.fuel],
+    ["privod", filters.drive],
+    ["kuzov", filters.bodyType],
+    ["engine_from", filters.engineFrom],
+    ["engine_to", filters.engineTo],
+    ["hpFrom", filters.powerFrom],
+    ["hpTo", filters.powerTo],
+    ["lot", filters.q && /^\d+$/.test(filters.q) ? filters.q : undefined]
+  ];
+  values.forEach(([key, value]) => { if (value !== undefined && value !== "") body.set(key, String(value)); });
+
+  const sort = {
+    newest: ["CREATED_DATE", "DESC"],
+    mileage: ["MILEAGE", "ASC"],
+    "price-asc": ["FINISH_RUB", "ASC"],
+    "price-desc": ["FINISH_RUB", "DESC"]
+  }[filters.sort];
+  body.set("field_sort", sort[0]);
+  body.set("order_by", sort[1]);
+  return body;
+}
 
 export function normalizeTrustEncarRecord(input: Record<string, unknown>): FeedCar {
   const rawImages = input.IMAGES;

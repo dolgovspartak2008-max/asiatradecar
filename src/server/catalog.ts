@@ -1,6 +1,7 @@
-import type { CatalogFilters } from "@/domain/catalog";
-import { buildCatalogQuery } from "@/domain/catalog";
-import { hasDatabase, query } from "@/server/db";
+import type { CatalogFilters } from "../domain/catalog";
+import { buildCatalogQuery, parseCatalogParams } from "../domain/catalog";
+import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap } from "../domain/sync";
+import { hasDatabase, query } from "./db";
 
 export type Car = {
   id: string;
@@ -43,8 +44,65 @@ const toCar = (row: CarRow): Car => ({
   details: row.details && typeof row.details === "object" ? row.details as Record<string, unknown> : {}
 });
 
+async function getLiveCatalog(filters: CatalogFilters) {
+  const pageResponse = await fetch("https://trust-encar.ru/catalog/", {
+    next: { revalidate: 300 },
+    signal: AbortSignal.timeout(20_000)
+  });
+  if (!pageResponse.ok) throw new Error(`Trust Encar вернул ${pageResponse.status}`);
+  const bootstrap = parseTrustEncarBootstrap(await pageResponse.text());
+  const request = (action: "search_db" | "ajax_catalog_count_db") => fetch(bootstrap.ajaxUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+    },
+    body: buildTrustEncarSearchBody(action, filters, bootstrap),
+    cache: "no-store",
+    signal: AbortSignal.timeout(20_000)
+  });
+  const [carsResponse, countResponse] = await Promise.all([request("search_db"), request("ajax_catalog_count_db")]);
+  if (!carsResponse.ok || !countResponse.ok) throw new Error("Trust Encar временно не отдаёт каталог");
+  const [records, count] = await Promise.all([carsResponse.json(), countResponse.json()]) as [unknown, { status?: unknown; total?: unknown }];
+  if (!Array.isArray(records)) throw new Error("Trust Encar вернул некорректный каталог");
+
+  const cars = records.flatMap((record): Car[] => {
+    if (!record || typeof record !== "object") return [];
+    const raw = record as Record<string, unknown>;
+    const normalized = normalizeTrustEncarRecord(raw);
+    return [{
+      id: normalized.id,
+      slug: normalized.slug,
+      make: normalized.make,
+      model: normalized.model,
+      trim: normalized.trim,
+      year: normalized.year,
+      mileageKm: normalized.mileageKm,
+      engineCc: normalized.engineCc,
+      powerHp: normalized.powerHp,
+      fuel: normalized.fuel,
+      transmission: normalized.transmission,
+      drive: normalized.drive,
+      bodyType: normalized.bodyType,
+      exteriorColor: normalized.exteriorColor,
+      interiorColor: normalized.interiorColor,
+      vin: normalized.vin,
+      priceKrw: normalized.priceKrw,
+      priceRub: Number(raw.FINISH_RUB) || null,
+      photos: normalized.photos,
+      details: normalized.details
+    }];
+  });
+  const total = count.status === "success" && Number.isFinite(Number(count.total)) ? Number(count.total) : bootstrap.total;
+  return { cars, total, makes: bootstrap.makes.map((make) => make.name) };
+}
+
 export async function getCatalog(filters: CatalogFilters) {
-  if (!hasDatabase()) return { cars: [] as Car[], total: 0, makes: [] as string[] };
+  try {
+    return await getLiveCatalog(filters);
+  } catch (error) {
+    if (!hasDatabase()) throw error;
+  }
   const built = buildCatalogQuery(filters);
   const countValues = built.values.slice(0, -2);
   const where = built.text.match(/FROM cars WHERE (.+) ORDER BY/s)?.[1] ?? "status = 'active'";
@@ -57,19 +115,39 @@ export async function getCatalog(filters: CatalogFilters) {
 }
 
 export async function getCarBySlug(slug: string) {
+  const id = slug.match(/-(\d+)$/)?.[1];
+  if (id) {
+    try {
+      const live = await getLiveCatalog(parseCatalogParams({ country: "kr", q: id }));
+      if (live.cars[0]) return live.cars[0];
+    } catch (error) {
+      if (!hasDatabase()) throw error;
+    }
+  }
   if (!hasDatabase()) return null;
   const result = await query<CarRow>("SELECT * FROM cars WHERE slug = $1 AND status = 'active' LIMIT 1", [slug]);
   return result.rows[0] ? toCar(result.rows[0]) : null;
 }
 
 export async function getLatestCars(limit = 4) {
-  if (!hasDatabase()) return [] as Car[];
+  try {
+    const live = await getLiveCatalog(parseCatalogParams({ country: "kr" }));
+    return live.cars.slice(0, limit);
+  } catch (error) {
+    if (!hasDatabase()) throw error;
+  }
   const result = await query<CarRow>("SELECT * FROM cars WHERE status = 'active' ORDER BY year DESC, updated_at DESC LIMIT $1", [limit]);
   return result.rows.map(toCar);
 }
 
 export async function searchCars(term: string, limit = 20) {
-  if (!hasDatabase() || term.trim().length < 2) return [] as Array<{ slug: string; label: string }>;
+  if (term.trim().length < 2) return [] as Array<{ slug: string; label: string }>;
+  try {
+    const live = await getLiveCatalog(parseCatalogParams({ country: "kr", q: term }));
+    return live.cars.slice(0, limit).map((car) => ({ slug: car.slug, label: `${car.make} ${car.model}${car.trim ? ` ${car.trim}` : ""} · ${car.year}` }));
+  } catch (error) {
+    if (!hasDatabase()) throw error;
+  }
   const result = await query<{ slug: string; make: string; model: string; trim: string | null; year: number }>(
     `SELECT slug, make, model, trim, year FROM cars
      WHERE status = 'active' AND country = 'kr' AND search_vector @@ plainto_tsquery('simple', $1)
