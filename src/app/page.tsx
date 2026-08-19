@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
+import { VideoHero } from "@/components/video-hero";
 import { site } from "@/config/site";
 
 const stages = [
@@ -16,13 +16,12 @@ export default async function Home() {
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization).replace(/</g, "\\u003c") }} />
     <section className="hero">
-      <Image className="hero-image" src="/media/hero-import.png" alt="Чёрный автомобиль на горной дороге" fill sizes="100vw" priority />
-      <div className="hero-shade" />
+      <VideoHero />
       <div className="container hero-content">
-        <h1><span>Импорт автомобилей</span><strong>со всего мира</strong></h1>
+        <h1><span>Импорт автомобилей</span>{" "}<strong>со всего мира</strong></h1>
         <p className="hero-lead">Полный цикл под ключ</p>
         <p className="hero-values">Быстро <i/> Честно <i/> Прозрачно</p>
-        <div className="hero-buttons"><Link className="button hero-cta" href="/calculator">Рассчитать стоимость <Icon name="arrow" /></Link></div>
+        <div className="hero-buttons"><Link className="button hero-cta" href="/calculator">Рассчитать стоимость <Icon name="arrow" /></Link><Link className="button button-ghost hero-catalog-link" href="/catalog?country=kr">Смотреть каталог</Link></div>
         <ul className="hero-facts">
           <li><Icon name="shield" /><span>Прозрачные<br/>условия</span></li>
           <li><Icon name="calculator" /><span>Фиксируем<br/>стоимость</span></li>

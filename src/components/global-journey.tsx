@@ -18,11 +18,18 @@ const car = <g className="journey-car-shape">
 
 export function GlobalJourney() {
   const pathname = usePathname();
+  const visible = pathname === "/" || pathname === "/orders";
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!visible) return;
     const layer = root.current;
-    const routeSets = layer ? Array.from(layer.querySelectorAll<SVGGElement>("[data-journey-route]")) : [];
+    const routeSets = layer ? Array.from(layer.querySelectorAll<SVGGElement>("[data-journey-route]")).flatMap((set) => {
+      const path = set.querySelector<SVGPathElement>(".journey-route-base");
+      const progressPath = set.querySelector<SVGPathElement>(".journey-route-progress");
+      const movingCar = set.querySelector<SVGGElement>(".journey-car");
+      return path && progressPath && movingCar ? [{ path, progressPath, movingCar, length: path.getTotalLength() }] : [];
+    }) : [];
     if (!layer || !routeSets.length) return;
     const reducedQuery = matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
@@ -39,12 +46,7 @@ export function GlobalJourney() {
       if (scrollY !== previousScroll) reversing = scrollY < previousScroll;
       previousScroll = scrollY;
 
-      routeSets.forEach((set) => {
-        const path = set.querySelector<SVGPathElement>(".journey-route-base");
-        const progressPath = set.querySelector<SVGPathElement>(".journey-route-progress");
-        const movingCar = set.querySelector<SVGGElement>(".journey-car");
-        if (!path || !progressPath || !movingCar) return;
-        const length = path.getTotalLength();
+      routeSets.forEach(({ path, progressPath, movingCar, length }) => {
         const distance = length * progress;
         const point = path.getPointAtLength(distance);
         const before = path.getPointAtLength(Math.max(0, distance - 3));
@@ -71,8 +73,9 @@ export function GlobalJourney() {
       observer.disconnect();
       if (frame) cancelAnimationFrame(frame);
     };
-  }, [pathname]);
+  }, [pathname, visible]);
 
+  if (!visible) return null;
   return <div ref={root} className="global-journey" aria-hidden="true">
     <svg viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice">
       <defs>
@@ -94,6 +97,11 @@ export function GlobalJourney() {
       <g className="map-rivers"><path d="M168 153c35 76 8 134-51 201s-39 133 31 202"/><path d="M483 132c-28 87 9 145 69 201s59 131 16 206"/><path d="M811 172c44 73 22 133-28 192s-34 128 31 174"/></g>
       <g className="map-minor-roads"><path d="M116 188 244 235 363 202 486 261 614 221 739 271 859 245 970 318"/><path d="M132 408 259 371 388 426 518 372 661 486 794 450 916 493"/><path d="M276 132 352 228 331 346 417 482M711 161 676 278 751 391 720 532"/></g>
       <g className="map-places"><circle cx="238" cy="281" r="3"/><circle cx="407" cy="347" r="3"/><circle cx="600" cy="407" r="3"/><circle cx="779" cy="405" r="3"/><circle cx="930" cy="477" r="3"/><circle cx="333" cy="214" r="2.5"/><circle cx="517" cy="287" r="2.5"/><circle cx="701" cy="324" r="2.5"/><circle cx="846" cy="285" r="2.5"/></g>
+      <g className="map-labels">
+        <text x="360" y="190">Казань</text><text x="485" y="265">Челябинск</text><text x="585" y="330">Омск</text>
+        <text x="700" y="298">Красноярск</text><text x="846" y="260">Чита</text><text x="950" y="380">Хабаровск</text>
+        <text className="map-region-name" x="470" y="470">РОССИЯ</text><text className="map-water-name" x="1035" y="555">ЯПОНСКОЕ МОРЕ</text>
+      </g>
 
       <g className="journey-desktop" data-journey-route>
         <path className="journey-route-base" d="M1054 622C1005 570 963 531 930 477S844 407 779 405 672 443 600 407 495 333 407 347 307 326 238 281 163 264 120 238"/>

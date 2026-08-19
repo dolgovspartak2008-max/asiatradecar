@@ -1,4 +1,5 @@
 import type { CatalogFilters } from "./catalog";
+import { load } from "cheerio";
 
 export type FeedCar = {
   id: string;
@@ -30,6 +31,8 @@ export type TrustEncarBootstrap = {
   total: number;
   makes: Array<{ id: string; name: string }>;
 };
+
+export type TrustEncarCatalogCar = FeedCar & { priceRub: number | null };
 
 type FeedCarInput = Partial<Omit<FeedCar, "slug" | "status" | "country" | "details">> & {
   id: string;
@@ -82,6 +85,138 @@ export function parseTrustEncarBootstrap(html: string): TrustEncarBootstrap {
     return id && name ? [{ id, name }] : [];
   });
   return { ajaxUrl, nonce, total: numberFrom(ssr.total), makes };
+}
+
+const cleanImageUrl = (value: string) => {
+  try {
+    const url = new URL(value, "https://trust-encar.ru");
+    if (url.protocol !== "https:" || url.hostname !== "trust-encar.ru") return "";
+    return `${url.origin}${url.pathname}`;
+  } catch { return ""; }
+};
+
+export function parseTrustEncarCatalogPage(html: string) {
+  const bootstrap = parseTrustEncarBootstrap(html);
+  const $ = load(html);
+  const cars = $("article.auto-item").toArray().flatMap((element): TrustEncarCatalogCar[] => {
+    const card = $(element);
+    const optionText = (tooltip: string, fallback: RegExp) => {
+      const exact = card.find(`[data-fui-tooltip="${tooltip}"]`).first().text().replace(/\s+/g, " ").trim();
+      if (exact) return exact;
+      return card.find(".catalog-item-options .price").toArray()
+        .map((item) => $(item).text().replace(/\s+/g, " ").trim())
+        .find((value) => fallback.test(value)) ?? "";
+    };
+    const href = card.attr("data-href") ?? "";
+    const lotText = optionText("Лот", /Лот\s*:/i);
+    const id = card.find("[data-car-id]").first().attr("data-car-id")
+      || href.match(/\/auto\/(\d+)/)?.[1]
+      || lotText.match(/(\d{5,})/)?.[1]
+      || "";
+    const make = card.find(".te-car-title__logo").first().attr("alt")?.trim() ?? "";
+    const title = card.find(".te-car-title__text").first().text().replace(/\s+/g, " ").trim();
+    const model = title.toLowerCase().startsWith(make.toLowerCase()) ? title.slice(make.length).trim() : title;
+    if (!id || !make || !model) return [];
+
+    const subtitle = card.find(".auto-item-subtitle").first().text().replace(/\s+/g, " ").trim();
+    const registration = optionText("Дата первой регистрации автомобиля в Корее", /Дата регистрации/i);
+    const production = optionText("Примерная дата производства автомобиля", /дата производства/i);
+    const engine = optionText("Объем двигателя / Топливо / Привод", /см³.*\//i);
+    const power = optionText("Мощность двигателя", /л\.с\./i);
+    const body = optionText("Кузов / Мест", /местн|мест\b/i);
+    const colors = optionText("Цвет кузова / Цвет салона", /Кузов\s*:/i);
+    const mileage = optionText("Пробег", /км/i);
+    const price = optionText("Цена автомобиля в рублях и в вонах в Корее", /Стоимость авто|[₩₽]/i);
+    const engineParts = engine.split("/").map((part) => part.trim());
+    const year = numberFrom((production || registration).match(/(?:19|20)\d{2}/)?.[0]);
+    const photos = card.find(".auto-item-img img[src]").toArray()
+      .map((image) => cleanImageUrl($(image).attr("src") ?? ""))
+      .filter(Boolean);
+    const normalized = normalizeFeedCar({
+      id,
+      make,
+      model,
+      trim: subtitle.split(/\s[—–-]\s/).slice(1).join(" — ") || subtitle || null,
+      year,
+      mileageKm: numberFrom(mileage.match(/[\d\s]+(?=\s*км)/i)?.[0]),
+      engineCc: numberFrom(engineParts[0]) || null,
+      powerHp: numberFrom(power.match(/[\d\s]+(?=\s*л\.с\.)/i)?.[0]) || null,
+      fuel: engineParts[1] || null,
+      drive: engineParts[2] || null,
+      bodyType: body.split("/")[0]?.trim() || null,
+      exteriorColor: colors.match(/Кузов:\s*([^/]+)/i)?.[1]?.trim() || null,
+      interiorColor: colors.match(/Салон:\s*(.+)$/i)?.[1]?.trim() || null,
+      vin: card.find(".car-vehicleNo").first().text().trim() || null,
+      priceKrw: numberFrom(price.match(/[\d\s]+(?=\s*₩)/)?.[0]),
+      photos,
+      details: {
+        sourceStatus: card.find(".auto-label.stock, .auto-label.leasing").first().text().trim() || null,
+        registration: registration || null,
+        production: production || null,
+        accident: card.find(".auto-item-acc p").first().text().replace(/\s+/g, " ").trim() || null
+      }
+    });
+    return [{ ...normalized, priceRub: numberFrom(price.match(/[\d\s]+(?=\s*₽)/)?.[0]) || null }];
+  });
+  return { cars, total: bootstrap.total, makes: bootstrap.makes.map((make) => make.name) };
+}
+
+export function parseTrustEncarVehiclePage(html: string): TrustEncarCatalogCar | null {
+  const $ = load(html);
+  let vehicle: Record<string, unknown> | null = null;
+  $("script[type='application/ld+json']").each((_, element) => {
+    if (vehicle) return;
+    try {
+      const value = JSON.parse($(element).text()) as Record<string, unknown>;
+      if (value["@type"] === "Vehicle") vehicle = value;
+    } catch {}
+  });
+  if (!vehicle) return null;
+  const data = vehicle as Record<string, unknown>;
+  const brand = data.brand && typeof data.brand === "object" ? data.brand as Record<string, unknown> : {};
+  const mileage = data.mileageFromOdometer && typeof data.mileageFromOdometer === "object" ? data.mileageFromOdometer as Record<string, unknown> : {};
+  const engine = data.vehicleEngine && typeof data.vehicleEngine === "object" ? data.vehicleEngine as Record<string, unknown> : {};
+  const displacement = engine.engineDisplacement && typeof engine.engineDisplacement === "object" ? engine.engineDisplacement as Record<string, unknown> : {};
+  const offers = data.offers && typeof data.offers === "object" ? data.offers as Record<string, unknown> : {};
+  const option = (label: string) => {
+    const item = $(".product-option").toArray().find((element) => $(element).find(".product-option-label").text().replace(/\s+/g, " ").trim() === label);
+    if (!item) return "";
+    const clone = $(item).clone();
+    clone.find(".product-option-label, .te-car-color-swatch").remove();
+    return clone.text().replace(/\s+/g, " ").trim();
+  };
+  const koreaCost = option("Стоимость авто в Корее") || $(".calc-detail__line").toArray().flatMap((element) => {
+    const line = $(element);
+    return /Стоимость автомобиля в Корее/i.test(line.find(".calc-detail__subtitle").text())
+      ? [line.find(".calc-detail__price").text().replace(/\s+/g, " ").trim()]
+      : [];
+  })[0] || "";
+  const id = textFrom(data.sku);
+  const make = textFrom(brand.name);
+  const model = textFrom(data.model);
+  if (!id || !make || !model) return null;
+  const images = Array.isArray(data.image) ? data.image : [data.image];
+  const normalized = normalizeFeedCar({
+    id,
+    make,
+    model,
+    trim: textFrom(data.vehicleConfiguration) || null,
+    year: numberFrom(data.productionDate),
+    mileageKm: numberFrom(mileage.value),
+    engineCc: numberFrom(displacement.value) || null,
+    powerHp: numberFrom(option("Мощность").match(/[\d\s]+/)?.[0]) || null,
+    fuel: textFrom(data.fuelType) || null,
+    transmission: textFrom(data.vehicleTransmission) || option("Коробка") || null,
+    drive: option("Привод") || null,
+    bodyType: option("Кузов") || null,
+    exteriorColor: option("Цвет кузова") || textFrom(data.color) || null,
+    interiorColor: option("Цвет салона") || null,
+    vin: option("Номер автомобиля") || null,
+    priceKrw: numberFrom(koreaCost.match(/[\d\s]+(?=\s*₩)/)?.[0]),
+    photos: images.map((image) => cleanImageUrl(textFrom(image))).filter(Boolean),
+    details: { sourceStatus: option("Статус") || null, registration: option("Дата регистрации в Корее") || null }
+  });
+  return { ...normalized, priceRub: numberFrom(koreaCost.match(/[\d\s]+(?=\s*₽)/)?.[0]) || numberFrom(offers.price) || null };
 }
 
 export function buildTrustEncarSearchBody(

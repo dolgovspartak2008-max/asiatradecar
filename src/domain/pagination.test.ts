@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { walkCursorPages } from "./pagination";
+import { appendUniqueById, walkCursorPages } from "./pagination";
 
 describe("walkCursorPages", () => {
   it("processes every page until the feed has no next cursor", async () => {
@@ -29,5 +29,10 @@ describe("walkCursorPages", () => {
         if (page === 1) expect(secondPageRequested).toBe(true);
       }
     );
+  });
+
+  it("appends catalog pages without duplicate cars", () => {
+    expect(appendUniqueById([{ id: "1" }, { id: "2" }], [{ id: "2" }, { id: "3" }]))
+      .toEqual([{ id: "1" }, { id: "2" }, { id: "3" }]);
   });
 });

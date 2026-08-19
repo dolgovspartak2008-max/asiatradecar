@@ -97,4 +97,65 @@ describe("authorized catalog feed", () => {
     expect(body.toString()).toContain("field_sort=FINISH_RUB");
     expect(body.toString()).toContain("order_by=ASC");
   });
+
+  it("parses the server-rendered catalog page used for progressive loading", () => {
+    const parsePage = Reflect.get(sync, "parseTrustEncarCatalogPage");
+    expect(parsePage).toBeTypeOf("function");
+    if (typeof parsePage !== "function") return;
+
+    const html = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>
+      <script>window.TE_CATALOG_SSR = {"total":159958,"facets":{"facets":{"marks":[{"value":"19","name":"Kia","count":12000}]}}};</script>
+      <div class="auto-list"><article class="auto-item" data-href="https://trust-encar.ru/auto/42569219/">
+        <div class="auto-item-img"><img src="https://trust-encar.ru/images/carpicture06/pic4256/42569219_001.jpg" /></div>
+        <img class="te-car-title__logo" alt="Kia" />
+        <span class="te-car-title__text">Kia Sportage</span>
+        <p class="auto-item-subtitle">Sportage 5th generation — Gasoline 1.6 Turbo 2WD Signature</p>
+        <div class="catalog-item-options">
+          <p class="price">Дата регистрации в Корее: 07.2023</p>
+          <p class="price price-engv">1598 см³ / Бензин / 2WD</p>
+          <p class="price price-engv">180 л.с.</p>
+          <p class="price">Кроссовер / 5 местный</p>
+          <p class="price">Кузов: Белый / Салон: Чёрный</p>
+          <p class="price">44 563 км</p>
+          <p class="price auto-price">Стоимость авто в Корее: 4 217 024 ₽ (30 300 000 ₩)</p>
+          <p class="price">Лот: 42569219</p>
+        </div>
+      </article></div>`;
+
+    const result = parsePage(html);
+    expect(result.total).toBe(159958);
+    expect(result.makes).toEqual(["Kia"]);
+    expect(result.cars[0]).toMatchObject({
+      id: "42569219", make: "Kia", model: "Sportage", year: 2023,
+      mileageKm: 44563, engineCc: 1598, powerHp: 180, fuel: "Бензин",
+      drive: "2WD", priceKrw: 30300000, priceRub: 4217024
+    });
+    expect(result.cars[0].photos).toEqual(["https://trust-encar.ru/images/carpicture06/pic4256/42569219_001.jpg"]);
+  });
+
+  it("parses a direct vehicle page without the slow search endpoint", () => {
+    const parseVehicle = Reflect.get(sync, "parseTrustEncarVehiclePage");
+    expect(parseVehicle).toBeTypeOf("function");
+    if (typeof parseVehicle !== "function") return;
+    const vehicle = {
+      "@context": "https://schema.org", "@type": "Vehicle", sku: "42569219",
+      name: "Kia Sportage Gasoline 1.6 Turbo 2WD Signature", brand: { name: "Kia" }, model: "Sportage",
+      vehicleConfiguration: "Gasoline 1.6 Turbo 2WD Signature", productionDate: "2023",
+      mileageFromOdometer: { value: 44563 }, vehicleEngine: { engineDisplacement: { value: 1598 } },
+      fuelType: "Бензин", color: "White", vehicleTransmission: "AT",
+      image: ["https://trust-encar.ru/images/carpicture06/pic4256/42569219_001.jpg?size=large"],
+      offers: { priceCurrency: "RUB", price: "4217024" }
+    };
+    const html = `<script type="application/ld+json">${JSON.stringify(vehicle)}</script><ul class="product-options">
+      <li class="product-option"><div class="product-option-label">Привод</div>2WD</li>
+      <li class="product-option"><div class="product-option-label">Мощность</div>180 л.с.</li>
+      <li class="product-option"><div class="product-option-label">Стоимость авто в Корее</div>30 300 000 ₩ (1 965 864 ₽)</li>
+      <li class="product-option"><div class="product-option-label">Цвет салона</div>Чёрный</li>
+    </ul>`;
+    expect(parseVehicle(html)).toMatchObject({
+      id: "42569219", make: "Kia", model: "Sportage", year: 2023, mileageKm: 44563,
+      engineCc: 1598, powerHp: 180, fuel: "Бензин", drive: "2WD", priceKrw: 30300000,
+      priceRub: 1965864, interiorColor: "Чёрный"
+    });
+  });
 });

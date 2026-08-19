@@ -11,23 +11,25 @@ describe("live Trust Encar catalog", () => {
   it("loads all public offers when the local database is not configured", async () => {
     vi.stubEnv("DATABASE_URL", "");
     const html = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>
-      <script>window.TE_CATALOG_SSR = {"total":159958,"facets":{"facets":{"marks":[{"value":"19","name":"Kia","count":12000}]}}};</script>`;
-    const upstreamCar = {
-      ID: "42569219", MARKA_NAME: "Kia", MODEL_NAME: "Sportage", GRADE: "Signature", YEAR: "2023",
-      MILEAGE: "44563", ENG_V: "1598", POWER_TEXT: "180 л.с.", TIME: "G", PRIV: "2WD",
-      FINISH: "30300000", FINISH_RUB: "4217024",
-      IMAGES: "[\"https://ci.encar.com/carpicture06/pic4256/42569219_001.jpg\"]"
-    };
-    vi.stubGlobal("fetch", vi.fn()
-      .mockResolvedValueOnce(new Response(html, { status: 200 }))
-      .mockResolvedValueOnce(Response.json([upstreamCar]))
-      .mockResolvedValueOnce(Response.json({ status: "success", total: 159958 })));
+      <script>window.TE_CATALOG_SSR = {"total":159958,"facets":{"facets":{"marks":[{"value":"19","name":"Kia","count":12000}]}}};</script>
+      <article class="auto-item" data-href="https://trust-encar.ru/auto/42569219/">
+        <div class="auto-item-img"><img src="https://trust-encar.ru/images/carpicture06/pic4256/42569219_001.jpg" /></div>
+        <img class="te-car-title__logo" alt="Kia" /><span class="te-car-title__text">Kia Sportage</span>
+        <p class="auto-item-subtitle">Sportage — Signature</p><div class="catalog-item-options">
+          <p class="price">Дата регистрации в Корее: 07.2023</p><p class="price price-engv">1598 см³ / Бензин / 2WD</p>
+          <p class="price">44 563 км</p><p class="price auto-price">4 217 024 ₽ (30 300 000 ₩)</p><p class="price">Лот: 42569219</p>
+        </div>
+      </article>`;
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(html, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
 
     const result = await getCatalog(parseCatalogParams({ country: "kr" }));
 
     expect(result.total).toBe(159958);
     expect(result.makes).toEqual(["Kia"]);
     expect(result.cars[0]).toMatchObject({ id: "42569219", make: "Kia", model: "Sportage", priceRub: 4217024 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith("https://trust-encar.ru/catalog/?page=1", expect.any(Object));
   });
 
   it("keeps the static home page buildable when the live source is unavailable", async () => {

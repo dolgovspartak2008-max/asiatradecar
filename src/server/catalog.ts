@@ -1,6 +1,6 @@
 import type { CatalogFilters } from "../domain/catalog";
 import { buildCatalogQuery, parseCatalogParams } from "../domain/catalog";
-import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap } from "../domain/sync";
+import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap, parseTrustEncarCatalogPage, parseTrustEncarVehiclePage, type TrustEncarCatalogCar } from "../domain/sync";
 import { hasDatabase, query } from "./db";
 
 export type Car = {
@@ -44,10 +44,36 @@ const toCar = (row: CarRow): Car => ({
   details: row.details && typeof row.details === "object" ? row.details as Record<string, unknown> : {}
 });
 
+const fromFeedCar = (car: TrustEncarCatalogCar): Car => ({
+  id: car.id, slug: car.slug, make: car.make, model: car.model, trim: car.trim, year: car.year,
+  mileageKm: car.mileageKm, engineCc: car.engineCc, powerHp: car.powerHp, fuel: car.fuel,
+  transmission: car.transmission, drive: car.drive, bodyType: car.bodyType,
+  exteriorColor: car.exteriorColor, interiorColor: car.interiorColor, vin: car.vin,
+  priceKrw: car.priceKrw, priceRub: car.priceRub, photos: car.photos, details: car.details
+});
+
+const isDefaultBrowse = (filters: CatalogFilters) => filters.country === "kr" && filters.limit === 24 && filters.sort === "newest"
+  && !filters.q && !filters.make && !filters.model && filters.yearFrom === undefined && filters.yearTo === undefined
+  && filters.priceFrom === undefined && filters.priceTo === undefined && filters.mileageTo === undefined
+  && !filters.bodyType && !filters.fuel && !filters.drive && filters.engineFrom === undefined
+  && filters.engineTo === undefined && filters.powerFrom === undefined && filters.powerTo === undefined;
+
+async function getBrowseCatalog(filters: CatalogFilters) {
+  const page = Math.floor(filters.offset / filters.limit) + 1;
+  const response = await fetch(`https://trust-encar.ru/catalog/?page=${page}`, {
+    next: { revalidate: 300, tags: [`trust-encar-page-${page}`] },
+    signal: AbortSignal.timeout(6_000)
+  });
+  if (!response.ok) throw new Error(`Trust Encar вернул ${response.status}`);
+  const parsed = parseTrustEncarCatalogPage(await response.text());
+  if (!parsed.cars.length && page <= Math.ceil(parsed.total / filters.limit)) throw new Error("Trust Encar вернул пустую страницу каталога");
+  return { cars: parsed.cars.map(fromFeedCar), total: parsed.total, makes: parsed.makes };
+}
+
 async function getLiveCatalog(filters: CatalogFilters) {
   const pageResponse = await fetch("https://trust-encar.ru/catalog/", {
     next: { revalidate: 300 },
-    signal: AbortSignal.timeout(20_000)
+    signal: AbortSignal.timeout(8_000)
   });
   if (!pageResponse.ok) throw new Error(`Trust Encar вернул ${pageResponse.status}`);
   const bootstrap = parseTrustEncarBootstrap(await pageResponse.text());
@@ -59,7 +85,7 @@ async function getLiveCatalog(filters: CatalogFilters) {
     },
     body: buildTrustEncarSearchBody(action, filters, bootstrap),
     cache: "no-store",
-    signal: AbortSignal.timeout(20_000)
+    signal: AbortSignal.timeout(8_000)
   });
   const [carsResponse, countResponse] = await Promise.all([request("search_db"), request("ajax_catalog_count_db")]);
   if (!carsResponse.ok || !countResponse.ok) throw new Error("Trust Encar временно не отдаёт каталог");
@@ -99,7 +125,7 @@ async function getLiveCatalog(filters: CatalogFilters) {
 
 export async function getCatalog(filters: CatalogFilters) {
   try {
-    return await getLiveCatalog(filters);
+    return isDefaultBrowse(filters) ? await getBrowseCatalog(filters) : await getLiveCatalog(filters);
   } catch (error) {
     if (!hasDatabase()) throw error;
   }
@@ -118,8 +144,14 @@ export async function getCarBySlug(slug: string) {
   const id = slug.match(/-(\d+)$/)?.[1];
   if (id) {
     try {
-      const live = await getLiveCatalog(parseCatalogParams({ country: "kr", q: id }));
-      if (live.cars[0]) return live.cars[0];
+      const response = await fetch(`https://trust-encar.ru/auto/${id}/`, {
+        next: { revalidate: 300, tags: [`trust-encar-car-${id}`] },
+        signal: AbortSignal.timeout(6_000)
+      });
+      if (response.ok) {
+        const live = parseTrustEncarVehiclePage(await response.text());
+        if (live) return fromFeedCar(live);
+      }
     } catch {}
   }
   if (!hasDatabase()) return null;
@@ -129,7 +161,7 @@ export async function getCarBySlug(slug: string) {
 
 export async function getLatestCars(limit = 4) {
   try {
-    const live = await getLiveCatalog(parseCatalogParams({ country: "kr" }));
+    const live = await getBrowseCatalog(parseCatalogParams({ country: "kr" }));
     return live.cars.slice(0, limit);
   } catch {
     if (!hasDatabase()) return [] as Car[];

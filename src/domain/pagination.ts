@@ -1,6 +1,11 @@
 export type CursorPage<T> = { items: T[]; nextCursor?: string | null };
 type PageResult<T> = { page: CursorPage<T> } | { error: unknown };
 
+export function appendUniqueById<T extends { id: string }>(current: T[], next: T[]) {
+  const ids = new Set(current.map((item) => item.id));
+  return [...current, ...next.filter((item) => !ids.has(item.id))];
+}
+
 export async function walkCursorPages<T>(
   fetchPage: (cursor?: string) => Promise<CursorPage<T>>,
   consume: (items: T[], page: number) => Promise<void>

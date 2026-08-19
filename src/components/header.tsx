@@ -4,7 +4,7 @@ import { Logo } from "@/components/logo";
 import { site } from "@/config/site";
 import { MobileMenu } from "@/components/mobile-menu";
 
-const nav = [["Каталог", "/catalog?country=kr"], ["Калькулятор", "/calculator"], ["Как работаем", "/#process"], ["Контакты", "/#contacts"]] as const;
+const nav = [["Каталог", "/catalog?country=kr"], ["Калькулятор", "/calculator"], ["Как заказать", "/orders"], ["Контакты", "/#contacts"]] as const;
 
 export function Header() {
   return <header className="site-header">
