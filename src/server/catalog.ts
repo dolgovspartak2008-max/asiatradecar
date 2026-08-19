@@ -120,13 +120,11 @@ export async function getCarBySlug(slug: string) {
     try {
       const live = await getLiveCatalog(parseCatalogParams({ country: "kr", q: id }));
       if (live.cars[0]) return live.cars[0];
-    } catch (error) {
-      if (!hasDatabase()) throw error;
-    }
+    } catch {}
   }
   if (!hasDatabase()) return null;
-  const result = await query<CarRow>("SELECT * FROM cars WHERE slug = $1 AND status = 'active' LIMIT 1", [slug]);
-  return result.rows[0] ? toCar(result.rows[0]) : null;
+  const result = await query<CarRow>("SELECT * FROM cars WHERE slug = $1 AND status = 'active' LIMIT 1", [slug]).catch(() => null);
+  return result?.rows[0] ? toCar(result.rows[0]) : null;
 }
 
 export async function getLatestCars(limit = 4) {

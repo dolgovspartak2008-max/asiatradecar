@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseCatalogParams } from "../domain/catalog";
-import { getCatalog, getLatestCars } from "./catalog";
+import { getCarBySlug, getCatalog, getLatestCars } from "./catalog";
 
 describe("live Trust Encar catalog", () => {
   afterEach(() => {
@@ -35,5 +35,12 @@ describe("live Trust Encar catalog", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
 
     await expect(getLatestCars(4)).resolves.toEqual([]);
+  });
+
+  it("returns no car instead of failing when every source is unavailable", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
+
+    await expect(getCarBySlug("kia-sportage-42569219")).resolves.toBeNull();
   });
 });

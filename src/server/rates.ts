@@ -3,6 +3,7 @@ import { hasDatabase, query } from "@/server/db";
 
 const FALLBACK_KRW_TO_RUB = 0.059;
 const FALLBACK_EUR_TO_RUB = 92;
+const fallbackCalculatorRates = () => ({ krwToRub: FALLBACK_KRW_TO_RUB, eurToRub: FALLBACK_EUR_TO_RUB, date: null, isFallback: true });
 
 export async function getKrwToRub() {
   if (!hasDatabase()) return { value: FALLBACK_KRW_TO_RUB, date: null, isFallback: true };
@@ -12,8 +13,9 @@ export async function getKrwToRub() {
 }
 
 export async function getCalculatorRates() {
-  if (!hasDatabase()) return { krwToRub: FALLBACK_KRW_TO_RUB, eurToRub: FALLBACK_EUR_TO_RUB, date: null, isFallback: true };
-  const result = await query<{ code: string; rub_per_unit: string; rate_date: string }>("SELECT code, rub_per_unit, rate_date FROM exchange_rates WHERE code IN ('KRW', 'EUR')");
+  if (!hasDatabase()) return fallbackCalculatorRates();
+  const result = await query<{ code: string; rub_per_unit: string; rate_date: string }>("SELECT code, rub_per_unit, rate_date FROM exchange_rates WHERE code IN ('KRW', 'EUR')").catch(() => null);
+  if (!result) return fallbackCalculatorRates();
   const krw = result.rows.find((row) => row.code === "KRW");
   const eur = result.rows.find((row) => row.code === "EUR");
   return {
