@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateImportCost, customsDutyRub } from "./calculator";
+import { calculateImportCost, customsDutyRub, IMPORT_COST_DEFAULTS } from "./calculator";
 
 describe("customsDutyRub", () => {
   it("uses the 3–5 year engine-volume rate for an individual", () => {
@@ -20,19 +20,26 @@ describe("calculateImportCost", () => {
       ageYears: 4,
       engineCc: 1998,
       powerHp: 150,
-      fuel: "petrol",
-      agentFeeRub: 100_000,
-      koreaCostsRub: 200_000,
-      freightToVladivostokRub: 150_000,
-      cityLogisticsRub: 0
+      fuel: "petrol"
     });
 
     expect(result.carPriceRub).toBe(1_160_000);
+    expect(result.agentFeeRub).toBe(90_000);
+    expect(result.koreaLogisticsRub).toBe(110_200);
+    expect(result.customsClearanceRub).toBe(80_000);
     expect(result.customsDutyRub).toBe(539_460);
     expect(result.recyclingFeeRub).toBe(5_200);
     expect(result.vatRub).toBe(0);
     expect(result.exciseRub).toBe(0);
     expect(result.totalRub).toBe(Object.values(result.lines).reduce((sum, value) => sum + value, 0));
     expect(result.isApproximate).toBe(true);
+  });
+
+  it("uses the fixed service terms requested for preliminary quotes", () => {
+    expect(IMPORT_COST_DEFAULTS).toEqual({
+      agentFeeRub: 90_000,
+      koreaLogisticsKrw: 1_900_000,
+      customsClearanceRub: 80_000
+    });
   });
 });

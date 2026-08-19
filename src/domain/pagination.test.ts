@@ -17,4 +17,17 @@ describe("walkCursorPages", () => {
   it("stops a feed with a repeated cursor", async () => {
     await expect(walkCursorPages(async () => ({ items: [1], nextCursor: "same" }), async () => undefined)).rejects.toThrow("повторяющийся cursor");
   });
+
+  it("prefetches the next page while the current page is stored", async () => {
+    let secondPageRequested = false;
+    await walkCursorPages(
+      async (cursor) => {
+        if (cursor === "page-2") secondPageRequested = true;
+        return cursor ? { items: [2], nextCursor: null } : { items: [1], nextCursor: "page-2" };
+      },
+      async (_items, page) => {
+        if (page === 1) expect(secondPageRequested).toBe(true);
+      }
+    );
+  });
 });

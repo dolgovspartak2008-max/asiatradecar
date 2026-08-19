@@ -15,12 +15,15 @@ type CalculationInput = {
   engineCc: number;
   powerHp: number;
   fuel: Fuel;
-  agentFeeRub: number;
-  koreaCostsRub: number;
-  freightToVladivostokRub: number;
-  cityLogisticsRub: number;
+  cityLogisticsRub?: number;
   recyclingFeeOverrideRub?: number;
 };
+
+export const IMPORT_COST_DEFAULTS = {
+  agentFeeRub: 90_000,
+  koreaLogisticsKrw: 1_900_000,
+  customsClearanceRub: 80_000
+} as const;
 
 const UNDER_THREE = [
   [8_500, 0.54, 2.5],
@@ -71,21 +74,22 @@ export function recyclingFeeRub(input: Pick<CalculationInput, "ageYears" | "engi
 
 export function calculateImportCost(input: CalculationInput) {
   const carPriceRub = Math.round(input.priceKrw * input.krwToRub);
+  const koreaLogisticsRub = Math.round(IMPORT_COST_DEFAULTS.koreaLogisticsKrw * input.krwToRub);
   const customsValueEur = carPriceRub / input.eurToRub;
   const duty = customsDutyRub({ ...input, customsValueEur });
   const clearance = customsClearanceFeeRub(carPriceRub);
   const recycling = recyclingFeeRub(input);
   const lines = {
     carPriceRub,
-    agentFeeRub: input.agentFeeRub,
-    koreaCostsRub: input.koreaCostsRub,
-    freightToVladivostokRub: input.freightToVladivostokRub,
+    agentFeeRub: IMPORT_COST_DEFAULTS.agentFeeRub,
+    koreaLogisticsRub,
     customsDutyRub: duty,
+    customsClearanceRub: IMPORT_COST_DEFAULTS.customsClearanceRub,
     customsClearanceFeeRub: clearance,
     recyclingFeeRub: recycling,
     exciseRub: 0,
     vatRub: 0,
-    cityLogisticsRub: input.cityLogisticsRub
+    cityLogisticsRub: input.cityLogisticsRub ?? 0
   };
 
   return {

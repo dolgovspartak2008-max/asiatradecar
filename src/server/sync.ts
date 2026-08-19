@@ -1,27 +1,28 @@
 import type { PoolClient } from "pg";
-import { normalizeFeedCar, type FeedCar } from "@/domain/sync";
+import { buildFeedPageUrl, normalizeFeedCar, normalizeTrustEncarRecord, type FeedCar } from "@/domain/sync";
 import { walkCursorPages } from "@/domain/pagination";
 import { inTransaction, query } from "@/server/db";
 
 type FeedPage = { items: unknown[]; nextCursor?: string | null };
 
-function validInput(value: unknown): Parameters<typeof normalizeFeedCar>[0] {
+function normalizeInput(value: unknown): FeedCar {
   if (!value || typeof value !== "object") throw new Error("Некорректная запись в фиде");
   const item = value as Record<string, unknown>;
+  if (item.ID || item.LOT) return normalizeTrustEncarRecord(item);
   if (!item.id || !item.make || !item.model || !item.year || item.mileageKm === undefined || item.priceKrw === undefined) {
     throw new Error("В записи фида отсутствуют обязательные поля");
   }
-  return item as Parameters<typeof normalizeFeedCar>[0];
+  return normalizeFeedCar(item as Parameters<typeof normalizeFeedCar>[0]);
 }
 
 async function fetchFeedPage(cursor?: string) {
   const base = process.env.ENCAR_FEED_URL || process.env.TRUST_ENCAR_FEED_URL;
   if (!base) throw new Error("ENCAR_FEED_URL не настроен");
-  const url = new URL(base);
+  const pageSize = Number(process.env.ENCAR_FEED_PAGE_SIZE || process.env.TRUST_ENCAR_FEED_PAGE_SIZE || 1_000);
+  const url = buildFeedPageUrl(base, cursor, Number.isFinite(pageSize) ? pageSize : 1_000);
   const extraHosts = (process.env.ENCAR_FEED_ALLOWED_HOSTS || process.env.TRUST_ENCAR_FEED_ALLOWED_HOSTS || "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean);
   const allowed = url.hostname === "trust-encar.ru" || url.hostname.endsWith(".trust-encar.ru") || url.hostname === "api.encarapi.com" || extraHosts.includes(url.hostname.toLowerCase());
   if (url.protocol !== "https:" || !allowed) throw new Error("Фид должен использовать HTTPS и разрешённый хост");
-  if (cursor) url.searchParams.set("cursor", cursor);
   const token = process.env.ENCAR_FEED_TOKEN || process.env.TRUST_ENCAR_FEED_TOKEN;
   const headers: Record<string, string> = {};
   if (token) headers[url.hostname === "api.encarapi.com" ? "x-api-key" : "Authorization"] = url.hostname === "api.encarapi.com" ? token : `Bearer ${token}`;
@@ -73,7 +74,7 @@ export async function syncAuthorizedCatalog() {
   const startedAt = new Date();
   try {
     const result = await walkCursorPages(fetchFeedPage, async (items) => {
-      const cars = items.map((item) => normalizeFeedCar(validInput(item)));
+      const cars = items.map(normalizeInput);
       await inTransaction(async (client) => {
         await upsertCars(client, cars, krwToRub);
       });
