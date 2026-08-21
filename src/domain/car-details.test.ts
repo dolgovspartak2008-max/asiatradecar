@@ -7,7 +7,7 @@ describe("readCostBreakdown", () => {
       { label: "Комиссия агента", value: "93 000 ₽" },
       { label: "", value: "100 ₽" },
       null
-    ] })).toEqual([{ label: "Комиссия агента", value: "93 000 ₽" }]);
+    ] })).toEqual([{ label: "Комиссия компании", value: "100 000 ₽" }]);
   });
 });
 

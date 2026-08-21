@@ -2,13 +2,25 @@ import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
 import { VideoHero } from "@/components/video-hero";
+import { Testimonials } from "@/components/testimonials";
 import { site } from "@/config/site";
 
 const stages = [
-  ["01", "Заявка и подбор", "Фиксируем бюджет и требования, показываем подходящие варианты из актуального источника."],
-  ["02", "Проверка", "Проверяем историю, состояние, документы и расчёт до принятия решения."],
-  ["03", "Договор и выкуп", "Закрепляем условия, согласуем расходы и выкупаем выбранный автомобиль."],
-  ["04", "Логистика", "Организуем доставку, таможенное оформление и выдачу в согласованном городе."]
+  ["01", "Заявка", "Уточняем страну, бюджет, модель, комплектацию, пробег и город получения."],
+  ["02", "Подбор", "Сравниваем доступные предложения и заранее рассчитываем итоговую стоимость."],
+  ["03", "Проверка", "Проверяем историю, документы, состояние кузова и технические параметры."],
+  ["04", "Договор и выкуп", "Фиксируем условия и расходы в договоре, бронируем и оплачиваем автомобиль."],
+  ["05", "Доставка и таможня", "Контролируем перевозку, оформление и подготовку комплекта документов."],
+  ["06", "Выдача", "Доставляем автомобиль в согласованный город и остаёмся на связи после получения."]
+] as const;
+
+const responsibilities = [
+  "Помогаем выбрать страну, модель и комплектацию под ваш бюджет",
+  "Считаем итоговую стоимость заранее, чтобы не было неприятных сюрпризов",
+  "Проверяем варианты и предупреждаем о рисках до покупки",
+  "Занимаемся покупкой, доставкой, документами и сопровождением",
+  "Держим в курсе на этапах: что купили, где машина и что дальше",
+  "Привозим не только авто: мотоциклы, спецтехнику и автодома под запрос"
 ] as const;
 
 export default async function Home() {
@@ -29,10 +41,12 @@ export default async function Home() {
       </div>
     </section>
 
-    <section className="section countries"><div className="container content-sheet"><div className="journey-hint"><Icon name="route"/><span>Листайте страницу — автомобиль движется по общему маршруту. При прокрутке назад он возвращается.</span></div><div className="section-heading"><div><p className="eyebrow">Направления</p><h2>Выберите рынок</h2></div><p>Начинаем с подтверждённого источника по Корее. Остальные направления подключим только после проверки данных.</p></div><div className="country-grid"><Link className="country-card active" href="/catalog?country=kr"><span className="country-code">KR</span><div><h3>Южная Корея</h3><p>Полный каталог из разрешённого источника</p></div><Icon name="arrow" /></Link><div className="country-card disabled"><span className="country-code">JP</span><div><h3>Япония</h3><p>Источник готовится</p></div></div><div className="country-card disabled"><span className="country-code">CN</span><div><h3>Китай</h3><p>Источник готовится</p></div></div></div></div></section>
+    <section className="section countries"><div className="container content-sheet"><div className="section-heading"><div><p className="eyebrow">Направления</p><h2>Выберите рынок</h2></div></div><div className="country-grid"><Link className="country-card active" href="/catalog?country=kr"><span className="country-code">KR</span><div><h3>Корея</h3></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog?country=jp"><span className="country-code">JP</span><div><h3>Япония</h3></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog?country=cn"><span className="country-code">CN</span><div><h3>Китай</h3></div><Icon name="arrow" /></Link></div></div></section>
 
-    <section className="section dark-section" id="process"><div className="container"><div className="section-heading"><div><p className="eyebrow">Процесс</p><h2>От запроса до ключей</h2></div><p>На каждом этапе вы знаете, что происходит с автомобилем и за что платите.</p></div><ol className="stage-grid">{stages.map(([number, title, text]) => <li key={number}><span>{number}</span><h3>{title}</h3><p>{text}</p></li>)}</ol></div></section>
+    <section className="section dark-section" id="process"><div className="container"><div className="section-heading"><div><p className="eyebrow">Процесс</p><h2>От запроса до ключей</h2></div><p>На каждом этапе вы знаете, что происходит с автомобилем и за что платите.</p></div><ol className="stage-grid">{stages.map(([number, title, text]) => <li key={number}><span>{number}</span><h3>{title}</h3><p>{text}</p></li>)}</ol><details className="responsibility"><summary>За что мы отвечаем <Icon name="arrow" /></summary><div><p className="eyebrow">Полное сопровождение</p><h3>Вам не нужно разбираться во всём самому</h3><ul>{responsibilities.map((item) => <li key={item}><Icon name="check"/><span>{item}</span></li>)}</ul><Link className="button" href="#request">Получить расчёт</Link></div></details></div></section>
 
-    <section className="section request-section" id="request"><div className="container request-grid"><div><p className="eyebrow">Персональный подбор</p><h2>Выберите авто или опишите задачу</h2><p>Можно найти конкретный автомобиль во всём синхронизированном каталоге либо оставить выбор менеджеру по бюджету и требованиям.</p></div><LeadForm formId="home-selection" catalogSearch /></div></section>
+    <Testimonials />
+
+    <section className="section request-section" id="request"><div className="container request-grid"><div><p className="eyebrow">Персональный подбор</p><h2>Опишите задачу</h2><p>Укажите бюджет, предпочтения и город получения — менеджер предложит подходящие варианты.</p></div><LeadForm formId="home-selection" /></div></section>
   </>;
 }

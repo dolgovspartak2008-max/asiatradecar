@@ -24,7 +24,7 @@ describe("calculateImportCost", () => {
     });
 
     expect(result.carPriceRub).toBe(1_160_000);
-    expect(result.agentFeeRub).toBe(90_000);
+    expect(result.agentFeeRub).toBe(100_000);
     expect(result.koreaLogisticsRub).toBe(110_200);
     expect(result.customsClearanceRub).toBe(80_000);
     expect(result.customsDutyRub).toBe(539_460);
@@ -35,9 +35,9 @@ describe("calculateImportCost", () => {
     expect(result.isApproximate).toBe(true);
   });
 
-  it("uses the fixed service terms requested for preliminary quotes", () => {
+  it("uses the current service terms for preliminary quotes", () => {
     expect(IMPORT_COST_DEFAULTS).toEqual({
-      agentFeeRub: 90_000,
+      agentFeeRub: 100_000,
       koreaLogisticsKrw: 1_900_000,
       customsClearanceRub: 80_000
     });

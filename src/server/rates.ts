@@ -30,7 +30,7 @@ export async function syncCbrKrwRate() {
   const response = await fetch("https://www.cbr.ru/scripts/XML_daily.asp", { cache: "no-store", signal: AbortSignal.timeout(15_000) });
   if (!response.ok) throw new Error(`ЦБ РФ вернул ${response.status}`);
   const xml = await response.text();
-  const rates = [parseCbrCurrencyRate(xml, "KRW"), parseCbrCurrencyRate(xml, "EUR")];
+  const rates = [parseCbrCurrencyRate(xml, "KRW"), parseCbrCurrencyRate(xml, "JPY"), parseCbrCurrencyRate(xml, "CNY"), parseCbrCurrencyRate(xml, "EUR")];
   for (const rate of rates) {
     await query(
       `INSERT INTO exchange_rates (code, rub_per_unit, rate_date, source, updated_at)

@@ -11,17 +11,22 @@ type Props = {
   priceKrw: number;
   priceRub: number | null;
   details: Record<string, unknown>;
+  currencyCode?: "KRW" | "JPY" | "CNY";
+  country?: string;
   compact?: boolean;
 };
 
-function fallbackLines(priceKrw: number, priceRub: number | null, details: Record<string, unknown>): CostBreakdownLine[] {
+function fallbackLines(priceKrw: number, priceRub: number | null, details: Record<string, unknown>, currencyCode = "KRW", country = "kr"): CostBreakdownLine[] {
   const koreaRub = typeof details.koreaPriceRub === "number" ? details.koreaPriceRub : null;
-  const lines = [{ label: "Автомобиль в Корее", value: `${formatKrw(priceKrw)}${koreaRub ? ` · ${formatRub(koreaRub)}` : ""}` }];
-  if (priceRub && koreaRub && priceRub > koreaRub) lines.push({ label: "Логистика, таможня и услуги до Владивостока", value: formatRub(priceRub - koreaRub) });
+  const names: Record<string, string> = { kr: "Корее", jp: "Японии", cn: "Китае" };
+  const symbols: Record<string, string> = { KRW: "₩", JPY: "¥", CNY: "¥" };
+  const sourcePrice = currencyCode === "KRW" ? formatKrw(priceKrw) : `${priceKrw.toLocaleString("ru-RU")} ${symbols[currencyCode]}`;
+  const lines = [{ label: `Автомобиль в ${names[country] || "стране покупки"}`, value: `${sourcePrice}${koreaRub ? ` · ${formatRub(koreaRub)}` : ""}` }];
+  if (priceRub && koreaRub && priceRub > koreaRub) lines.push({ label: "Логистика, таможня и услуги", value: formatRub(priceRub - koreaRub) });
   return lines;
 }
 
-export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, compact = false }: Props) {
+export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, currencyCode = "KRW", country = "kr", compact = false }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const initial = readCostBreakdown(details);
@@ -43,7 +48,7 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, com
     } catch { setStatus("error"); }
   };
 
-  const visibleLines = lines.length ? lines : fallbackLines(priceKrw, livePriceRub, details);
+  const visibleLines = lines.length ? lines : fallbackLines(priceKrw, livePriceRub, details, currencyCode, country);
   return <>
     <button className={`price-breakdown-trigger ${compact ? "compact" : ""}`} type="button" onClick={open}>Расшифровка цены</button>
     <dialog ref={dialog} className="site-dialog price-dialog" aria-labelledby={titleId} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>
@@ -54,7 +59,7 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, com
         <dl className="price-lines">{visibleLines.map((line) => <div key={`${line.label}-${line.value}`}><dt>{line.label}</dt><dd>{line.value}</dd></div>)}</dl>
         {status === "loading" && <p className="dialog-note" role="status">Загружаем точные статьи расходов из источника…</p>}
         {status === "error" && <p className="dialog-note" role="status">Подробные статьи временно недоступны. Итоговая цена остаётся синхронизированной с источником.</p>}
-        <p className="dialog-note">Расчёт источника указан до Владивостока. Доставка автовозом в другой город рассчитывается отдельно.</p>
+        <p className="dialog-note">Итоговая стоимость доставки по России уточняется по выбранному городу.</p>
       </div>
     </dialog>
   </>;

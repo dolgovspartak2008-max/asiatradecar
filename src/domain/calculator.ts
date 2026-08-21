@@ -20,7 +20,7 @@ type CalculationInput = {
 };
 
 export const IMPORT_COST_DEFAULTS = {
-  agentFeeRub: 90_000,
+  agentFeeRub: 100_000,
   koreaLogisticsKrw: 1_900_000,
   customsClearanceRub: 80_000
 } as const;

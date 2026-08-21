@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "trust-encar.ru" },
-      { protocol: "https", hostname: "*.trust-encar.ru" }
+      { protocol: "https", hostname: "*.trust-encar.ru" },
+      { protocol: "https", hostname: "banzai24.com" },
+      { protocol: "https", hostname: "*.byteimg.com" },
+      { protocol: "https", hostname: "*.dcarimg.com" }
     ]
   },
   async headers() {

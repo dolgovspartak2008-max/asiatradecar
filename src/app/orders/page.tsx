@@ -26,6 +26,6 @@ export default function OrdersPage() {
 
     <section className="section orders-faq"><div className="container"><div className="section-heading"><div><h2>Частые вопросы</h2></div><p>Короткие ответы до начала подбора.</p></div><div className="faq-list"><details><summary>Можно выбрать конкретный автомобиль?</summary><p>Да. Откройте каталог, сохраните интересующие лоты или укажите модель и номер лота в заявке.</p></details><details><summary>Стоимость фиксируется заранее?</summary><p>До выкупа формируется расчёт по известным расходам. Изменяемые платежи и допущения показываются отдельно.</p></details><details><summary>Можно заказать автомобиль, которого нет в первых карточках?</summary><p>Да. Кнопка «Показать ещё» последовательно открывает весь каталог источника.</p></details><details><summary>Что происходит после заявки?</summary><p>Менеджер уточняет требования, предлагает варианты и только после вашего согласия начинает проверку выбранного автомобиля.</p></details></div></div></section>
 
-    <section className="section request-section" id="order-request"><div className="container request-grid"><div><h2>Начать подбор</h2><p>Опишите автомобиль и бюджет. Если уже нашли лот, укажите его название или номер.</p></div><LeadForm formId="orders" catalogSearch /></div></section>
+    <section className="section request-section" id="order-request"><div className="container request-grid"><div><h2>Начать подбор</h2><p>Опишите желаемый автомобиль, бюджет и город получения.</p></div><LeadForm formId="orders" /></div></section>
   </>;
 }
