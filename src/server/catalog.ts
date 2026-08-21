@@ -1,6 +1,6 @@
 import type { CatalogFilters } from "../domain/catalog";
 import { buildCatalogQuery, parseCatalogParams } from "../domain/catalog";
-import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap, parseTrustEncarCatalogPage, parseTrustEncarVehiclePage, type TrustEncarCatalogCar } from "../domain/sync";
+import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap, parseTrustEncarCatalogPage, parseTrustEncarModelsFacet, parseTrustEncarVehiclePage, type TrustEncarCatalogCar } from "../domain/sync";
 import { hasDatabase, query } from "./db";
 
 export type Car = {
@@ -67,7 +67,7 @@ async function getBrowseCatalog(filters: CatalogFilters) {
   if (!response.ok) throw new Error(`Trust Encar вернул ${response.status}`);
   const parsed = parseTrustEncarCatalogPage(await response.text());
   if (!parsed.cars.length && page <= Math.ceil(parsed.total / filters.limit)) throw new Error("Trust Encar вернул пустую страницу каталога");
-  return { cars: parsed.cars.map(fromFeedCar), total: parsed.total, makes: parsed.makes };
+  return { cars: parsed.cars.map(fromFeedCar), total: parsed.total, makes: parsed.makes, models: [] as string[] };
 }
 
 async function getLiveCatalog(filters: CatalogFilters) {
@@ -77,17 +77,40 @@ async function getLiveCatalog(filters: CatalogFilters) {
   });
   if (!pageResponse.ok) throw new Error(`Trust Encar вернул ${pageResponse.status}`);
   const bootstrap = parseTrustEncarBootstrap(await pageResponse.text());
+  const make = bootstrap.makes.find((item) => item.name.toLowerCase() === filters.make?.toLowerCase());
+  let modelId: string | undefined;
+  if (filters.model && filters.make) {
+    const lookupBody = new URLSearchParams({ action: "te_catalog_lookup_ids_db", nonce: bootstrap.nonce, marka: filters.make, model: filters.model });
+    const lookupResponse = await fetch(bootstrap.ajaxUrl, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+      body: lookupBody,
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000)
+    });
+    if (!lookupResponse.ok) throw new Error("Trust Encar не распознал выбранную модель");
+    const lookup = await lookupResponse.json() as { model_id?: unknown };
+    modelId = String(lookup.model_id || "") || undefined;
+    if (!modelId) throw new Error("Trust Encar не вернул идентификатор выбранной модели");
+  }
   const request = (action: "search_db" | "ajax_catalog_count_db") => fetch(bootstrap.ajaxUrl, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
     },
-    body: buildTrustEncarSearchBody(action, filters, bootstrap),
+    body: buildTrustEncarSearchBody(action, filters, bootstrap, modelId),
     cache: "no-store",
     signal: AbortSignal.timeout(8_000)
   });
-  const [carsResponse, countResponse] = await Promise.all([request("search_db"), request("ajax_catalog_count_db")]);
+  const modelsRequest = make ? fetch(bootstrap.ajaxUrl, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+    body: new URLSearchParams({ action: "ajax_facets_state_db", nonce: bootstrap.nonce, marka_id: make.id }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(8_000)
+  }) : null;
+  const [carsResponse, countResponse, modelsResponse] = await Promise.all([request("search_db"), request("ajax_catalog_count_db"), modelsRequest]);
   if (!carsResponse.ok || !countResponse.ok) throw new Error("Trust Encar временно не отдаёт каталог");
   const [records, count] = await Promise.all([carsResponse.json(), countResponse.json()]) as [unknown, { status?: unknown; total?: unknown }];
   if (!Array.isArray(records)) throw new Error("Trust Encar вернул некорректный каталог");
@@ -120,7 +143,8 @@ async function getLiveCatalog(filters: CatalogFilters) {
     }];
   });
   const total = count.status === "success" && Number.isFinite(Number(count.total)) ? Number(count.total) : bootstrap.total;
-  return { cars, total, makes: bootstrap.makes.map((make) => make.name) };
+  const models = modelsResponse?.ok ? parseTrustEncarModelsFacet(await modelsResponse.json()).map((model) => model.name) : [];
+  return { cars, total, makes: bootstrap.makes.map((make) => make.name), models };
 }
 
 export async function getCatalog(filters: CatalogFilters) {
@@ -132,12 +156,20 @@ export async function getCatalog(filters: CatalogFilters) {
   const built = buildCatalogQuery(filters);
   const countValues = built.values.slice(0, -2);
   const where = built.text.match(/FROM cars WHERE (.+) ORDER BY/s)?.[1] ?? "status = 'active'";
-  const [carsResult, countResult, makesResult] = await Promise.all([
+  const [carsResult, countResult, makesResult, modelsResult] = await Promise.all([
     query<CarRow>(built.text, built.values),
     query<{ count: string }>(`SELECT count(*)::text AS count FROM cars WHERE ${where}`, countValues),
-    query<{ make: string }>("SELECT DISTINCT make FROM cars WHERE status = 'active' AND country = $1 ORDER BY make", [filters.country])
+    query<{ make: string }>("SELECT DISTINCT make FROM cars WHERE status = 'active' AND country = $1 ORDER BY make", [filters.country]),
+    filters.make
+      ? query<{ model: string }>("SELECT DISTINCT model FROM cars WHERE status = 'active' AND country = $1 AND make = $2 ORDER BY model", [filters.country, filters.make])
+      : Promise.resolve({ rows: [] as Array<{ model: string }> })
   ]);
-  return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make) };
+  return {
+    cars: carsResult.rows.map(toCar),
+    total: Number(countResult.rows[0]?.count ?? 0),
+    makes: makesResult.rows.map((row) => row.make),
+    models: modelsResult.rows.map((row) => row.model)
+  };
 }
 
 export async function getCarBySlug(slug: string) {

@@ -85,17 +85,33 @@ describe("authorized catalog feed", () => {
     const body = buildBody(
       "search_db",
       parseCatalogParams({ make: "Kia", yearFrom: "2021", priceTo: "3500000", page: "3", sort: "price-asc" }),
-      { nonce: "public-nonce", makes: [{ id: "19", name: "Kia" }] }
+      { nonce: "public-nonce", makes: [{ id: "19", name: "Kia" }] },
+      "103"
     );
 
     expect(body.toString()).toContain("action=search_db");
     expect(body.toString()).toContain("nonce=public-nonce");
     expect(body.toString()).toContain("page=2");
     expect(body.toString()).toContain("marka_id=19");
+    expect(body.toString()).toContain("model_id=103");
     expect(body.toString()).toContain("year_from=2021");
     expect(body.toString()).toContain("priceRubTo=3500000");
     expect(body.toString()).toContain("field_sort=FINISH_RUB");
     expect(body.toString()).toContain("order_by=ASC");
+  });
+
+  it("extracts model ids and names from the live facets response", () => {
+    const parseModels = Reflect.get(sync, "parseTrustEncarModelsFacet");
+    expect(parseModels).toBeTypeOf("function");
+    if (typeof parseModels !== "function") return;
+
+    expect(parseModels({ status: "success", facets: { models: [
+      { value: "103", name: "Sportage", count: 1200 },
+      { value: "104", label: "Sorento", count: 900 }
+    ] } })).toEqual([
+      { id: "103", name: "Sportage" },
+      { id: "104", name: "Sorento" }
+    ]);
   });
 
   it("parses the server-rendered catalog page used for progressive loading", () => {
@@ -117,9 +133,11 @@ describe("authorized catalog feed", () => {
           <p class="price">Кроссовер / 5 местный</p>
           <p class="price">Кузов: Белый / Салон: Чёрный</p>
           <p class="price">44 563 км</p>
-          <p class="price auto-price">Стоимость авто в Корее: 4 217 024 ₽ (30 300 000 ₩)</p>
+          <p class="price auto-price">Стоимость авто в Корее: 1 965 864 ₽ (30 300 000 ₩)</p>
           <p class="price">Лот: 42569219</p>
         </div>
+        <p class="auto-item-acc">Страховая история ДТП: 1 / 77 781 ₽</p>
+        <p class="auto-item-total">Стоимость до Владивостока: ~ 4 217 024 ₽</p>
       </article></div>`;
 
     const result = parsePage(html);
@@ -130,6 +148,7 @@ describe("authorized catalog feed", () => {
       mileageKm: 44563, engineCc: 1598, powerHp: 180, fuel: "Бензин",
       drive: "2WD", priceKrw: 30300000, priceRub: 4217024
     });
+    expect(result.cars[0].details).toMatchObject({ koreaPriceRub: 1965864, accident: "Страховая история ДТП: 1 / 77 781 ₽" });
     expect(result.cars[0].photos).toEqual(["https://trust-encar.ru/images/carpicture06/pic4256/42569219_001.jpg"]);
   });
 
@@ -151,11 +170,30 @@ describe("authorized catalog feed", () => {
       <li class="product-option"><div class="product-option-label">Мощность</div>180 л.с.</li>
       <li class="product-option"><div class="product-option-label">Стоимость авто в Корее</div>30 300 000 ₩ (1 965 864 ₽)</li>
       <li class="product-option"><div class="product-option-label">Цвет салона</div>Чёрный</li>
-    </ul>`;
+    </ul><div>Страховая история: повреждения этого автомобиля <strong>1 / 1 227 805 ₩ (77 781 ₽)</strong> Страховая история: повреждения другого автомобиля</div>
+      <div class="calc-detail__line"><span class="calc-detail__subtitle">Комиссия агента по договору:</span><b class="calc-detail__price">93 000 ₽</b></div>
+      <div class="calc-detail__line"><span class="calc-detail__subtitle">Стоимость автомобиля в Корее:</span><b class="calc-detail__price">30 300 000 ₩ (1 965 864 ₽)</b></div>`;
     expect(parseVehicle(html)).toMatchObject({
       id: "42569219", make: "Kia", model: "Sportage", year: 2023, mileageKm: 44563,
       engineCc: 1598, powerHp: 180, fuel: "Бензин", drive: "2WD", priceKrw: 30300000,
-      priceRub: 1965864, interiorColor: "Чёрный"
+      priceRub: 4217024, interiorColor: "Чёрный",
+      details: {
+        koreaPriceRub: 1965864,
+        insuranceOwn: "1 / 1 227 805 ₩ (77 781 ₽)",
+        costBreakdown: [
+          { label: "Комиссия агента по договору", value: "93 000 ₽" },
+          { label: "Стоимость автомобиля в Корее", value: "30 300 000 ₩ (1 965 864 ₽)" }
+        ]
+      }
     });
+  });
+
+  it("does not label the Korea-only price as a turnkey price", () => {
+    const parsePage = Reflect.get(sync, "parseTrustEncarCatalogPage");
+    const html = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>
+      <script>window.TE_CATALOG_SSR = {"total":1,"facets":{"facets":{"marks":[{"value":"2","name":"Kia"}]}}};</script>
+      <article class="auto-item" data-href="https://trust-encar.ru/auto/42569219/"><img class="te-car-title__logo" alt="Kia"/><span class="te-car-title__text">Kia Sportage</span><div class="catalog-item-options"><p class="price">Дата регистрации в Корее: 07.2023</p><p class="price auto-price">Стоимость авто в Корее: 1 965 864 ₽ (30 300 000 ₩)</p></div></article>`;
+
+    expect(parsePage(html).cars[0].priceRub).toBeNull();
   });
 });

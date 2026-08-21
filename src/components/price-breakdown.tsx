@@ -1,0 +1,61 @@
+"use client";
+
+import { useId, useRef, useState } from "react";
+import { readCostBreakdown, type CostBreakdownLine } from "@/domain/car-details";
+import { formatKrw, formatRub } from "@/domain/currency";
+import { Icon } from "@/components/icons";
+
+type Props = {
+  slug: string;
+  carName: string;
+  priceKrw: number;
+  priceRub: number | null;
+  details: Record<string, unknown>;
+  compact?: boolean;
+};
+
+function fallbackLines(priceKrw: number, priceRub: number | null, details: Record<string, unknown>): CostBreakdownLine[] {
+  const koreaRub = typeof details.koreaPriceRub === "number" ? details.koreaPriceRub : null;
+  const lines = [{ label: "Автомобиль в Корее", value: `${formatKrw(priceKrw)}${koreaRub ? ` · ${formatRub(koreaRub)}` : ""}` }];
+  if (priceRub && koreaRub && priceRub > koreaRub) lines.push({ label: "Логистика, таможня и услуги до Владивостока", value: formatRub(priceRub - koreaRub) });
+  return lines;
+}
+
+export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, compact = false }: Props) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const initial = readCostBreakdown(details);
+  const [lines, setLines] = useState(initial);
+  const [livePriceRub, setLivePriceRub] = useState(priceRub);
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+
+  const open = async () => {
+    dialog.current?.showModal();
+    if (lines.length || status === "loading") return;
+    setStatus("loading");
+    try {
+      const response = await fetch(`/api/catalog/details/${encodeURIComponent(slug)}`);
+      const data = await response.json() as { priceRub?: number | null; details?: Record<string, unknown> };
+      if (!response.ok) throw new Error();
+      setLines(readCostBreakdown(data.details || {}));
+      if (typeof data.priceRub === "number") setLivePriceRub(data.priceRub);
+      setStatus("idle");
+    } catch { setStatus("error"); }
+  };
+
+  const visibleLines = lines.length ? lines : fallbackLines(priceKrw, livePriceRub, details);
+  return <>
+    <button className={`price-breakdown-trigger ${compact ? "compact" : ""}`} type="button" onClick={open}>Расшифровка цены</button>
+    <dialog ref={dialog} className="site-dialog price-dialog" aria-labelledby={titleId} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>
+      <div className="dialog-panel">
+        <button className="dialog-close" type="button" onClick={() => dialog.current?.close()} aria-label="Закрыть расшифровку"><Icon name="x" /></button>
+        <p className="eyebrow">Цена под ключ</p><h2 id={titleId}>{carName}</h2>
+        <p className="dialog-total">{livePriceRub ? formatRub(livePriceRub) : "Итоговая цена уточняется"}</p>
+        <dl className="price-lines">{visibleLines.map((line) => <div key={`${line.label}-${line.value}`}><dt>{line.label}</dt><dd>{line.value}</dd></div>)}</dl>
+        {status === "loading" && <p className="dialog-note" role="status">Загружаем точные статьи расходов из источника…</p>}
+        {status === "error" && <p className="dialog-note" role="status">Подробные статьи временно недоступны. Итоговая цена остаётся синхронизированной с источником.</p>}
+        <p className="dialog-note">Расчёт источника указан до Владивостока. Доставка автовозом в другой город рассчитывается отдельно.</p>
+      </div>
+    </dialog>
+  </>;
+}

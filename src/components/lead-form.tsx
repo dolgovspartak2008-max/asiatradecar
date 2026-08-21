@@ -3,9 +3,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 
-type Props = { formId: string; compact?: boolean; carName?: string; calculationRub?: number; cars?: Array<{ value: string; label: string }>; catalogSearch?: boolean };
+type Props = { formId: string; compact?: boolean; carName?: string; calculationRub?: number; cars?: Array<{ value: string; label: string }>; catalogSearch?: boolean; submitLabel?: string };
 
-export function LeadForm({ formId, compact = false, carName, calculationRub, cars, catalogSearch = false }: Props) {
+export function LeadForm({ formId, compact = false, carName, calculationRub, cars, catalogSearch = false, submitLabel = "Получить подбор" }: Props) {
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [contactUrl, setContactUrl] = useState("");
@@ -50,7 +50,7 @@ export function LeadForm({ formId, compact = false, carName, calculationRub, car
     <label>Пожелания<textarea name="wishes" rows={compact ? 2 : 4} maxLength={1500} placeholder="Марка, модель, бюджет, год" /></label>
     <label className="honeypot" aria-hidden="true">Сайт<input name="website" tabIndex={-1} autoComplete="off" /></label>
     <label className="consent"><input name="consent" type="checkbox" required /><span>Я даю <Link href="/legal/consent" target="_blank">согласие на обработку персональных данных</Link> и ознакомлен(а) с <Link href="/legal/privacy" target="_blank">политикой</Link>.</span></label>
-    <button className="button" type="submit" disabled={status === "sending"}>{status === "sending" ? "Отправляем…" : "Получить подбор"}</button>
+    <button className="button" type="submit" disabled={status === "sending"}>{status === "sending" ? "Отправляем…" : submitLabel}</button>
     {message && <div className={`form-status ${status}`} role="status"><p>{message}</p>{contactUrl && <a className="button button-small button-ghost" href={contactUrl} target="_blank" rel="noreferrer">Написать напрямую</a>}</div>}
   </form>;
 }

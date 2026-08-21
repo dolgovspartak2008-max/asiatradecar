@@ -87,6 +87,19 @@ export function parseTrustEncarBootstrap(html: string): TrustEncarBootstrap {
   return { ajaxUrl, nonce, total: numberFrom(ssr.total), makes };
 }
 
+export function parseTrustEncarModelsFacet(value: unknown) {
+  if (!value || typeof value !== "object") return [] as Array<{ id: string; name: string }>;
+  const response = value as { facets?: { models?: unknown } };
+  if (!Array.isArray(response.facets?.models)) return [] as Array<{ id: string; name: string }>;
+  return response.facets.models.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const model = item as { value?: unknown; name?: unknown; label?: unknown };
+    const id = textFrom(model.value);
+    const name = textFrom(model.name || model.label);
+    return id && name ? [{ id, name }] : [];
+  });
+}
+
 const cleanImageUrl = (value: string) => {
   try {
     const url = new URL(value, "https://trust-encar.ru");
@@ -127,6 +140,9 @@ export function parseTrustEncarCatalogPage(html: string) {
     const colors = optionText("Цвет кузова / Цвет салона", /Кузов\s*:/i);
     const mileage = optionText("Пробег", /км/i);
     const price = optionText("Цена автомобиля в рублях и в вонах в Корее", /Стоимость авто|[₩₽]/i);
+    const cardText = card.text().replace(/\s+/g, " ").trim();
+    const koreaPriceRub = numberFrom(price.match(/[\d\s]+(?=\s*₽)/)?.[0]) || null;
+    const finalPriceRub = numberFrom(cardText.match(/Стоимость до (?:города )?Владивостока:\s*~?\s*([\d\s]+)\s*₽/i)?.[1]) || null;
     const engineParts = engine.split("/").map((part) => part.trim());
     const year = numberFrom((production || registration).match(/(?:19|20)\d{2}/)?.[0]);
     const photos = card.find(".auto-item-img img[src]").toArray()
@@ -153,10 +169,11 @@ export function parseTrustEncarCatalogPage(html: string) {
         sourceStatus: card.find(".auto-label.stock, .auto-label.leasing").first().text().trim() || null,
         registration: registration || null,
         production: production || null,
-        accident: card.find(".auto-item-acc p").first().text().replace(/\s+/g, " ").trim() || null
+        accident: card.find(".auto-item-acc").first().text().replace(/\s+/g, " ").trim() || null,
+        koreaPriceRub
       }
     });
-    return [{ ...normalized, priceRub: numberFrom(price.match(/[\d\s]+(?=\s*₽)/)?.[0]) || null }];
+    return [{ ...normalized, priceRub: finalPriceRub }];
   });
   return { cars, total: bootstrap.total, makes: bootstrap.makes.map((make) => make.name) };
 }
@@ -191,6 +208,14 @@ export function parseTrustEncarVehiclePage(html: string): TrustEncarCatalogCar |
       ? [line.find(".calc-detail__price").text().replace(/\s+/g, " ").trim()]
       : [];
   })[0] || "";
+  const pageText = $("body").text().replace(/\s+/g, " ").trim();
+  const insuranceOwn = pageText.match(/Страховая история:\s*повреждения этого автомобиля\s*(.*?)\s*Страховая история:\s*повреждения другого автомобиля/i)?.[1]?.trim() || null;
+  const costBreakdown = $(".calc-detail__line").toArray().flatMap((element) => {
+    const line = $(element);
+    const label = line.find(".calc-detail__subtitle").first().text().replace(/\s+/g, " ").replace(/:\s*$/, "").trim();
+    const value = line.find(".calc-detail__price").first().text().replace(/\s+/g, " ").trim();
+    return label && value ? [{ label, value }] : [];
+  });
   const id = textFrom(data.sku);
   const make = textFrom(brand.name);
   const model = textFrom(data.model);
@@ -214,15 +239,22 @@ export function parseTrustEncarVehiclePage(html: string): TrustEncarCatalogCar |
     vin: option("Номер автомобиля") || null,
     priceKrw: numberFrom(koreaCost.match(/[\d\s]+(?=\s*₩)/)?.[0]),
     photos: images.map((image) => cleanImageUrl(textFrom(image))).filter(Boolean),
-    details: { sourceStatus: option("Статус") || null, registration: option("Дата регистрации в Корее") || null }
+    details: {
+      sourceStatus: option("Статус") || null,
+      registration: option("Дата регистрации в Корее") || null,
+      koreaPriceRub: numberFrom(koreaCost.match(/[\d\s]+(?=\s*₽)/)?.[0]) || null,
+      insuranceOwn,
+      costBreakdown
+    }
   });
-  return { ...normalized, priceRub: numberFrom(koreaCost.match(/[\d\s]+(?=\s*₽)/)?.[0]) || numberFrom(offers.price) || null };
+  return { ...normalized, priceRub: numberFrom(offers.price) || null };
 }
 
 export function buildTrustEncarSearchBody(
   action: "search_db" | "ajax_catalog_count_db",
   filters: CatalogFilters,
-  bootstrap: Pick<TrustEncarBootstrap, "nonce" | "makes">
+  bootstrap: Pick<TrustEncarBootstrap, "nonce" | "makes">,
+  modelId?: string
 ) {
   const body = new URLSearchParams({
     action,
@@ -233,6 +265,7 @@ export function buildTrustEncarSearchBody(
   const make = bootstrap.makes.find((item) => item.name.toLowerCase() === makeName?.toLowerCase());
   const values: Array<[string, string | number | undefined]> = [
     ["marka_id", make?.id],
+    ["model_id", modelId],
     ["year_from", filters.yearFrom],
     ["year_to", filters.yearTo],
     ["priceRubFrom", filters.priceFrom],

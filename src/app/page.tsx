@@ -19,9 +19,7 @@ export default async function Home() {
       <VideoHero />
       <div className="container hero-content">
         <h1><span>Импорт автомобилей</span>{" "}<strong>со всего мира</strong></h1>
-        <p className="hero-lead">Полный цикл под ключ</p>
-        <p className="hero-values">Быстро <i/> Честно <i/> Прозрачно</p>
-        <div className="hero-buttons"><Link className="button hero-cta" href="/calculator">Рассчитать стоимость <Icon name="arrow" /></Link><Link className="button button-ghost hero-catalog-link" href="/catalog?country=kr">Смотреть каталог</Link></div>
+        <div className="hero-buttons"><Link className="button button-ghost hero-catalog-link" href="/catalog?country=kr">Смотреть каталог <Icon name="arrow" /></Link></div>
         <ul className="hero-facts">
           <li><Icon name="shield" /><span>Прозрачные<br/>условия</span></li>
           <li><Icon name="calculator" /><span>Фиксируем<br/>стоимость</span></li>

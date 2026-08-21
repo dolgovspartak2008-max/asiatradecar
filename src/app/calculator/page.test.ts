@@ -1,22 +1,15 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { connection } from "next/server";
-import { getCalculatorRates } from "@/server/rates";
+import { redirect } from "next/navigation";
 import CalculatorPage from "./page";
 
-vi.mock("next/server", () => ({ connection: vi.fn() }));
-vi.mock("@/server/rates", () => ({ getCalculatorRates: vi.fn() }));
-vi.mock("@/components/calculator", () => ({ Calculator: () => null }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(connection).mockResolvedValue();
+  vi.mocked(redirect).mockImplementation(() => { throw new Error("NEXT_REDIRECT"); });
 });
 
-it("waits for an incoming request before reading database rates", async () => {
-  vi.mocked(getCalculatorRates).mockResolvedValue({ krwToRub: 0.059, eurToRub: 92, date: null, isFallback: true });
-
-  await CalculatorPage();
-
-  expect(connection).toHaveBeenCalledOnce();
-  expect(vi.mocked(connection).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(getCalculatorRates).mock.invocationCallOrder[0]);
+it("redirects the removed manual calculator to cars with source prices", () => {
+  expect(() => CalculatorPage()).toThrow("NEXT_REDIRECT");
+  expect(redirect).toHaveBeenCalledWith("/catalog?country=kr");
 });
