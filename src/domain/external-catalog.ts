@@ -220,3 +220,31 @@ export function parseBanzaiCatalog(html: string) {
   const total = numberFrom($("body").text().match(/Показать\s+([\d\s]+)\s+лот/i)?.[1]) || cars.length;
   return { cars, total };
 }
+
+export function parseBanzaiVehiclePage(html: string, sourceId: string): ExternalCatalogCar | null {
+  const $ = load(html);
+  const title = $("h1").first().text().replace(/\s+/g, " ").trim();
+  const [name, ...trimParts] = title.split(",").map((part) => part.trim());
+  const [make, ...modelParts] = (name || "").split(/\s+/);
+  const model = modelParts.join(" ");
+  const text = $("body").text().replace(/\s+/g, " ").trim();
+  const engine = text.match(/(?:Двигатель|Engine)\s*:\s*([\d.,]+)\s*(?:л|l)\s*(?:\/\s*([^/]+?))?(?:\s*\/\s*([\d\s]+)\s*(?:л\.с\.|hp))?/i);
+  const price = numberFrom(text.match(/(?:Конечная цена|Final price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1])
+    || numberFrom(text.match(/(?:Стартовая цена|Start price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1]);
+  if (!sourceId || !make || !model || !price) return null;
+  const engineLiters = Number(engine?.[1]?.replace(",", "."));
+  const photos = $("img[src]").toArray().map((image) => $(image).attr("src") || "").filter((url) => url.startsWith("https://banzai24.com/api/image-service/"));
+  return {
+    id: `banzai-${sourceId}`, slug: `jp-${slugPart(make)}-${slugPart(model)}-${sourceId}`, status: "active", source: "banzai24",
+    sourceUrl: `https://banzai24.com/car/JP/${encodeURIComponent(sourceId)}`, country: "jp", currencyCode: "JPY", make, model,
+    trim: trimParts.join(", ") || null, year: numberFrom(text.match(/(?:Год|Year)\s*:\s*((?:19|20)\d{2})/i)?.[1]),
+    mileageKm: numberFrom(text.match(/(?:Пробег|Mileage)\s*:\s*([\d\s]+)\s*(?:км|km)/i)?.[1]),
+    engineCc: Number.isFinite(engineLiters) && engineLiters > 0 ? Math.round(engineLiters * 1000) : null,
+    powerHp: numberFrom(engine?.[3]) || numberFrom(text.match(/(?:Двигатель|Engine)\s*:[^:]*?([\d\s]+)\s*(?:л\.с\.|hp)/i)?.[1]) || null, fuel: engine?.[2]?.trim() || null,
+    transmission: text.match(/(?:Коробка|Gearbox)\s*:\s*(.+?)\s*(?:Цвет|Color)\s*:/i)?.[1]?.trim() || null,
+    drive: text.match(/(?:Привод|Drive)\s*:\s*(.+?)\s*(?:Время торгов|Bidding time|Стартовая цена|Start price)\s*:/i)?.[1]?.trim() || null,
+    bodyType: null, exteriorColor: text.match(/(?:Цвет|Color)\s*:\s*(.+?)\s*(?:Двигатель|Engine)\s*:/i)?.[1]?.trim() || null,
+    interiorColor: null, vin: text.match(/(?:Номер кузова\/VIN|Body number\/VIN)\s*:\s*([^\s]+)/i)?.[1] || null,
+    sourcePrice: price, photos: [...new Set(photos)], details: { source: "Banzai24" }
+  };
+}

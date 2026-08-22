@@ -27,7 +27,7 @@ describe("live Trust Encar catalog", () => {
 
     expect(result.total).toBe(159958);
     expect(result.makes).toEqual(["Kia"]);
-    expect(result.cars[0]).toMatchObject({ id: "42569219", make: "Kia", model: "Sportage", priceRub: 4217024 });
+    expect(result.cars[0]).toMatchObject({ id: "42569219", make: "Kia", model: "Sportage", priceRub: 4267024 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith("https://trust-encar.ru/catalog/?page=1", expect.any(Object));
   });
@@ -73,12 +73,26 @@ describe("live Trust Encar catalog", () => {
     await expect(getCatalog(parseCatalogParams({ country: "kr", make: "BMW", model: "3-Series" }))).rejects.toThrow("идентификатор");
   });
 
-  it("does not expose external cards without a persisted detail page", async () => {
+  it("loads China directly when the database is unavailable", async () => {
     vi.stubEnv("DATABASE_URL", "");
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { series_count: 1, series: [{ concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/su7.webp" }] } }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(getCatalog(parseCatalogParams({ country: "cn" }))).rejects.toThrow("DATABASE_URL");
-    expect(fetchMock).not.toHaveBeenCalled();
+    const result = await getCatalog(parseCatalogParams({ country: "cn" }));
+    expect(result.total).toBe(1);
+    expect(result.cars[0]).toMatchObject({ country: "cn", make: "Xiaomi", model: "SU7", sourceUrl: "https://www.dongchedi.com/auto/series/535" });
+  });
+
+  it("loads Japan directly when the database is unavailable", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const payload = { items: [{ id: "4e75d2d8-0865-4c72-9bcc-5ddc11bca111", car: { mark: "Toyota", model: "Prius" }, characteristics: { year: "2022" }, onePrice: 1_250_000 }], pagination: { total: 86_781, totalPages: 868 } };
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => String(input) === "https://banzai24.com/"
+      ? Promise.resolve(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }))
+      : Promise.resolve(Response.json(payload)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getCatalog(parseCatalogParams({ country: "jp" }));
+    expect(result.total).toBe(86_781);
+    expect(result.cars[0]).toMatchObject({ country: "jp", make: "Toyota", model: "Prius", sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
   });
 });

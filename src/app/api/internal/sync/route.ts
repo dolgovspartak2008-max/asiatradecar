@@ -4,15 +4,21 @@ import { syncCbrKrwRate } from "@/server/rates";
 import { purgeExpiredLeadData } from "@/server/leads";
 import { ensureTelegramWebhook } from "@/server/telegram-bot";
 import { syncExternalCatalogs } from "@/server/external-sync";
+import { ensureDatabaseSchema } from "@/server/schema";
 
 function authorized(request: NextRequest) { return Boolean(process.env.CRON_SECRET) && request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`; }
 async function run(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const retention = await purgeExpiredLeadData();
-    const rates = await syncCbrKrwRate();
-    const [catalog, externalCatalogs, telegram] = await Promise.all([syncAuthorizedCatalog(), syncExternalCatalogs(), ensureTelegramWebhook()]);
-    return NextResponse.json({ ok: true, retention, rates, catalog, externalCatalogs, telegram });
+    await ensureDatabaseSchema();
+    const safe = async <T,>(work: () => Promise<T>) => {
+      try { return { ok: true as const, value: await work() }; }
+      catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Sync failed" }; }
+    };
+    const [retention, rates, catalog, externalCatalogs, telegram] = await Promise.all([
+      safe(purgeExpiredLeadData), safe(syncCbrKrwRate), safe(syncAuthorizedCatalog), safe(syncExternalCatalogs), safe(ensureTelegramWebhook)
+    ]);
+    return NextResponse.json({ ok: telegram.ok, retention, rates, catalog, externalCatalogs, telegram });
   }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Sync failed" }, { status: 500 }); }
 }

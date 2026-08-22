@@ -59,7 +59,7 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, cur
         <dl className="price-lines">{visibleLines.map((line) => <div key={`${line.label}-${line.value}`}><dt>{line.label}</dt><dd>{line.value}</dd></div>)}</dl>
         {status === "loading" && <p className="dialog-note" role="status">Загружаем точные статьи расходов из источника…</p>}
         {status === "error" && <p className="dialog-note" role="status">Подробные статьи временно недоступны. Итоговая цена остаётся синхронизированной с источником.</p>}
-        <p className="dialog-note">Логистика, таможенные платежи и доставка по России рассчитываются отдельно после выбора автомобиля и города.</p>
+        <p className="dialog-note">Логистика и доставка по России рассчитываются отдельно после выбора автомобиля и города.</p>
       </div>
     </dialog>
   </>;

@@ -13,7 +13,7 @@ export function formatVehicleSpec(kind: "transmission" | "drive" | "body", value
   return specLabels[kind][value.trim().toUpperCase()] || value;
 }
 
-export function readCostBreakdown(details: Record<string, unknown>, commissionRub?: number): CostBreakdownLine[] {
+export function readCostBreakdown(details: Record<string, unknown>, commissionRub?: number, brokerRub?: number): CostBreakdownLine[] {
   if (!Array.isArray(details.costBreakdown)) return [];
   const lines = details.costBreakdown.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
@@ -22,7 +22,7 @@ export function readCostBreakdown(details: Record<string, unknown>, commissionRu
     const value = typeof line.value === "string" ? line.value.trim() : "";
     return label && value ? [{ label, value }] : [];
   });
-  return normalizeCostBreakdown(lines, commissionRub);
+  return normalizeCostBreakdown(lines, commissionRub, brokerRub);
 }
 
 export function readInsuranceHistory(details: Record<string, unknown>) {

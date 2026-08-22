@@ -1,6 +1,7 @@
-import { getBanzaiCursorWindow, parseDongchediSeriesPage, type ExternalCatalogCar } from "@/domain/external-catalog";
-import { applyCatalogPricing } from "@/domain/pricing";
+import { getBanzaiCursorWindow, type ExternalCatalogCar } from "@/domain/external-catalog";
+import { buildExternalPricing } from "@/domain/pricing";
 import { fetchBanzaiPage } from "@/server/banzai";
+import { fetchDongchediPage } from "@/server/dongchedi";
 import { inTransaction, query } from "@/server/db";
 import { getPricingSettings } from "@/server/pricing";
 
@@ -12,19 +13,10 @@ const JAPAN_LAST_COMPLETED = "catalog_banzai_last_completed_epoch";
 const CHINA_LAST_COMPLETED = "catalog_china_last_completed_epoch";
 
 async function fetchChinaCatalog() {
-  const headers = { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" };
-  const endpoint = "https://www.dongchedi.com/motor/brand/m/v6/select/series/?city_name=%E5%8C%97%E4%BA%AC";
   const cars: ExternalCatalogCar[] = [];
   let total = MIN_DONGCHEDI_SERIES;
   for (let offset = 0; offset < total; offset += 1_000) {
-    const response = await fetch(endpoint, {
-      method: "POST", cache: "no-store", signal: AbortSignal.timeout(20_000),
-      headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ offset: String(offset), limit: "1000", is_refresh: offset ? "0" : "1", city_name: "北京" })
-    });
-    if (!response.ok) throw new Error(`Dongchedi вернул ${response.status}`);
-    const page = parseDongchediSeriesPage(await response.json());
-    if (!page.cars.length) throw new Error(`Dongchedi вернул пустую страницу с offset ${offset}`);
+    const page = await fetchDongchediPage(offset);
     total = page.total;
     cars.push(...page.cars);
   }
@@ -43,12 +35,8 @@ type PricingSettings = Awaited<ReturnType<typeof getPricingSettings>>;
 
 function priceCars(cars: ExternalCatalogCar[], settings: PricingSettings) {
   return cars.map((car) => {
-    const symbol = car.currencyCode === "JPY" ? "¥" : "¥";
-    const costBreakdown = car.sourcePrice > 0 ? [
-      { label: `Стоимость автомобиля в ${car.country === "jp" ? "Японии" : "Китае"}`, value: `${car.sourcePrice.toLocaleString("ru-RU")} ${symbol}` },
-      { label: "Комиссия компании", value: `${settings.commissionRub.toLocaleString("ru-RU")} ₽` }
-    ] : [];
-    return { ...car, priceRub: car.sourcePrice > 0 ? applyCatalogPricing(car.sourcePrice, settings.rates[car.currencyCode], settings.commissionRub) : null, details: { ...car.details, costBreakdown } };
+    const pricing = car.sourcePrice > 0 ? buildExternalPricing(car.country, car.sourcePrice, settings.rates[car.currencyCode]) : null;
+    return { ...car, priceRub: pricing?.priceRub ?? null, details: { ...car.details, costBreakdown: pricing?.costBreakdown ?? [] } };
   });
 }
 

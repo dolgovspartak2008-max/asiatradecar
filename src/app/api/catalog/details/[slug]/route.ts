@@ -8,7 +8,9 @@ export async function GET(_request: Request, context: Context) {
   const { slug } = await context.params;
   const car = await getCarBySlug(slug);
   const settings = await getPricingSettings();
+  const commissionRub = car?.country === "jp" ? 50_000 : settings.commissionRub;
+  const brokerRub = car?.country === "kr" ? 110_000 : car?.country === "jp" ? 60_000 : 80_000;
   return car
-    ? Response.json({ priceKrw: car.priceKrw, priceRub: car.priceRub, details: { ...car.details, costBreakdown: readCostBreakdown(car.details, settings.commissionRub) } })
+    ? Response.json({ priceKrw: car.priceKrw, priceRub: car.priceRub, details: { ...car.details, costBreakdown: readCostBreakdown(car.details, commissionRub, brokerRub) } })
     : Response.json({ message: "Автомобиль не найден" }, { status: 404 });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseDongchediCatalog, parseDongchediSeriesPage, translateChineseCarName } from "./external-catalog";
+import { getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, translateChineseCarName } from "./external-catalog";
 
 describe("external catalog parsers", () => {
   it("parses full Japanese API records with source details and photos", () => {
@@ -105,5 +105,18 @@ describe("external catalog parsers", () => {
       mileageKm: 31_000,
       sourcePrice: 1_250_000
     })]);
+  });
+
+  it("reads a Banzai24 vehicle page for an internal detail route", () => {
+    const html = `<h1>TOYOTA PRIUS, Z 4WD</h1><main>
+      <div>Year : 2023.05</div><div>Mileage : 40 000 km</div><div>Gearbox : Automatic</div>
+      <div>Color : Black</div><div>Engine : 2.0 l / Petrol / 243 hp</div><div>Drive : Front</div>
+      <div>Body number/VIN: MXWH65-40***32</div><div>Final price: 2 535 000 ¥</div>
+      <img src="https://banzai24.com/api/image-service/prius" /></main>`;
+    expect(parseBanzaiVehiclePage(html, "019eb9bd-bd29-7c5d-9df8-6c57d81d9c88")).toMatchObject({
+      make: "TOYOTA", model: "PRIUS", trim: "Z 4WD", year: 2023, mileageKm: 40_000,
+      engineCc: 2_000, powerHp: 243, sourcePrice: 2_535_000,
+      sourceUrl: "https://banzai24.com/car/JP/019eb9bd-bd29-7c5d-9df8-6c57d81d9c88"
+    });
   });
 });

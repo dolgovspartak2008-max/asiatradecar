@@ -42,7 +42,7 @@ describe("requested mobile UI", () => {
   });
 
   it("labels external-market prices as preliminary instead of turnkey", () => {
-    expect(read("./car-card.tsx")).toContain("Автомобиль + комиссия");
+    expect(read("./car-card.tsx")).toContain("Предварительный расчёт");
     expect(read("../app/auto/[slug]/page.tsx")).toContain("Предварительный расчёт для РФ");
   });
 
