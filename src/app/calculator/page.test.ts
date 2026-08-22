@@ -11,5 +11,5 @@ beforeEach(() => {
 
 it("redirects the removed manual calculator to cars with source prices", () => {
   expect(() => CalculatorPage()).toThrow("NEXT_REDIRECT");
-  expect(redirect).toHaveBeenCalledWith("/catalog?country=kr");
+  expect(redirect).toHaveBeenCalledWith("/#catalogs");
 });

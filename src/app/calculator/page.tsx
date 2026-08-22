@@ -1,3 +1,3 @@
 import { redirect } from "next/navigation";
 
-export default function CalculatorPage() { redirect("/catalog?country=kr"); }
+export default function CalculatorPage() { redirect("/#catalogs"); }

@@ -19,3 +19,4 @@ async function run(request: NextRequest) {
 
 export const GET = run;
 export const POST = run;
+export const maxDuration = 300;

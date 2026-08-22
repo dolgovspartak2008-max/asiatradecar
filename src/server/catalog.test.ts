@@ -73,20 +73,12 @@ describe("live Trust Encar catalog", () => {
     await expect(getCatalog(parseCatalogParams({ country: "kr", make: "BMW", model: "3-Series" }))).rejects.toThrow("идентификатор");
   });
 
-  it("loads the first China page without downloading every model", async () => {
+  it("does not expose external cards without a persisted detail page", async () => {
     vi.stubEnv("DATABASE_URL", "");
-    const fetchMock = vi.fn().mockResolvedValueOnce(Response.json({ status: "success", data: {
-      series_count: 4687,
-      series: [{ concern_id: 20154, outter_name: "凯美瑞", dealer_min_price: "12.98", cover_url: "http://p3-dcd.byteimg.com/camry.png" }]
-    } }));
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await getCatalog(parseCatalogParams({ country: "cn" }));
-
-    expect(result.total).toBe(4687);
-    expect(result.cars).toHaveLength(1);
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(String(request.body)).toContain("offset=0");
-    expect(String(request.body)).toContain("limit=24");
+    await expect(getCatalog(parseCatalogParams({ country: "cn" }))).rejects.toThrow("DATABASE_URL");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { Icon } from "@/components/icons";
 
-const nav = [["Каталог", "/catalog?country=kr"], ["Как заказать", "/orders"], ["Контакты", "/#contacts"], ["Избранное", "/catalog/favorites"]] as const;
+const nav = [["Каталог", "/#catalogs"], ["Как заказать", "/orders"], ["Контакты", "/#contacts"], ["Избранное", "/catalog/favorites"]] as const;
 
 export function MobileMenu() {
   const ref = useRef<HTMLDetailsElement>(null);

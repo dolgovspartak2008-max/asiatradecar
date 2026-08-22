@@ -1,43 +1,117 @@
-import { parseBanzaiCatalog, parseDongchediSeriesPage, type ExternalCatalogCar } from "@/domain/external-catalog";
+import { getBanzaiCursorWindow, parseDongchediSeriesPage, type ExternalCatalogCar } from "@/domain/external-catalog";
 import { applyCatalogPricing } from "@/domain/pricing";
-import { inTransaction } from "@/server/db";
+import { fetchBanzaiPage } from "@/server/banzai";
+import { inTransaction, query } from "@/server/db";
 import { getPricingSettings } from "@/server/pricing";
 
 const MIN_DONGCHEDI_SERIES = 4_687;
+const CHINA_REFRESH_SECONDS = 23 * 60 * 60;
+const JAPAN_NEXT_PAGE = "catalog_banzai_next_page";
+const JAPAN_CYCLE_STARTED = "catalog_banzai_cycle_started_epoch";
+const JAPAN_LAST_COMPLETED = "catalog_banzai_last_completed_epoch";
+const CHINA_LAST_COMPLETED = "catalog_china_last_completed_epoch";
 
-async function fetchCatalogs() {
+async function fetchChinaCatalog() {
   const headers = { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" };
-  const japan = await fetch("https://banzai24.com/", { headers, cache: "no-store", signal: AbortSignal.timeout(20_000) });
-  if (!japan.ok) throw new Error(`Banzai24 вернул ${japan.status}`);
   const endpoint = "https://www.dongchedi.com/motor/brand/m/v6/select/series/?city_name=%E5%8C%97%E4%BA%AC";
-  const chinaResponse = await fetch(endpoint, {
-    method: "POST", cache: "no-store", signal: AbortSignal.timeout(45_000),
-    headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ offset: "0", limit: "5000", is_refresh: "1", city_name: "北京" })
-  });
-  if (!chinaResponse.ok) throw new Error(`Dongchedi вернул ${chinaResponse.status}`);
-  const china = parseDongchediSeriesPage(await chinaResponse.json());
-  if (china.total < MIN_DONGCHEDI_SERIES || china.cars.length !== china.total) throw new Error(`Dongchedi передал ${china.cars.length} из ${china.total} машин; ожидалось не меньше ${MIN_DONGCHEDI_SERIES}`);
-  const japanCars = parseBanzaiCatalog(await japan.text()).cars;
-  if (!japanCars.length) throw new Error("Banzai24 вернул пустой каталог");
-  return [...japanCars, ...china.cars];
+  const cars: ExternalCatalogCar[] = [];
+  let total = MIN_DONGCHEDI_SERIES;
+  for (let offset = 0; offset < total; offset += 1_000) {
+    const response = await fetch(endpoint, {
+      method: "POST", cache: "no-store", signal: AbortSignal.timeout(20_000),
+      headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ offset: String(offset), limit: "1000", is_refresh: offset ? "0" : "1", city_name: "北京" })
+    });
+    if (!response.ok) throw new Error(`Dongchedi вернул ${response.status}`);
+    const page = parseDongchediSeriesPage(await response.json());
+    if (!page.cars.length) throw new Error(`Dongchedi вернул пустую страницу с offset ${offset}`);
+    total = page.total;
+    cars.push(...page.cars);
+  }
+  const unique = [...new Map(cars.map((car) => [car.id, car])).values()];
+  if (total < MIN_DONGCHEDI_SERIES || unique.length < total) throw new Error(`Dongchedi передал ${unique.length} из ${total} моделей; ожидалось не меньше ${MIN_DONGCHEDI_SERIES}`);
+  return unique;
 }
 
-export async function syncExternalCatalogs() {
-  const cars = await fetchCatalogs();
-  if (!cars.length) throw new Error("Внешние каталоги вернули пустой список");
-  const settings = await getPricingSettings();
-  const payload = cars.map((car: ExternalCatalogCar) => ({
-    ...car, priceRub: car.sourcePrice > 0 ? applyCatalogPricing(car.sourcePrice, settings.rates[car.currencyCode], settings.commissionRub) : null
-  }));
-  const startedAt = new Date();
-  await inTransaction(async (client) => {
-    await client.query(`WITH incoming AS (
-    SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(id text,slug text,source text,"sourceUrl" text,country text,"currencyCode" text,make text,model text,trim text,year integer,"mileageKm" integer,"engineCc" integer,"powerHp" integer,fuel text,transmission text,drive text,"bodyType" text,"exteriorColor" text,"interiorColor" text,vin text,"sourcePrice" bigint,"priceRub" bigint,photos jsonb,details jsonb)
+const UPSERT = `WITH incoming AS (
+    SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(id text,slug text,status text,source text,"sourceUrl" text,country text,"currencyCode" text,make text,model text,trim text,year integer,"mileageKm" integer,"engineCc" integer,"powerHp" integer,fuel text,transmission text,drive text,"bodyType" text,"exteriorColor" text,"interiorColor" text,vin text,"sourcePrice" bigint,"priceRub" bigint,photos jsonb,details jsonb)
   ) INSERT INTO cars (id,slug,source,source_url,status,country,currency_code,make,model,trim,year,mileage_km,engine_cc,power_hp,fuel,transmission,drive,body_type,exterior_color,interior_color,vin,price_krw,price_rub,photos,details,last_seen_at,updated_at)
-  SELECT id,slug,source,"sourceUrl",'active',country,"currencyCode",make,model,trim,year,"mileageKm","engineCc","powerHp",fuel,transmission,drive,"bodyType","exteriorColor","interiorColor",vin,"sourcePrice","priceRub",photos,details,now(),now() FROM incoming
-  ON CONFLICT (id) DO UPDATE SET slug=EXCLUDED.slug,source_url=EXCLUDED.source_url,status='active',currency_code=EXCLUDED.currency_code,make=EXCLUDED.make,model=EXCLUDED.model,trim=EXCLUDED.trim,year=EXCLUDED.year,mileage_km=EXCLUDED.mileage_km,engine_cc=EXCLUDED.engine_cc,power_hp=EXCLUDED.power_hp,fuel=EXCLUDED.fuel,transmission=EXCLUDED.transmission,exterior_color=EXCLUDED.exterior_color,price_krw=EXCLUDED.price_krw,price_rub=EXCLUDED.price_rub,photos=EXCLUDED.photos,details=EXCLUDED.details,last_seen_at=now(),updated_at=now()`, [JSON.stringify(payload)]);
-    await client.query("UPDATE cars SET status='inactive',updated_at=now() WHERE source='dongchedi' AND last_seen_at < $1", [startedAt]);
+  SELECT id,slug,source,"sourceUrl",status,country,"currencyCode",make,model,trim,year,"mileageKm","engineCc","powerHp",fuel,transmission,drive,"bodyType","exteriorColor","interiorColor",vin,"sourcePrice","priceRub",photos,details,now(),now() FROM incoming
+  ON CONFLICT (id) DO UPDATE SET slug=EXCLUDED.slug,source_url=EXCLUDED.source_url,status=EXCLUDED.status,currency_code=EXCLUDED.currency_code,make=EXCLUDED.make,model=EXCLUDED.model,trim=EXCLUDED.trim,year=EXCLUDED.year,mileage_km=EXCLUDED.mileage_km,engine_cc=EXCLUDED.engine_cc,power_hp=EXCLUDED.power_hp,fuel=EXCLUDED.fuel,transmission=EXCLUDED.transmission,drive=EXCLUDED.drive,body_type=EXCLUDED.body_type,exterior_color=EXCLUDED.exterior_color,interior_color=EXCLUDED.interior_color,vin=EXCLUDED.vin,price_krw=EXCLUDED.price_krw,price_rub=EXCLUDED.price_rub,photos=EXCLUDED.photos,details=EXCLUDED.details,last_seen_at=now(),updated_at=now()`;
+
+type PricingSettings = Awaited<ReturnType<typeof getPricingSettings>>;
+
+function priceCars(cars: ExternalCatalogCar[], settings: PricingSettings) {
+  return cars.map((car) => {
+    const symbol = car.currencyCode === "JPY" ? "¥" : "¥";
+    const costBreakdown = car.sourcePrice > 0 ? [
+      { label: `Стоимость автомобиля в ${car.country === "jp" ? "Японии" : "Китае"}`, value: `${car.sourcePrice.toLocaleString("ru-RU")} ${symbol}` },
+      { label: "Комиссия компании", value: `${settings.commissionRub.toLocaleString("ru-RU")} ₽` }
+    ] : [];
+    return { ...car, priceRub: car.sourcePrice > 0 ? applyCatalogPricing(car.sourcePrice, settings.rates[car.currencyCode], settings.commissionRub) : null, details: { ...car.details, costBreakdown } };
   });
-  return { received: cars.length, japan: cars.filter((car) => car.country === "jp").length, china: cars.filter((car) => car.country === "cn").length };
+}
+
+async function readState(key: string, fallback: number) {
+  const result = await query<{ value: string }>("SELECT value::text FROM site_settings WHERE key = $1", [key]);
+  const value = Number(result.rows[0]?.value);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+async function writeState(client: import("pg").PoolClient, key: string, value: number) {
+  await client.query("INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,updated_at=now()", [key, value]);
+}
+
+async function upsertPayload(client: import("pg").PoolClient, payload: ReturnType<typeof priceCars>) {
+  for (let index = 0; index < payload.length; index += 500) await client.query(UPSERT, [JSON.stringify(payload.slice(index, index + 500))]);
+}
+
+async function syncJapan(settings: PricingSettings, now: Date) {
+  const nowSeconds = Math.floor(now.getTime() / 1_000);
+  const first = await fetchBanzaiPage(1);
+  const savedNextPage = await readState(JAPAN_NEXT_PAGE, 1);
+  const window = getBanzaiCursorWindow(first.totalPages, savedNextPage);
+  const savedCycleStarted = await readState(JAPAN_CYCLE_STARTED, 0);
+  const cycleStarted = window.start === 1 || !savedCycleStarted ? nowSeconds : savedCycleStarted;
+  const pages = Array.from({ length: Math.max(0, window.end - window.start + 1) }, (_, index) => window.start + index);
+  let received = 0;
+  for (let index = 0; index < pages.length; index += 4) {
+    const batch = pages.slice(index, index + 4);
+    const results = await Promise.all(batch.map((page) => page === 1 ? first : fetchBanzaiPage(page)));
+    const payload = priceCars(results.flatMap((result) => result.cars), settings);
+    const lastPage = batch.at(-1) || window.start;
+    const completed = lastPage >= first.totalPages;
+    await inTransaction(async (client) => {
+      await upsertPayload(client, payload);
+      await writeState(client, JAPAN_NEXT_PAGE, completed ? 1 : lastPage + 1);
+      await writeState(client, JAPAN_CYCLE_STARTED, completed ? nowSeconds : cycleStarted);
+      if (completed) {
+        await client.query("UPDATE cars SET status='inactive',updated_at=now() WHERE source='banzai24' AND last_seen_at < $1", [new Date(cycleStarted * 1_000)]);
+        await writeState(client, JAPAN_LAST_COMPLETED, nowSeconds);
+      }
+    });
+    received += payload.length;
+  }
+  return { received, pages: window, total: first.total, totalPages: first.totalPages };
+}
+
+async function syncChina(settings: PricingSettings, now: Date) {
+  const nowSeconds = Math.floor(now.getTime() / 1_000);
+  const lastCompleted = await readState(CHINA_LAST_COMPLETED, 0);
+  if (lastCompleted && nowSeconds - lastCompleted < CHINA_REFRESH_SECONDS) return { received: 0, skipped: true };
+  const startedAt = new Date();
+  const cars = await fetchChinaCatalog();
+  const payload = priceCars(cars, settings);
+  await inTransaction(async (client) => {
+    await upsertPayload(client, payload);
+    await client.query("UPDATE cars SET status='inactive',updated_at=now() WHERE source='dongchedi' AND last_seen_at < $1", [startedAt]);
+    await writeState(client, CHINA_LAST_COMPLETED, nowSeconds);
+  });
+  return { received: cars.length, skipped: false };
+}
+
+export async function syncExternalCatalogs(now = new Date()) {
+  const settings = await getPricingSettings();
+  const [japan, china] = await Promise.all([syncJapan(settings, now), syncChina(settings, now)]);
+  return { received: japan.received + china.received, japan, china };
 }

@@ -2,8 +2,6 @@ import type { CatalogFilters } from "../domain/catalog";
 import { buildCatalogQuery, parseCatalogParams } from "../domain/catalog";
 import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap, parseTrustEncarCatalogPage, parseTrustEncarGenerationsFacet, parseTrustEncarModelsFacet, parseTrustEncarVehiclePage, type TrustEncarCatalogCar } from "../domain/sync";
 import { hasDatabase, query } from "./db";
-import { parseBanzaiCatalog, parseDongchediSeriesPage, type ExternalCatalogCar } from "../domain/external-catalog";
-import { applyCatalogPricing } from "../domain/pricing";
 import { getPricingSettings } from "./pricing";
 import { readCostBreakdown } from "../domain/car-details";
 
@@ -64,59 +62,6 @@ function applyCommission(car: Car, commissionRub: number): Car {
   const commission = raw.find((item) => item && typeof item === "object" && /комисси/i.test(String((item as { label?: unknown }).label || ""))) as { value?: unknown } | undefined;
   const previous = Number(String(commission?.value || "").replace(/[^\d]/g, "")) || commissionRub;
   return { ...car, priceRub: car.priceRub ? car.priceRub - previous + commissionRub : car.priceRub, details: { ...car.details, costBreakdown: readCostBreakdown(car.details, commissionRub) } };
-}
-
-async function getExternalCatalog(filters: CatalogFilters) {
-  const settings = await getPricingSettings();
-  let parsed: { cars: ExternalCatalogCar[]; total: number };
-  let sourcePaged = false;
-  if (filters.country === "jp") {
-    const page = Math.floor(filters.offset / filters.limit) + 1;
-    const response = await fetch(`https://banzai24.com/?page=${page}`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(12_000), headers: { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" } });
-    if (!response.ok) throw new Error(`Banzai24 вернул ${response.status}`);
-    parsed = parseBanzaiCatalog(await response.text());
-  } else {
-    const hasLocalFilters = Boolean(filters.q || filters.make || filters.model || filters.yearFrom !== undefined || filters.yearTo !== undefined
-      || filters.priceFrom !== undefined || filters.priceTo !== undefined || filters.mileageTo !== undefined || filters.sort !== "newest");
-    sourcePaged = !hasLocalFilters;
-    const response = await fetch("https://www.dongchedi.com/motor/brand/m/v6/select/series/?city_name=%E5%8C%97%E4%BA%AC", {
-      method: "POST", next: { revalidate: 600 }, signal: AbortSignal.timeout(20_000),
-      headers: { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0", "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ offset: String(sourcePaged ? filters.offset : 0), limit: String(sourcePaged ? filters.limit : 5000), is_refresh: "1", city_name: "北京" })
-    });
-    if (!response.ok) throw new Error(`Dongchedi вернул ${response.status}`);
-    parsed = parseDongchediSeriesPage(await response.json());
-    if (!parsed.cars.length || parsed.total < parsed.cars.length) throw new Error("Dongchedi вернул некорректную страницу каталога");
-  }
-  const term = filters.q?.toLowerCase();
-  const filtered = parsed.cars.filter((car) => (!term || `${car.make} ${car.model} ${car.trim || ""}`.toLowerCase().includes(term))
-    && (!filters.make || car.make === filters.make) && (!filters.model || car.model === filters.model)
-    && (filters.yearFrom === undefined || car.year >= filters.yearFrom) && (filters.yearTo === undefined || car.year <= filters.yearTo)
-    && (filters.mileageTo === undefined || car.mileageKm <= filters.mileageTo));
-  let cars: Car[] = filtered.map((car) => {
-    const rate = settings.rates[car.currencyCode];
-    const priceRub = car.sourcePrice > 0 ? applyCatalogPricing(car.sourcePrice, rate, settings.commissionRub) : null;
-    const countryName = car.country === "jp" ? "Японии" : "Китае";
-    return {
-      id: car.id, slug: car.slug, sourceUrl: car.sourceUrl, country: car.country, currencyCode: car.currencyCode,
-      make: car.make, model: car.model, trim: car.trim, year: car.year, mileageKm: car.mileageKm, engineCc: car.engineCc,
-      powerHp: car.powerHp, fuel: car.fuel, transmission: car.transmission, drive: car.drive, bodyType: car.bodyType,
-      exteriorColor: car.exteriorColor, interiorColor: car.interiorColor, vin: car.vin, priceKrw: car.sourcePrice, priceRub,
-      photos: car.photos, details: { ...car.details, costBreakdown: [
-        { label: `Стоимость автомобиля в ${countryName}`, value: `${car.sourcePrice.toLocaleString("ru-RU")} ${car.currencyCode === "JPY" ? "¥" : "¥"}` },
-        { label: "Комиссия компании", value: `${settings.commissionRub.toLocaleString("ru-RU")} ₽` }
-      ] }
-    };
-  });
-  cars = cars.filter((car) => (filters.priceFrom === undefined || (car.priceRub !== null && car.priceRub >= filters.priceFrom)) && (filters.priceTo === undefined || (car.priceRub !== null && car.priceRub <= filters.priceTo)));
-  if (filters.sort === "price-asc") cars.sort((a, b) => (a.priceRub ?? Infinity) - (b.priceRub ?? Infinity));
-  else if (filters.sort === "price-desc") cars.sort((a, b) => (b.priceRub ?? 0) - (a.priceRub ?? 0));
-  else if (filters.sort === "mileage") cars.sort((a, b) => a.mileageKm - b.mileageKm);
-  else cars.sort((a, b) => b.year - a.year);
-  const makes = [...new Set(filtered.map((car) => car.make))].sort();
-  const models = filters.make ? [...new Set(filtered.filter((car) => car.make === filters.make).map((car) => car.model))].sort() : [];
-  const total = sourcePaged ? parsed.total : filters.country === "cn" ? cars.length : filters.q || filters.make || filters.model ? cars.length : parsed.total;
-  return { cars: filters.country === "cn" && !sourcePaged ? cars.slice(filters.offset, filters.offset + filters.limit) : cars, total, makes, models, generations: [] };
 }
 
 const isDefaultBrowse = (filters: CatalogFilters) => filters.country === "kr" && filters.limit === 24 && filters.sort === "newest"
@@ -234,11 +179,8 @@ async function getDatabaseCatalog(filters: CatalogFilters) {
 
 export async function getCatalog(filters: CatalogFilters) {
   if (filters.country === "jp" || filters.country === "cn") {
-    if (hasDatabase()) {
-      const cached = await getDatabaseCatalog(filters).catch(() => null);
-      if (cached?.total) return cached;
-    }
-    return getExternalCatalog(filters);
+    if (!hasDatabase()) throw new Error("DATABASE_URL не настроен для синхронизируемого каталога");
+    return getDatabaseCatalog(filters);
   }
   try {
     const [catalog, settings] = await Promise.all([isDefaultBrowse(filters) ? getBrowseCatalog(filters) : getLiveCatalog(filters), getPricingSettings()]);

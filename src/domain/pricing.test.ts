@@ -19,4 +19,10 @@ describe("catalog pricing", () => {
   it("applies country rate and commission to external source prices", () => {
     expect(applyCatalogPricing(1_250_000, 0.62, 100_000)).toBe(875_000);
   });
+
+  it("removes won amounts when a Korean source also provides rubles", () => {
+    expect(normalizeCostBreakdown([
+      { label: "Стоимость автомобиля в Корее", value: "30 300 000 ₩ (1 965 864 ₽)" }
+    ])).toContainEqual({ label: "Стоимость автомобиля в Корее", value: "1 965 864 ₽" });
+  });
 });

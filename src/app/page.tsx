@@ -33,7 +33,7 @@ export default async function Home() {
     <section className="hero">
       <VideoHero />
       <div className="container hero-content">
-        <h1><span>Импорт автомобилей</span>{" "}<strong>со всего мира</strong></h1>
+        <h1><span>Импорт автомобилей</span>{" "}<strong>из зарубежа</strong></h1>
         <div className="hero-buttons"><CatalogChooser className="button button-ghost hero-catalog-link" label="Смотреть каталог" /></div>
         <ul className="hero-facts">
           <li><Icon name="shield" /><span>Прозрачные<br/>условия</span></li>

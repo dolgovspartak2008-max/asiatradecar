@@ -14,7 +14,8 @@ export function normalizeCostBreakdown(lines: CostBreakdownLine[], commissionRub
       commissionAdded = true;
       continue;
     }
-    result.push(line);
+    const rubles = line.value.includes("₩") ? line.value.match(/([\d\s\u00a0]+\s*₽)/)?.[1] : null;
+    result.push(rubles ? { ...line, value: rubles.replace(/\u00a0/g, " ").trim() } : line);
   }
   if (!commissionAdded) result.unshift({ label: "Комиссия компании", value: formatRub(commissionRub) });
   return result;

@@ -1,7 +1,50 @@
 import { describe, expect, it } from "vitest";
-import { parseBanzaiCatalog, parseDongchediCatalog, parseDongchediSeriesPage, translateChineseCarName } from "./external-catalog";
+import { getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseDongchediCatalog, parseDongchediSeriesPage, translateChineseCarName } from "./external-catalog";
 
 describe("external catalog parsers", () => {
+  it("parses full Japanese API records with source details and photos", () => {
+    const result = parseBanzaiApiPage({
+      items: [{
+        id: "01a00b58-3300-7525-9f55-6cd378bc3239",
+        car: { mark: "TOYOTA", model: "COROLLA", year: "2020.03" },
+        characteristics: { mileage: 34000, modification: "HYBRID S 4WD", transmission: "Автомат", drivetrain: "Полный", color: "SILVER", fuelType: "Гибрид", engineCapacity: "1.8", engine: "1.8 л / Гибрид / 98 л.с.", bodyNumber: "ZWE214W-60***99" },
+        registrationYear: 2020,
+        startPrice: "80000",
+        endPrice: "1298000",
+        images: ["https://banzai24.com/api/image-service/one"],
+        lot: { auction: { name: "TAA Yokohama" }, number: "63-1035-12003", tradeDate: "2026-08-22", tradeTime: "10:00" },
+        grade: "3",
+        status: { name: "Продан" },
+        tags: [{ title: "Проверено JapanStat" }]
+      }],
+      pagination: { currentPage: 1, totalPages: 849, perPage: 100, total: 84824 }
+    });
+    expect(result.total).toBe(84824);
+    expect(result.totalPages).toBe(849);
+    expect(result.cars[0]).toMatchObject({
+      country: "jp", currencyCode: "JPY", make: "TOYOTA", model: "COROLLA", year: 2020,
+      mileageKm: 34000, engineCc: 1800, powerHp: 98, drive: "Полный", sourcePrice: 1298000,
+      sourceUrl: "https://banzai24.com/car/JP/01a00b58-3300-7525-9f55-6cd378bc3239"
+    });
+    expect(result.cars[0].photos).toHaveLength(1);
+    expect(result.cars[0].details).toMatchObject({ auction: "TAA Yokohama", status: "Продан", grade: "3" });
+    expect(result.cars[0].status).toBe("inactive");
+  });
+
+  it("covers every Japanese API page exactly once across a 24-run cycle", () => {
+    const ranges: ReturnType<typeof getBanzaiCursorWindow>[] = [];
+    let nextPage = 1;
+    do { const range = getBanzaiCursorWindow(849, nextPage); ranges.push(range); nextPage = range.nextPage; } while (nextPage !== 1);
+    const pages = ranges.flatMap(({ start, end }) => Array.from({ length: end - start + 1 }, (_, index) => start + index));
+    expect(ranges).toHaveLength(24);
+    expect(pages).toEqual(Array.from({ length: 849 }, (_, index) => index + 1));
+  });
+
+  it("resumes a delayed Japanese cycle from its persistent cursor", () => {
+    expect(getBanzaiCursorWindow(849, 72)).toEqual({ start: 72, end: 107, nextPage: 108, completed: false });
+    expect(getBanzaiCursorWindow(849, 820)).toEqual({ start: 820, end: 849, nextPage: 1, completed: true });
+    expect(getBanzaiCursorWindow(700, 800)).toMatchObject({ start: 1, completed: false });
+  });
   it("translates Chinese brands and models into readable English names", () => {
     expect(translateChineseCarName("红旗", "红旗HS5")).toEqual({ make: "Hongqi", model: "HS5" });
     expect(translateChineseCarName("丰田", "凯美瑞")).toEqual({ make: "Toyota", model: "Camry" });

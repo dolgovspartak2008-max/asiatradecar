@@ -15,8 +15,8 @@ export async function consumeLeadRateLimit(phone: string) {
 }
 
 export async function purgeExpiredLeadData() {
-  if (!Number.isInteger(retentionDays) || retentionDays <= 0) throw new Error("PD_RETENTION_DAYS не настроен");
+  if (!Number.isInteger(retentionDays) || retentionDays <= 0) return { deleted: 0, skipped: true };
   const deleted = await query<{ id: string }>("DELETE FROM leads WHERE created_at < now() - ($1::int * interval '1 day') RETURNING id", [retentionDays]);
   await query("DELETE FROM lead_rate_limits WHERE window_started_at < now() - interval '1 day'");
-  return { deleted: deleted.rowCount || 0 };
+  return { deleted: deleted.rowCount || 0, skipped: false };
 }

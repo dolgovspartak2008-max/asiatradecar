@@ -2,7 +2,7 @@ name: Catalog sync
 
 on:
   schedule:
-    - cron: "17 */2 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,7 +10,7 @@ jobs:
     if: ${{ secrets.SITE_SYNC_URL != '' && secrets.CRON_SECRET != '' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Sync rates, full Korean catalog and retention
+      - name: Sync rates and rolling 24-hour catalogs
         env:
           SITE_SYNC_URL: ${{ secrets.SITE_SYNC_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}

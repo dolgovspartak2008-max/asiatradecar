@@ -3,7 +3,7 @@ import { load } from "cheerio";
 export type ExternalCatalogCar = {
   id: string;
   slug: string;
-  status: "active";
+  status: "active" | "inactive";
   source: "banzai24" | "dongchedi";
   sourceUrl: string;
   country: "jp" | "cn";
@@ -29,6 +29,70 @@ export type ExternalCatalogCar = {
 
 const numberFrom = (value?: string | null) => Number((value || "").replace(/[^\d]/g, "")) || 0;
 const slugPart = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "");
+
+export function getBanzaiCursorWindow(totalPages: number, nextPage: number) {
+  const total = Math.max(0, Math.floor(totalPages));
+  const requested = Math.max(1, Math.floor(nextPage));
+  const start = requested > total ? 1 : requested;
+  const end = Math.min(total, start + Math.ceil(total / 24) - 1);
+  const completed = total > 0 && end >= total;
+  return { start, end, nextPage: completed ? 1 : end + 1, completed };
+}
+
+export function parseBanzaiApiPage(payload: unknown) {
+  if (!payload || typeof payload !== "object") return { cars: [] as ExternalCatalogCar[], total: 0, totalPages: 0 };
+  const record = payload as { items?: unknown; pagination?: unknown };
+  const pagination = record.pagination && typeof record.pagination === "object" ? record.pagination as Record<string, unknown> : {};
+  const items = Array.isArray(record.items) ? record.items : [];
+  const cars = items.flatMap((value): ExternalCatalogCar[] => {
+    if (!value || typeof value !== "object") return [];
+    const item = value as Record<string, unknown>;
+    const car = item.car && typeof item.car === "object" ? item.car as Record<string, unknown> : {};
+    const characteristics = item.characteristics && typeof item.characteristics === "object" ? item.characteristics as Record<string, unknown> : {};
+    const lot = item.lot && typeof item.lot === "object" ? item.lot as Record<string, unknown> : {};
+    const auction = lot.auction && typeof lot.auction === "object" ? lot.auction as Record<string, unknown> : {};
+    const status = item.status && typeof item.status === "object" ? item.status as Record<string, unknown> : {};
+    const id = String(item.id || "").trim();
+    const make = String(car.mark || "").trim();
+    const model = String(car.model || "").trim();
+    if (!id || !make || !model) return [];
+    const engineLiters = Number(String(characteristics.engineCapacity || "").replace(",", "."));
+    const engineText = String(characteristics.engine || "");
+    const photos = (Array.isArray(item.images) ? item.images : []).flatMap((image): string[] => {
+      if (typeof image === "string") return image.startsWith("https://") ? [image] : [];
+      if (!image || typeof image !== "object") return [];
+      const url = String((image as Record<string, unknown>).url || (image as Record<string, unknown>).src || "");
+      return url.startsWith("https://") ? [url] : [];
+    });
+    const tags = (Array.isArray(item.tags) ? item.tags : []).flatMap((tag): string[] => tag && typeof tag === "object" ? [String((tag as Record<string, unknown>).title || "").trim()].filter(Boolean) : []);
+    const year = Number(item.registrationYear) || numberFrom(String(car.year || characteristics.year || "").match(/(?:19|20)\d{2}/)?.[0]);
+    const sourcePrice = numberFrom(String(item.onePrice || "")) || numberFrom(String(item.endPrice || "")) || numberFrom(String(item.startPrice || ""));
+    const statusName = String(status.name || "").trim();
+    const active = !/(продан|продано|закрыт|снят|sold|closed)/i.test(statusName);
+    const lotItems = [String(auction.name || "").trim() && `Аукцион: ${String(auction.name).trim()}`, String(lot.number || "").trim() && `Лот: ${String(lot.number).trim()}`, String(item.grade || "").trim() && `Оценка: ${String(item.grade).trim()}`, statusName && `Статус: ${statusName}`, ...tags].filter((entry): entry is string => Boolean(entry));
+    return [{
+      id: `banzai-${id}`, slug: `jp-${slugPart(make)}-${slugPart(model)}-${id}`, status: active ? "active" : "inactive", source: "banzai24",
+      sourceUrl: `https://banzai24.com/car/JP/${encodeURIComponent(id)}`, country: "jp", currencyCode: "JPY", make, model,
+      trim: String(characteristics.modification || "").trim() || null, year, mileageKm: Number(characteristics.mileage) || 0,
+      engineCc: Number.isFinite(engineLiters) && engineLiters > 0 ? Math.round(engineLiters * 1000) : null,
+      powerHp: numberFrom(engineText.match(/([\d\s]+)\s*л\.с\./i)?.[1]) || null,
+      fuel: String(characteristics.fuelType || "").trim() || null,
+      transmission: String(characteristics.transmission || "").trim() || null,
+      drive: String(characteristics.drivetrain || "").trim() || null,
+      bodyType: String(characteristics.bodyType || "").trim() || null,
+      exteriorColor: String(characteristics.color || "").trim() || null,
+      interiorColor: String(characteristics.interiorColor || "").trim() || null,
+      vin: String(characteristics.bodyNumber || "").trim() || null,
+      sourcePrice, photos: [...new Set(photos)], details: {
+        auction: String(auction.name || "").trim(), lot: String(lot.number || "").trim(),
+        tradeDate: String(lot.tradeDate || "").trim(), tradeTime: String(lot.tradeTime || "").trim(),
+        grade: String(item.grade || "").trim(), status: statusName, tags, source: "Banzai24",
+        optionGroups: lotItems.length ? [{ title: "Данные лота", items: lotItems }] : []
+      }
+    }];
+  });
+  return { cars, total: Number(pagination.total) || cars.length, totalPages: Number(pagination.totalPages) || 0 };
+}
 
 const chineseBrands: Record<string, string> = {
   "大众": "Volkswagen", "红旗": "Hongqi", "丰田": "Toyota", "宝马": "BMW", "比亚迪": "BYD", "路虎": "Land Rover", "雷克萨斯": "Lexus",
@@ -72,12 +136,16 @@ function dongchediSeriesCar(value: unknown): ExternalCatalogCar[] {
   const make = modelMakes[originalName] || brandEntry?.[1] || chineseBrandIds[String(item.brand_id || "")] || "China Auto";
   const model = readableSeriesName(originalName, id);
   const cover = String(item.cover_url || "").replace(/^http:/, "https:");
+  const count = Number(item.count) || (Array.isArray(item.car_ids) ? item.car_ids.length : 0);
+  const priceRange = String(item.dealer_price || item.min_price || "");
+  const modelItems = [count ? `Доступно комплектаций: ${count}` : "", priceRange ? `Диапазон цен: ${priceRange}` : ""].filter(Boolean);
+  const sourceStatus = String(item.series_status_tag || "");
   return [{
-    id: `dongchedi-${id}`, slug: `cn-${slugPart(make)}-${slugPart(model)}-${id}`, status: "active", source: "dongchedi",
+    id: `dongchedi-${id}`, slug: `cn-${slugPart(make)}-${slugPart(model)}-${id}`, status: /停售|下架|停产/.test(sourceStatus) ? "inactive" : "active", source: "dongchedi",
     sourceUrl: `https://www.dongchedi.com/auto/series/${id}`, country: "cn", currencyCode: "CNY", make, model, trim: null,
-    year: new Date().getUTCFullYear(), mileageKm: 0, engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null,
+    year: 0, mileageKm: 0, engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null,
     bodyType: null, exteriorColor: null, interiorColor: null, vin: null, sourcePrice: Number.isFinite(priceWan) && priceWan > 0 ? Math.round(priceWan * 10_000) : 0,
-    photos: cover.startsWith("https://") ? [cover] : [], details: { originalName, priceRange: String(item.dealer_price || item.min_price || ""), source: "Dongchedi" }
+    photos: cover.startsWith("https://") ? [cover] : [], details: { originalName, priceRange, source: "Dongchedi", carIds: Array.isArray(item.car_ids) ? item.car_ids : [], optionGroups: modelItems.length ? [{ title: "Данные модели", items: modelItems }] : [] }
   }];
 }
 
