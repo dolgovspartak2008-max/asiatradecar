@@ -1,7 +1,13 @@
+export function resolveSiteUrl(env: Record<string, string | undefined> = process.env) {
+  if (env.SITE_URL) return env.SITE_URL;
+  const vercelUrl = env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL;
+  return vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000";
+}
+
 export const site = {
   name: "ASIA TRADE CAR",
   description: "Подбор, проверка, выкуп и доставка автомобилей из Азии в Россию.",
-  url: process.env.SITE_URL || "http://localhost:3000",
+  url: resolveSiteUrl(),
   owner: process.env.SITE_OWNER_NAME || "ИП Охтий Олеся Сергеевна",
   inn: process.env.SITE_OWNER_INN || "220419337642",
   ogrn: process.env.SITE_OWNER_OGRN || "326220200067030",
