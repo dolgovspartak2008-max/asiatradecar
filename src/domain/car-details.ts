@@ -2,6 +2,17 @@ import { normalizeCostBreakdown } from "./pricing";
 
 export type CostBreakdownLine = { label: string; value: string };
 
+const specLabels: Record<string, Record<string, string>> = {
+  transmission: { AT: "Автоматическая (AT)", MT: "Механическая (MT)", CVT: "Вариатор (CVT)", DCT: "Роботизированная (DCT)" },
+  drive: { "2WD": "Монопривод (2WD)", FWD: "Передний привод (FWD)", RWD: "Задний привод (RWD)", "4WD": "Полный привод (4WD)", AWD: "Полный привод (AWD)" },
+  body: { SUV: "Кроссовер / внедорожник (SUV)" }
+};
+
+export function formatVehicleSpec(kind: "transmission" | "drive" | "body", value: string | null) {
+  if (!value) return null;
+  return specLabels[kind][value.trim().toUpperCase()] || value;
+}
+
 export function readCostBreakdown(details: Record<string, unknown>, commissionRub?: number): CostBreakdownLine[] {
   if (!Array.isArray(details.costBreakdown)) return [];
   const lines = details.costBreakdown.flatMap((item) => {
@@ -17,7 +28,16 @@ export function readCostBreakdown(details: Record<string, unknown>, commissionRu
 export function readInsuranceHistory(details: Record<string, unknown>) {
   for (const key of ["insuranceOwn", "accident"] as const) {
     const value = details[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "string" && value.trim()) {
+      const clean = value.trim();
+      const match = clean.match(/^(\d+)\s*\/\s*(.+)$/);
+      if (match) {
+        const count = Number(match[1]);
+        const cases = count === 1 ? "страховой случай" : count > 1 && count < 5 ? "страховых случая" : "страховых случаев";
+        return `${count} ${cases} · сумма ${match[2]}`;
+      }
+      return clean;
+    }
   }
   return "Нет данных в источнике";
 }

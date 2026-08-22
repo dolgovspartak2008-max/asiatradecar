@@ -2,7 +2,7 @@ import type { CatalogFilters } from "../domain/catalog";
 import { buildCatalogQuery, parseCatalogParams } from "../domain/catalog";
 import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap, parseTrustEncarCatalogPage, parseTrustEncarModelsFacet, parseTrustEncarVehiclePage, type TrustEncarCatalogCar } from "../domain/sync";
 import { hasDatabase, query } from "./db";
-import { parseBanzaiCatalog, parseDongchediCatalog, type ExternalCatalogCar } from "../domain/external-catalog";
+import { parseBanzaiCatalog, parseDongchediSeriesPage, type ExternalCatalogCar } from "../domain/external-catalog";
 import { applyCatalogPricing } from "../domain/pricing";
 import { getPricingSettings } from "./pricing";
 import { readCostBreakdown } from "../domain/car-details";
@@ -75,19 +75,23 @@ async function getExternalCatalog(filters: CatalogFilters) {
     if (!response.ok) throw new Error(`Banzai24 вернул ${response.status}`);
     parsed = parseBanzaiCatalog(await response.text());
   } else {
-    const response = await fetch("https://www.dongchedi.com/", { next: { revalidate: 600 }, signal: AbortSignal.timeout(12_000), headers: { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" } });
+    const response = await fetch("https://www.dongchedi.com/motor/brand/m/v6/select/series/?city_name=%E5%8C%97%E4%BA%AC", {
+      method: "POST", next: { revalidate: 600 }, signal: AbortSignal.timeout(20_000),
+      headers: { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0", "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ offset: "0", limit: "5000", is_refresh: "1", city_name: "北京" })
+    });
     if (!response.ok) throw new Error(`Dongchedi вернул ${response.status}`);
-    const cars = parseDongchediCatalog(await response.text());
-    parsed = { cars, total: cars.length };
+    parsed = parseDongchediSeriesPage(await response.json());
+    if (parsed.total < 4_687 || parsed.cars.length !== parsed.total) throw new Error(`Dongchedi передал ${parsed.cars.length} из ${parsed.total} машин`);
   }
   const term = filters.q?.toLowerCase();
   const filtered = parsed.cars.filter((car) => (!term || `${car.make} ${car.model} ${car.trim || ""}`.toLowerCase().includes(term))
     && (!filters.make || car.make === filters.make) && (!filters.model || car.model === filters.model)
     && (filters.yearFrom === undefined || car.year >= filters.yearFrom) && (filters.yearTo === undefined || car.year <= filters.yearTo)
     && (filters.mileageTo === undefined || car.mileageKm <= filters.mileageTo));
-  const cars: Car[] = filtered.map((car) => {
+  let cars: Car[] = filtered.map((car) => {
     const rate = settings.rates[car.currencyCode];
-    const priceRub = applyCatalogPricing(car.sourcePrice, rate, settings.commissionRub);
+    const priceRub = car.sourcePrice > 0 ? applyCatalogPricing(car.sourcePrice, rate, settings.commissionRub) : null;
     const countryName = car.country === "jp" ? "Японии" : "Китае";
     return {
       id: car.id, slug: car.slug, sourceUrl: car.sourceUrl, country: car.country, currencyCode: car.currencyCode,
@@ -100,9 +104,15 @@ async function getExternalCatalog(filters: CatalogFilters) {
       ] }
     };
   });
+  cars = cars.filter((car) => (filters.priceFrom === undefined || (car.priceRub !== null && car.priceRub >= filters.priceFrom)) && (filters.priceTo === undefined || (car.priceRub !== null && car.priceRub <= filters.priceTo)));
+  if (filters.sort === "price-asc") cars.sort((a, b) => (a.priceRub ?? Infinity) - (b.priceRub ?? Infinity));
+  else if (filters.sort === "price-desc") cars.sort((a, b) => (b.priceRub ?? 0) - (a.priceRub ?? 0));
+  else if (filters.sort === "mileage") cars.sort((a, b) => a.mileageKm - b.mileageKm);
+  else cars.sort((a, b) => b.year - a.year);
   const makes = [...new Set(filtered.map((car) => car.make))].sort();
   const models = filters.make ? [...new Set(filtered.filter((car) => car.make === filters.make).map((car) => car.model))].sort() : [];
-  return { cars, total: filters.q || filters.make || filters.model ? filtered.length : parsed.total, makes, models };
+  const total = filters.country === "cn" ? cars.length : filters.q || filters.make || filters.model ? cars.length : parsed.total;
+  return { cars: filters.country === "cn" ? cars.slice(filters.offset, filters.offset + filters.limit) : cars, total, makes, models };
 }
 
 const isDefaultBrowse = (filters: CatalogFilters) => filters.country === "kr" && filters.limit === 24 && filters.sort === "newest"
@@ -232,7 +242,7 @@ export async function getCatalog(filters: CatalogFilters) {
 
 export async function getCarBySlug(slug: string) {
   const id = slug.match(/-(\d+)$/)?.[1];
-  if (id) {
+  if (id && !slug.startsWith("cn-") && !slug.startsWith("jp-")) {
     try {
       const response = await fetch(`https://trust-encar.ru/auto/${id}/`, {
         next: { revalidate: 300, tags: [`trust-encar-car-${id}`] },

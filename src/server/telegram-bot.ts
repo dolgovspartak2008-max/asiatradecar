@@ -1,10 +1,10 @@
-import { parseAdminValue } from "@/domain/telegram";
+import { parseAdminValue, parseReviewStep, type ReviewDraft } from "@/domain/telegram";
 import { query } from "@/server/db";
 import { getPricingSettings, setCatalogRate, setCommissionRub } from "@/server/pricing";
 import { site } from "@/config/site";
 
 type TelegramUpdate = {
-  message?: { text?: string; from?: { id: number; first_name?: string; username?: string }; chat: { id: number } };
+  message?: { text?: string; photo?: Array<{ file_id: string; width: number; height: number }>; from?: { id: number; first_name?: string; username?: string }; chat: { id: number } };
   callback_query?: { id: string; data?: string; from: { id: number; first_name?: string; username?: string }; message?: { chat: { id: number } } };
 };
 
@@ -32,12 +32,13 @@ async function menu(chatId: number, note?: string) {
     [{ text: "Курс Корея", callback_data: "set:KRW" }, { text: "Курс Япония", callback_data: "set:JPY" }],
     [{ text: "Курс Китай", callback_data: "set:CNY" }],
     [{ text: "Добавить администратора", callback_data: "admin:add" }, { text: "Удалить", callback_data: "admin:remove" }],
-    [{ text: "История заявок", callback_data: "leads" }]
+    [{ text: "История заявок", callback_data: "leads" }],
+    [{ text: "Добавить отзыв на сайт", callback_data: "review:add" }]
   ] } });
 }
 
-async function setSession(userId: number, action: string) {
-  await query("INSERT INTO bot_sessions (user_id,action,updated_at) VALUES ($1,$2,now()) ON CONFLICT (user_id) DO UPDATE SET action=EXCLUDED.action,updated_at=now()", [userId, action]);
+async function setSession(userId: number, action: string, state: ReviewDraft = {}) {
+  await query("INSERT INTO bot_sessions (user_id,action,state,updated_at) VALUES ($1,$2,$3::jsonb,now()) ON CONFLICT (user_id) DO UPDATE SET action=EXCLUDED.action,state=EXCLUDED.state,updated_at=now()", [userId, action, JSON.stringify(state)]);
 }
 
 async function showLeads(chatId: number) {
@@ -56,6 +57,11 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
   if (callback) {
     await telegram("answerCallbackQuery", { callback_query_id: callback.id });
     if (callback.data === "leads") { await showLeads(chatId); return; }
+    if (callback.data === "review:add") {
+      await setSession(user.id, "review:title");
+      await telegram("sendMessage", { chat_id: chatId, text: "Отправьте название автомобиля для отзыва." });
+      return;
+    }
     if (callback.data?.startsWith("set:") || callback.data?.startsWith("admin:")) {
       await setSession(user.id, callback.data);
       const prompt = callback.data === "admin:add" ? "Отправьте Telegram user ID нового администратора." : callback.data === "admin:remove" ? "Отправьте Telegram user ID для удаления." : "Отправьте новое положительное число одним сообщением.";
@@ -63,10 +69,25 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
     }
     return;
   }
-  if (!message?.text || message.text.startsWith("/start") || message.text.startsWith("/menu")) { await menu(chatId); return; }
-  const session = await query<{ action: string }>("SELECT action FROM bot_sessions WHERE user_id=$1", [user.id]);
+  if (message?.text?.startsWith("/start") || message?.text?.startsWith("/menu")) { await query("DELETE FROM bot_sessions WHERE user_id=$1", [user.id]); await menu(chatId); return; }
+  const session = await query<{ action: string; state: ReviewDraft }>("SELECT action,state FROM bot_sessions WHERE user_id=$1", [user.id]);
   const action = session.rows[0]?.action;
   if (!action) { await menu(chatId); return; }
+  if (action.startsWith("review:")) {
+    const photoFileId = message?.photo?.at(-1)?.file_id;
+    const step = parseReviewStep(action, message?.text, photoFileId, session.rows[0]?.state || {});
+    if ("error" in step) { await telegram("sendMessage", { chat_id: chatId, text: step.error }); return; }
+    if ("complete" in step && step.complete) {
+      await query("INSERT INTO reviews (title,text,telegram_file_id,created_by) VALUES ($1,$2,$3,$4) ON CONFLICT (telegram_file_id) DO NOTHING", [step.complete.title, step.complete.text, step.complete.photoFileId, user.id]);
+      await query("DELETE FROM bot_sessions WHERE user_id=$1", [user.id]);
+      await menu(chatId, "Отзыв опубликован на сайте.");
+      return;
+    }
+    await setSession(user.id, step.nextAction, step.draft);
+    await telegram("sendMessage", { chat_id: chatId, text: step.nextAction === "review:text" ? "Теперь отправьте текст отзыва." : "Теперь отправьте фотографию автомобиля." });
+    return;
+  }
+  if (!message?.text) { await telegram("sendMessage", { chat_id: chatId, text: "Отправьте значение текстом." }); return; }
   const value = parseAdminValue(message.text);
   if (!value) { await telegram("sendMessage", { chat_id: chatId, text: "Нужно отправить положительное число." }); return; }
   if (action === "set:commission") await setCommissionRub(Math.round(value), user.id);

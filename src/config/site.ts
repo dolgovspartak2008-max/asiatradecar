@@ -8,7 +8,7 @@ export const site = {
   address: process.env.SITE_OWNER_ADDRESS || "",
   email: process.env.SITE_OWNER_EMAIL || "",
   phone: process.env.SITE_OWNER_PHONE || "",
-  telegram: process.env.NEXT_PUBLIC_TELEGRAM_URL || "",
+  telegram: process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/AsiaTradeCar",
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_URL || "",
   policyVersion: process.env.PD_POLICY_VERSION || "2026-08-19"
 };

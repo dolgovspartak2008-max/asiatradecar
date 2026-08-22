@@ -2,12 +2,18 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { launchReady, site } from "@/config/site";
 
+const managers = [
+  { name: "Артур", phone: "8 (917) 041-88-55", regions: "Центральный, Приволжский и Северо-Западный ФО" },
+  { name: "Павел", phone: "8 (912) 438-14-30", regions: "Уральский, Сибирский и Дальневосточный ФО" },
+  { name: "Олег", phone: "8 (964) 093-59-56", regions: "Уральский, Сибирский и Дальневосточный ФО" }
+] as const;
+
 export function Footer() {
   return <footer className="site-footer" id="contacts">
     <div className="container footer-grid">
       <div><Logo /><p>Автомобили из Южной Кореи, Китая, Японии, Киргизии, США, ОАЭ и Канады</p></div>
       <div><h2>Навигация</h2><Link href="/catalog?country=kr">Каталог</Link><Link href="/orders">Как заказать</Link><Link href="/#process">Этапы работы</Link></div>
-      <div><h2>Контакты</h2>{site.phone && <a href={`tel:${site.phone.replace(/[^+\d]/g, "")}`}>{site.phone}</a>}{site.email && <a href={`mailto:${site.email}`}>{site.email}</a>}{site.telegram && <a href={site.telegram} rel="noreferrer">Telegram</a>}{!site.phone && !site.email && <p>Контакты появятся после подтверждения реквизитов оператора.</p>}</div>
+      <div className="footer-contacts"><h2>Контакты</h2>{managers.map((manager) => <a className="manager-contact" href={`tel:${manager.phone.replace(/[^\d]/g, "")}`} key={manager.name}><span><b>{manager.name}</b><strong>{manager.phone}</strong></span><small>{manager.regions}</small></a>)}<a className="telegram-channel" href={site.telegram} target="_blank" rel="noreferrer">Telegram-канал <span>AsiaTradeCar ↗</span></a>{site.email && <a href={`mailto:${site.email}`}>{site.email}</a>}</div>
     </div>
     <div className="container footer-bottom"><p>© {new Date().getFullYear()} ASIA TRADE CAR. Не публичная оферта.</p><nav aria-label="Юридические документы"><Link href="/legal/privacy">Политика</Link><Link href="/legal/consent">Согласие</Link><Link href="/legal/legal-information">Правовая информация</Link></nav>{!launchReady && <p className="setup-warning">Реквизиты и домен заполняются перед публикацией.</p>}</div>
   </footer>;

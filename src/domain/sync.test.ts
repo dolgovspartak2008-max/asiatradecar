@@ -170,7 +170,7 @@ describe("authorized catalog feed", () => {
       <li class="product-option"><div class="product-option-label">Мощность</div>180 л.с.</li>
       <li class="product-option"><div class="product-option-label">Стоимость авто в Корее</div>30 300 000 ₩ (1 965 864 ₽)</li>
       <li class="product-option"><div class="product-option-label">Цвет салона</div>Чёрный</li>
-    </ul><div>Страховая история: повреждения этого автомобиля <strong>1 / 1 227 805 ₩ (77 781 ₽)</strong> Страховая история: повреждения другого автомобиля</div>
+    </ul><div class="product-descr"><h3>Комфортные функции (2 опции)</h3><ul class="product-option info-list"><li class="is-active">Климат-контроль</li><li>Люк</li><li class="is-active">Подогрев сидений</li></ul></div><div>Страховая история: повреждения этого автомобиля <strong>1 / 1 227 805 ₩ (77 781 ₽)</strong> Страховая история: повреждения другого автомобиля</div>
       <div class="calc-detail__line"><span class="calc-detail__subtitle">Комиссия агента по договору:</span><b class="calc-detail__price">93 000 ₽</b></div>
       <div class="calc-detail__line"><span class="calc-detail__subtitle">Стоимость автомобиля в Корее:</span><b class="calc-detail__price">30 300 000 ₩ (1 965 864 ₽)</b></div>`;
     expect(parseVehicle(html)).toMatchObject({
@@ -180,6 +180,7 @@ describe("authorized catalog feed", () => {
       details: {
         koreaPriceRub: 1965864,
         insuranceOwn: "1 / 1 227 805 ₩ (77 781 ₽)",
+        optionGroups: [{ title: "Комфортные функции", items: ["Климат-контроль", "Подогрев сидений"] }],
         costBreakdown: [
           { label: "Комиссия агента по договору", value: "93 000 ₽" },
           { label: "Стоимость автомобиля в Корее", value: "30 300 000 ₩ (1 965 864 ₽)" }

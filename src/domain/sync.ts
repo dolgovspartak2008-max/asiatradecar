@@ -216,6 +216,12 @@ export function parseTrustEncarVehiclePage(html: string): TrustEncarCatalogCar |
     const value = line.find(".calc-detail__price").first().text().replace(/\s+/g, " ").trim();
     return label && value ? [{ label, value }] : [];
   });
+  const optionGroups = $(".product-descr").toArray().flatMap((element) => {
+    const group = $(element);
+    const title = group.find("h3").first().text().replace(/\s*\(\d+\s+опци(?:я|и|й)\)\s*$/i, "").trim();
+    const items = group.find("ul.product-option li.is-active").toArray().map((item) => $(item).text().replace(/\s+/g, " ").trim()).filter(Boolean);
+    return title && items.length ? [{ title, items }] : [];
+  });
   const id = textFrom(data.sku);
   const make = textFrom(brand.name);
   const model = textFrom(data.model);
@@ -244,6 +250,7 @@ export function parseTrustEncarVehiclePage(html: string): TrustEncarCatalogCar |
       registration: option("Дата регистрации в Корее") || null,
       koreaPriceRub: numberFrom(koreaCost.match(/[\d\s]+(?=\s*₽)/)?.[0]) || null,
       insuranceOwn,
+      optionGroups,
       costBreakdown
     }
   });

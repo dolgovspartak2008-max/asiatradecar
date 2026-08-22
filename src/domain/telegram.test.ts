@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAdminValue } from "./telegram";
+import { parseAdminValue, parseReviewStep } from "./telegram";
 
 describe("telegram admin input", () => {
   it("accepts spaced decimal values", () => {
@@ -10,5 +10,13 @@ describe("telegram admin input", () => {
   it("rejects non-positive values", () => {
     expect(parseAdminValue("0")).toBeNull();
     expect(parseAdminValue("текст")).toBeNull();
+  });
+});
+
+describe("telegram review input", () => {
+  it("collects title, text and Telegram photo in order", () => {
+    expect(parseReviewStep("review:title", "Toyota Camry", undefined, {})).toEqual({ nextAction: "review:text", draft: { title: "Toyota Camry" } });
+    expect(parseReviewStep("review:text", "Машина пришла в идеальном состоянии", undefined, { title: "Toyota Camry" })).toEqual({ nextAction: "review:image", draft: { title: "Toyota Camry", text: "Машина пришла в идеальном состоянии" } });
+    expect(parseReviewStep("review:image", undefined, "photo-1", { title: "Toyota Camry", text: "Отзыв" })).toEqual({ complete: { title: "Toyota Camry", text: "Отзыв", photoFileId: "photo-1" } });
   });
 });

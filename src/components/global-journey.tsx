@@ -104,34 +104,35 @@ export function GlobalJourney() {
       <g className="map-places"><circle cx="238" cy="281" r="3"/><circle cx="407" cy="347" r="3"/><circle cx="600" cy="407" r="3"/><circle cx="779" cy="405" r="3"/><circle cx="930" cy="477" r="3"/><circle cx="333" cy="214" r="2.5"/><circle cx="517" cy="287" r="2.5"/><circle cx="701" cy="324" r="2.5"/><circle cx="846" cy="285" r="2.5"/><circle cx="152" cy="357" r="2"/><circle cx="292" cy="431" r="2"/><circle cx="466" cy="464" r="2"/><circle cx="555" cy="232" r="2"/><circle cx="655" cy="354" r="2"/><circle cx="742" cy="230" r="2"/><circle cx="879" cy="377" r="2"/><circle cx="985" cy="430" r="2"/></g>
       <g className="map-labels">
         <text x="238" y="255">Москва</text><text x="360" y="190">Казань</text><text x="407" y="378">Екатеринбург</text><text x="485" y="265">Челябинск</text><text x="585" y="330">Омск</text>
-        <text x="600" y="442">Новосибирск</text><text x="700" y="298">Красноярск</text><text x="779" y="438">Иркутск</text><text x="846" y="260">Чита</text><text x="950" y="380">Хабаровск</text><text x="986" y="505">Владивосток</text>
+        <text x="600" y="442">Новосибирск</text><text x="700" y="298">Красноярск</text><text x="779" y="438">Иркутск</text><text x="846" y="260">Чита</text><text x="950" y="380">Хабаровск</text><text x="930" y="505">Владивосток</text>
         <text className="map-region-name" x="470" y="470">РОССИЯ</text><text className="map-water-name" x="1035" y="555">ЯПОНСКОЕ МОРЕ</text>
+        <g className="map-small-labels"><text x="286" y="410">Самара</text><text x="516" y="208">Тюмень</text><text x="650" y="258">Томск</text><text x="820" y="300">Улан-Удэ</text><text x="888" y="350">Благовещенск</text><text x="1018" y="458">Уссурийск</text></g>
       </g>
 
       <g className="journey-desktop" data-journey-route>
-        <path className="journey-route-road" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281 163 264 120 238"/>
-        <path className="journey-route-base" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281 163 264 120 238"/>
-        <path className="journey-route-progress" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281 163 264 120 238"/>
+        <path className="journey-route-road" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281"/>
+        <path className="journey-route-base" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281"/>
+        <path className="journey-route-progress" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281"/>
         <g className="journey-car" transform="translate(930 477)" filter="url(#car-shadow)">{car}</g>
         <g className="journey-city"><circle cx="930" cy="477" r="8"/><text x="930" y="453">Владивосток</text></g>
         <g className="journey-city"><circle cx="779" cy="405" r="8"/><text x="779" y="381">Иркутск</text></g>
         <g className="journey-city"><circle cx="600" cy="407" r="8"/><text x="600" y="383">Новосибирск</text></g>
         <g className="journey-city"><circle cx="407" cy="347" r="8"/><text x="407" y="323">Екатеринбург</text></g>
-        <g className="journey-city"><circle cx="120" cy="238" r="8"/><text x="120" y="214">Москва</text></g>
+        <g className="journey-city"><circle cx="238" cy="281" r="8"/><text x="238" y="257">Москва</text></g>
       </g>
 
       <g className="journey-mobile" data-journey-route>
-        <path className="journey-route-road" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 237 584 170 641 115 600 68"/>
-        <path className="journey-route-base" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 237 584 170 641 115 600 68"/>
-        <path className="journey-route-progress" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 237 584 170 641 115 600 68"/>
+        <path className="journey-route-road" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 250 584 210 625 196 600 180"/>
+        <path className="journey-route-base" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 250 584 210 625 196 600 180"/>
+        <path className="journey-route-progress" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 250 584 210 625 196 600 180"/>
         <g className="journey-car" transform="translate(638 546)" filter="url(#car-shadow)">{car}</g>
         <g className="journey-city"><circle cx="638" cy="546" r="9"/><text x="716" y="552">Владивосток</text></g>
         <g className="journey-city"><circle cx="606" cy="424" r="9"/><text x="548" y="432">Иркутск</text></g>
         <g className="journey-city"><circle cx="622" cy="296" r="9"/><text x="700" y="303">Новосибирск</text></g>
-        <g className="journey-city"><circle cx="584" cy="170" r="9"/><text x="500" y="178">Екатеринбург</text></g>
-        <g className="journey-city"><circle cx="600" cy="68" r="9"/><text x="660" y="75">Москва</text></g>
+        <g className="journey-city"><circle cx="584" cy="210" r="9"/><text x="500" y="218">Екатеринбург</text></g>
+        <g className="journey-city"><circle cx="600" cy="180" r="9"/><text x="658" y="176">Москва</text></g>
       </g>
     </svg>
-    <div className="journey-label"><span>Маршрут по России</span><b>Владивосток — ваш город</b></div>
+    <div className="journey-label"><span>Маршрут по России</span><b>Доставка до вашего города</b></div>
   </div>;
 }

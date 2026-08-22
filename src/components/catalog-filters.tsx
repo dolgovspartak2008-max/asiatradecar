@@ -12,6 +12,6 @@ export function CatalogFilters({ filters, makes, models }: { filters: Filters; m
     <label>Цена до, ₽<input name="priceTo" type="number" min="0" step="100000" defaultValue={filters.priceTo} /></label>
     <label>Пробег до, км<input name="mileageTo" type="number" min="0" step="10000" defaultValue={filters.mileageTo} /></label>
     <label>Сортировка<select name="sort" defaultValue={filters.sort}><option value="newest">Сначала новее</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option><option value="mileage">Меньше пробег</option></select></label>
-    <input type="hidden" name="country" value="kr" /><button className="button" type="submit">Показать</button>
+    <input type="hidden" name="country" value={filters.country} /><button className="button" type="submit">Показать</button>
   </form>;
 }

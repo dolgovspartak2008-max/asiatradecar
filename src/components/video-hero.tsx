@@ -10,6 +10,7 @@ export function VideoHero() {
     let active = 0;
     let switching = false;
     let cleanupTimer = 0;
+    let animationFrame = 0;
 
     const sync = () => {
       videos.forEach((video, index) => {
@@ -28,27 +29,29 @@ export function VideoHero() {
       try {
         await next.play();
         current.classList.remove("is-front");
-        current.classList.add("is-fading");
+        current.classList.add("is-outgoing");
         next.classList.add("is-front");
         cleanupTimer = window.setTimeout(() => {
           current.pause();
           current.currentTime = 0;
-          current.classList.remove("is-fading");
+          current.classList.remove("is-outgoing");
           active = nextIndex;
           switching = false;
-        }, 900);
+        }, 1600);
       } catch { switching = false; }
     };
     const checkSeam = () => {
       const current = videos[active];
-      if (current?.duration && current.duration - current.currentTime < .95) void crossfade();
+      if (current?.duration && current.duration - current.currentTime < 2.4) void crossfade();
+      animationFrame = requestAnimationFrame(checkSeam);
     };
-    videos.forEach((video) => video.addEventListener("timeupdate", checkSeam));
     sync();
+    animationFrame = requestAnimationFrame(checkSeam);
     media.addEventListener("change", sync);
     return () => {
       media.removeEventListener("change", sync);
-      videos.forEach((video) => { video.removeEventListener("timeupdate", checkSeam); video.pause(); });
+      cancelAnimationFrame(animationFrame);
+      videos.forEach((video) => video.pause());
       clearTimeout(cleanupTimer);
     };
   }, []);

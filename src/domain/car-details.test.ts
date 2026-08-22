@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readCostBreakdown, readInsuranceHistory } from "./car-details";
+import { formatVehicleSpec, readCostBreakdown, readInsuranceHistory } from "./car-details";
 
 describe("readCostBreakdown", () => {
   it("keeps only complete source expense rows", () => {
@@ -14,11 +14,19 @@ describe("readCostBreakdown", () => {
 describe("readInsuranceHistory", () => {
   it("prefers the detailed own-damage history from the vehicle page", () => {
     expect(readInsuranceHistory({ insuranceOwn: "1 / 1 227 805 ₩ (77 781 ₽)", accident: "ДТП: 1" }))
-      .toBe("1 / 1 227 805 ₩ (77 781 ₽)");
+      .toBe("1 страховой случай · сумма 1 227 805 ₩ (77 781 ₽)");
   });
 
   it("falls back to the catalog accident summary", () => {
     expect(readInsuranceHistory({ accident: "Без зарегистрированных ДТП" })).toBe("Без зарегистрированных ДТП");
     expect(readInsuranceHistory({})).toBe("Нет данных в источнике");
+  });
+});
+
+describe("formatVehicleSpec", () => {
+  it("expands technical abbreviations for customers", () => {
+    expect(formatVehicleSpec("transmission", "AT")).toBe("Автоматическая (AT)");
+    expect(formatVehicleSpec("drive", "2WD")).toBe("Монопривод (2WD)");
+    expect(formatVehicleSpec("body", "SUV")).toBe("Кроссовер / внедорожник (SUV)");
   });
 });
