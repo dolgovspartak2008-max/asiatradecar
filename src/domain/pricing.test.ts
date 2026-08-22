@@ -39,6 +39,13 @@ describe("catalog pricing", () => {
     });
   });
 
+  it("uses country commission configured by the Telegram admin", () => {
+    expect(buildExternalPricing("jp", 1_000_000, 0.62, 0, 75_000)).toMatchObject({
+      priceRub: 910_000,
+      costBreakdown: expect.arrayContaining([{ label: "Комиссия компании", value: "75 000 ₽" }])
+    });
+  });
+
   it("removes won amounts when a Korean source also provides rubles", () => {
     expect(normalizeCostBreakdown([
       { label: "Стоимость автомобиля в Корее", value: "30 300 000 ₩ (1 965 864 ₽)" }

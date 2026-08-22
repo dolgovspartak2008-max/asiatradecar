@@ -1,4 +1,4 @@
-import { parseAdminValue, parseReviewStep, type ReviewDraft } from "@/domain/telegram";
+import { parseAdminValue, parseCommissionCountry, parseReviewStep, type ReviewDraft } from "@/domain/telegram";
 import { query } from "@/server/db";
 import { getPricingSettings, setCatalogRate, setCommissionRub } from "@/server/pricing";
 import { site } from "@/config/site";
@@ -26,9 +26,11 @@ async function isAdmin(userId: number) {
 
 async function menu(chatId: number, note?: string) {
   const settings = await getPricingSettings();
-  const text = `${note ? `${note}\n\n` : ""}<b>Управление Asia Trade Car</b>\nКомиссия: ${money(settings.commissionRub)} ₽\nКорея: ${settings.rates.KRW}\nЯпония: ${settings.rates.JPY}\nКитай: ${settings.rates.CNY}`;
+  const text = `${note ? `${note}\n\n` : ""}<b>Управление Asia Trade Car</b>\nКомиссия Корея: ${money(settings.commissions.kr)} ₽\nКомиссия Япония: ${money(settings.commissions.jp)} ₽\nКомиссия Китай: ${money(settings.commissions.cn)} ₽\n\nКурс Корея: ${settings.rates.KRW}\nКурс Япония: ${settings.rates.JPY}\nКурс Китай: ${settings.rates.CNY}`;
   await telegram("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", reply_markup: { inline_keyboard: [
-    [{ text: "Комиссия", callback_data: "set:commission" }],
+    [{ text: "Комиссия Корея", callback_data: "set:commission:kr" }],
+    [{ text: "Комиссия Япония", callback_data: "set:commission:jp" }],
+    [{ text: "Комиссия Китай", callback_data: "set:commission:cn" }],
     [{ text: "Курс Корея", callback_data: "set:KRW" }, { text: "Курс Япония", callback_data: "set:JPY" }],
     [{ text: "Курс Китай", callback_data: "set:CNY" }],
     [{ text: "Добавить администратора", callback_data: "admin:add" }, { text: "Удалить", callback_data: "admin:remove" }],
@@ -64,7 +66,8 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
     }
     if (callback.data?.startsWith("set:") || callback.data?.startsWith("admin:")) {
       await setSession(user.id, callback.data);
-      const prompt = callback.data === "admin:add" ? "Отправьте Telegram user ID нового администратора." : callback.data === "admin:remove" ? "Отправьте Telegram user ID для удаления." : "Отправьте новое положительное число одним сообщением.";
+      const commissionCountry = parseCommissionCountry(callback.data);
+      const prompt = callback.data === "admin:add" ? "Отправьте Telegram user ID нового администратора." : callback.data === "admin:remove" ? "Отправьте Telegram user ID для удаления." : commissionCountry ? "Отправьте новую комиссию в рублях одним сообщением." : "Отправьте курс в рублях за одну единицу валюты. Для Японии можно указать 0,62 или 62 за 100 иен.";
       await telegram("sendMessage", { chat_id: chatId, text: prompt });
     }
     return;
@@ -90,7 +93,8 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
   if (!message?.text) { await telegram("sendMessage", { chat_id: chatId, text: "Отправьте значение текстом." }); return; }
   const value = parseAdminValue(message.text);
   if (!value) { await telegram("sendMessage", { chat_id: chatId, text: "Нужно отправить положительное число." }); return; }
-  if (action === "set:commission") await setCommissionRub(Math.round(value), user.id);
+  const commissionCountry = parseCommissionCountry(action);
+  if (commissionCountry) await setCommissionRub(commissionCountry, Math.round(value), user.id);
   else if (action.startsWith("set:")) await setCatalogRate(action.slice(4) as "KRW" | "JPY" | "CNY", value);
   else if (action === "admin:add") await query("INSERT INTO bot_admins (user_id,display_name,added_by) VALUES ($1,'',$2) ON CONFLICT (user_id) DO NOTHING", [Math.round(value), user.id]);
   else if (action === "admin:remove" && Math.round(value) !== ownerId()) await query("DELETE FROM bot_admins WHERE user_id=$1 AND is_owner=false", [Math.round(value)]);

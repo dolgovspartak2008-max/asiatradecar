@@ -1,6 +1,7 @@
 type CostBreakdownLine = { label: string; value: string };
 
 export const DEFAULT_COMMISSION_RUB = 100_000;
+export const DEFAULT_COMMISSIONS_RUB = { kr: DEFAULT_COMMISSION_RUB, jp: 50_000, cn: 100_000 } as const;
 export const KOREA_BROKER_RUB = 110_000;
 export const JAPAN_EXPENSES_JPY = 250_000;
 
@@ -39,7 +40,7 @@ export function applyCatalogPricing(sourcePrice: number, rubPerUnit: number, com
   return Math.round(sourcePrice * rubPerUnit + commissionRub);
 }
 
-export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, rubPerUnit: number, customsDutyRub = 0) {
+export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, rubPerUnit: number, customsDutyRub = 0, commissionRub: number = COUNTRY_FEES[country].commissionRub) {
   const fees = COUNTRY_FEES[country];
   const sourceRub = Math.round(sourcePrice * rubPerUnit);
   const japanExpensesRub = country === "jp" ? Math.round(JAPAN_EXPENSES_JPY * rubPerUnit) : 0;
@@ -50,8 +51,8 @@ export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, 
   if (country === "jp") costBreakdown.push({ label: "Расходы по Японии", value: `${JAPAN_EXPENSES_JPY.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ¥ (${formatRub(japanExpensesRub)})` });
   if (customsDutyRub > 0) costBreakdown.push({ label: "Таможенная пошлина (предварительно)", value: formatRub(customsDutyRub) });
   costBreakdown.push(
-    { label: "Комиссия компании", value: formatRub(fees.commissionRub) },
+    { label: "Комиссия компании", value: formatRub(commissionRub) },
     { label: "Таможенный брокер", value: formatRub(fees.brokerRub) }
   );
-  return { priceRub: sourceRub + japanExpensesRub + customsDutyRub + fees.commissionRub + fees.brokerRub, costBreakdown };
+  return { priceRub: sourceRub + japanExpensesRub + customsDutyRub + commissionRub + fees.brokerRub, costBreakdown };
 }

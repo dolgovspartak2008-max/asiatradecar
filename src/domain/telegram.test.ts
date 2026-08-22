@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAdminValue, parseReviewStep } from "./telegram";
+import { parseAdminValue, parseCommissionCountry, parseReviewStep } from "./telegram";
 
 describe("telegram admin input", () => {
   it("accepts spaced decimal values", () => {
@@ -10,6 +10,14 @@ describe("telegram admin input", () => {
   it("rejects non-positive values", () => {
     expect(parseAdminValue("0")).toBeNull();
     expect(parseAdminValue("текст")).toBeNull();
+  });
+
+  it("recognizes separate country commission actions", () => {
+    expect(parseCommissionCountry("set:commission")).toBe("kr");
+    expect(parseCommissionCountry("set:commission:kr")).toBe("kr");
+    expect(parseCommissionCountry("set:commission:jp")).toBe("jp");
+    expect(parseCommissionCountry("set:commission:cn")).toBe("cn");
+    expect(parseCommissionCountry("set:JPY")).toBeNull();
   });
 });
 

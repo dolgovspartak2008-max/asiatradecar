@@ -115,6 +115,12 @@ export function translateChineseCarName(make: string, model: string) {
   return { make: chineseBrands[make] || make, model: chineseModels[model] || model };
 }
 
+export function formatCnyPriceRange(raw: string) {
+  const values = raw.match(/\d+(?:[.,]\d+)?/g)?.map((value) => Number(value.replace(",", "."))).filter((value) => Number.isFinite(value) && value > 0) || [];
+  if (!values.length) return "";
+  return `${values.map((value) => Math.round(value * 10_000).toLocaleString("ru-RU").replace(/\u00a0/g, " ")).join("–")} ¥`;
+}
+
 const modelMakes: Record<string, string> = { "凯美瑞": "Toyota", "亚洲龙": "Toyota", "RAV4荣放": "Toyota", "帕萨特": "Volkswagen", "朗逸": "Volkswagen", "速腾": "Volkswagen" };
 const chineseBrandIds: Record<string, string> = { "1": "Volkswagen", "2": "Audi", "3": "Mercedes-Benz", "4": "BMW", "5": "Toyota", "16": "BYD", "30": "Cadillac", "34": "MG", "73": "Geely", "195": "XPeng", "202": "Li Auto", "207": "Leapmotor", "535": "Xiaomi", "858": "Geely Galaxy" };
 
@@ -138,7 +144,8 @@ function dongchediSeriesCar(value: unknown): ExternalCatalogCar[] {
   const cover = String(item.cover_url || "").replace(/^http:/, "https:");
   const count = Number(item.count) || (Array.isArray(item.car_ids) ? item.car_ids.length : 0);
   const priceRange = String(item.dealer_price || item.min_price || "");
-  const modelItems = [count ? `Доступно комплектаций: ${count}` : "", priceRange ? `Диапазон цен: ${priceRange}` : ""].filter(Boolean);
+  const formattedPriceRange = formatCnyPriceRange(priceRange);
+  const modelItems = [count ? `Доступно комплектаций: ${count}` : "", formattedPriceRange ? `Диапазон цен: ${formattedPriceRange}` : ""].filter(Boolean);
   const sourceStatus = String(item.series_status_tag || "");
   return [{
     id: `dongchedi-${id}`, slug: `cn-${slugPart(make)}-${slugPart(model)}-${id}`, status: /停售|下架|停产/.test(sourceStatus) ? "inactive" : "active", source: "dongchedi",

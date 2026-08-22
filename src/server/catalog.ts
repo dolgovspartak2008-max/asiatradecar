@@ -4,7 +4,7 @@ import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBo
 import { hasDatabase, query } from "./db";
 import { getPricingSettings } from "./pricing";
 import { readCostBreakdown } from "../domain/car-details";
-import { buildExternalPricing, KOREA_BROKER_RUB } from "../domain/pricing";
+import { buildExternalPricing, DEFAULT_COMMISSION_RUB, KOREA_BROKER_RUB } from "../domain/pricing";
 import type { ExternalCatalogCar } from "../domain/external-catalog";
 import { fetchBanzaiMakes, fetchBanzaiModels, fetchBanzaiPage, fetchBanzaiVehicle, type BanzaiCatalogSelection } from "./banzai";
 import { fetchDongchediPage, fetchDongchediVehicle } from "./dongchedi";
@@ -69,10 +69,10 @@ function moneyFromLine(raw: unknown, pattern: RegExp, fallback: number) {
   return Number(String(line?.value || "").replace(/[^\d]/g, "")) || fallback;
 }
 
-function applyCommission(car: Car, commissionRub: number): Car {
+export function applyCommission(car: Car, commissionRub: number, includedFees = true): Car {
   const raw = Array.isArray(car.details.costBreakdown) ? car.details.costBreakdown : [];
-  const previousCommission = moneyFromLine(raw, /комисси/i, commissionRub);
-  const previousBroker = moneyFromLine(raw, /брокер/i, 60_000);
+  const previousCommission = moneyFromLine(raw, /комисси/i, includedFees ? DEFAULT_COMMISSION_RUB : 0);
+  const previousBroker = moneyFromLine(raw, /брокер/i, includedFees ? 60_000 : 0);
   return { ...car, priceRub: car.priceRub ? car.priceRub - previousCommission - previousBroker + commissionRub + KOREA_BROKER_RUB : car.priceRub, details: { ...car.details, costBreakdown: readCostBreakdown(car.details, commissionRub, KOREA_BROKER_RUB) } };
 }
 
@@ -84,10 +84,10 @@ const fromExternalCar = (car: ExternalCatalogCar): Car => ({
   vin: car.vin, priceKrw: car.sourcePrice, priceRub: null, photos: car.photos, details: car.details
 });
 
-function applyExternalPricing(car: Car, rubPerUnit: number, customsDutyRub = 0): Car {
+function applyExternalPricing(car: Car, rubPerUnit: number, customsDutyRub = 0, commissionRub?: number): Car {
   const country = car.country === "jp" ? "jp" : "cn";
   if (!car.priceKrw) return car;
-  const pricing = buildExternalPricing(country, car.priceKrw, rubPerUnit, customsDutyRub);
+  const pricing = buildExternalPricing(country, car.priceKrw, rubPerUnit, customsDutyRub, commissionRub);
   return { ...car, priceRub: pricing.priceRub, details: { ...car.details, customsSource: country === "jp" ? "Drom" : car.details.customsSource, costBreakdown: pricing.costBreakdown } };
 }
 
@@ -102,7 +102,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
     const priced = makeCars
       .filter((car) => !filters.model || same(car.model, filters.model))
       .map(fromExternalCar)
-      .map((car) => applyExternalPricing(car, settings.rates.CNY))
+      .map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn))
       .filter((car) => filters.yearFrom === undefined || car.year >= filters.yearFrom)
       .filter((car) => filters.yearTo === undefined || car.year <= filters.yearTo)
       .filter((car) => filters.priceFrom === undefined || (car.priceRub !== null && car.priceRub >= filters.priceFrom))
@@ -130,7 +130,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
   const first = await fetchBanzaiPage(sourcePage, 100, selection);
   const pages = start + filters.limit > first.cars.length && sourcePage < first.totalPages ? [first, await fetchBanzaiPage(sourcePage + 1, 100, selection)] : [first];
   const sourceCars = pages.flatMap((page) => page.cars);
-  const cars = sourceCars.slice(start, start + filters.limit).map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.JPY))
+  const cars = sourceCars.slice(start, start + filters.limit).map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.JPY, 0, settings.commissions.jp))
     .filter((car) => filters.priceFrom === undefined || (car.priceRub !== null && car.priceRub >= filters.priceFrom))
     .filter((car) => filters.priceTo === undefined || (car.priceRub !== null && car.priceRub <= filters.priceTo));
   return { cars, total: first.total, makes, models, generations: [] };
@@ -255,18 +255,19 @@ export async function getCatalog(filters: CatalogFilters) {
     if (hasDatabase()) {
       try {
         const [catalog, settings] = await Promise.all([getDatabaseCatalog(filters), getPricingSettings()]);
-        if (catalog.total > 0) return { ...catalog, cars: catalog.cars.map((car) => applyExternalPricing(car, settings.rates[car.currencyCode])) };
+        if (catalog.total > 0) return { ...catalog, cars: catalog.cars.map((car) => applyExternalPricing(car, settings.rates[car.currencyCode], 0, settings.commissions[car.country === "jp" ? "jp" : "cn"])) };
       } catch {}
     }
     return getExternalBrowseCatalog(filters);
   }
   try {
     const [catalog, settings] = await Promise.all([isDefaultBrowse(filters) ? getBrowseCatalog(filters) : getLiveCatalog(filters), getPricingSettings()]);
-    return { ...catalog, cars: catalog.cars.map((car) => applyCommission(car, settings.commissionRub)) };
+    return { ...catalog, cars: catalog.cars.map((car) => applyCommission(car, settings.commissions.kr)) };
   } catch (error) {
     if (!hasDatabase()) throw error;
   }
-  return getDatabaseCatalog(filters);
+  const [catalog, settings] = await Promise.all([getDatabaseCatalog(filters), getPricingSettings()]);
+  return { ...catalog, cars: catalog.cars.map((car) => applyCommission(car, settings.commissions.kr, false)) };
 }
 
 export async function getCarBySlug(slug: string) {
@@ -279,7 +280,7 @@ export async function getCarBySlug(slug: string) {
       });
       if (response.ok) {
         const live = parseTrustEncarVehiclePage(await response.text());
-        if (live) return applyCommission(fromFeedCar(live), (await getPricingSettings()).commissionRub);
+        if (live) return applyCommission(fromFeedCar(live), (await getPricingSettings()).commissions.kr);
       }
     } catch {}
   }
@@ -291,7 +292,7 @@ export async function getCarBySlug(slug: string) {
         if (external) {
           const car = fromExternalCar(external);
           const duty = car.engineCc ? await getDromCustomsDutyRub({ priceJpy: car.priceKrw, year: car.year, engineCc: car.engineCc, powerHp: car.powerHp, fuel: car.fuel }).catch(() => null) : null;
-          return applyExternalPricing(car, settings.rates.JPY, duty || 0);
+          return applyExternalPricing(car, settings.rates.JPY, duty || 0, settings.commissions.jp);
         }
       } catch {}
     }
@@ -301,7 +302,7 @@ export async function getCarBySlug(slug: string) {
     if (sourceId) {
       try {
         const [external, settings] = await Promise.all([fetchDongchediVehicle(sourceId), getPricingSettings()]);
-        if (external) return applyExternalPricing(fromExternalCar(external), settings.rates.CNY);
+        if (external) return applyExternalPricing(fromExternalCar(external), settings.rates.CNY, 0, settings.commissions.cn);
       } catch {}
     }
   }
@@ -312,16 +313,16 @@ export async function getCarBySlug(slug: string) {
   const settings = await getPricingSettings();
   if (car.country === "jp") {
     const duty = car.engineCc ? await getDromCustomsDutyRub({ priceJpy: car.priceKrw, year: car.year, engineCc: car.engineCc, powerHp: car.powerHp, fuel: car.fuel }).catch(() => null) : null;
-    return applyExternalPricing(car, settings.rates.JPY, duty || 0);
+    return applyExternalPricing(car, settings.rates.JPY, duty || 0, settings.commissions.jp);
   }
-  if (car.country === "cn") return applyExternalPricing(car, settings.rates.CNY);
-  return applyCommission(car, settings.commissionRub);
+  if (car.country === "cn") return applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn);
+  return applyCommission(car, settings.commissions.kr, false);
 }
 
 export async function getLatestCars(limit = 4) {
   try {
     const [live, settings] = await Promise.all([getBrowseCatalog(parseCatalogParams({ country: "kr" })), getPricingSettings()]);
-    return live.cars.slice(0, limit).map((car) => applyCommission(car, settings.commissionRub));
+    return live.cars.slice(0, limit).map((car) => applyCommission(car, settings.commissions.kr));
   } catch {
     if (!hasDatabase()) return [] as Car[];
   }

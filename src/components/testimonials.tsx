@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { getPublishedReviews } from "@/server/reviews";
+import { ReviewText } from "@/components/review-text";
 
 const reviews = [
   {
@@ -32,5 +33,5 @@ const reviews = [
 export async function Testimonials() {
   const added = await getPublishedReviews();
   const all = [...added.map((review) => ({ ...review, image: `/api/reviews/${review.id}/image` })), ...reviews];
-  return <section className="section testimonials" id="reviews"><div className="container"><div className="section-heading"><div><p className="eyebrow">Отзывы клиентов</p><h2>Автомобили уже в России</h2></div><p>Истории клиентов, которые прошли путь от подбора до получения автомобиля.</p></div><div className="testimonial-grid">{all.map((review, index) => <figure className="testimonial-card" key={`${review.title}-${index}`}><div className="testimonial-photo"><Image src={review.image} alt={`${review.title}, доставленный клиенту Asia Trade Car`} fill sizes="(max-width: 800px) 88vw, 33vw" /></div><figcaption><h3>{review.title}</h3><p>{review.text}</p></figcaption></figure>)}</div></div></section>;
+  return <section className="section testimonials" id="reviews"><div className="container"><div className="section-heading"><div><p className="eyebrow">Отзывы клиентов</p><h2>Автомобили уже в России</h2></div><p>Истории клиентов, которые прошли путь от подбора до получения автомобиля.</p></div><div className="testimonial-grid">{all.map((review, index) => <figure className="testimonial-card" key={`${review.title}-${index}`}><div className="testimonial-photo"><Image src={review.image} alt={`${review.title}, доставленный клиенту Asia Trade Car`} fill sizes="(max-width: 800px) 88vw, 33vw" /></div><figcaption><h3>{review.title}</h3><ReviewText text={review.text} /></figcaption></figure>)}</div></div></section>;
 }

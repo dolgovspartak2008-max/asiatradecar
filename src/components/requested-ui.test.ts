@@ -64,11 +64,32 @@ describe("requested mobile UI", () => {
     expect(read("../app/catalog/page.tsx")).toContain("<CatalogResults key={query.toString()}");
   });
 
-  it("keeps legal headings readable on narrow screens and highlights country names", () => {
+  it("keeps legal headings readable on narrow screens and uses black country names", () => {
     const css = read("../app/globals.css");
     expect(css).toContain(".legal-page h1 { font-size:");
     expect(css).toContain(".country-card h3 { margin:");
-    expect(css).toContain("color: #f2b321");
+    expect(css).toContain(".country-card h3 { margin: 0; color: var(--ink)");
+  });
+
+  it("shows complete review photos and expandable long text", () => {
+    const css = read("../app/globals.css");
+    const testimonials = read("./testimonials.tsx");
+    expect(css).toContain(".testimonial-photo img { object-fit: contain;");
+    expect(testimonials).toContain("<ReviewText");
+  });
+
+  it("brightens the moving hero and styles car names as uppercase display type", () => {
+    const css = read("../app/globals.css");
+    expect(css).toContain("filter: brightness(1.18)");
+    expect(css).toContain("font-family: var(--font-car)");
+    expect(css).toContain("text-transform: uppercase");
+  });
+
+  it("removes the source-data label and provides shared glow motion", () => {
+    expect(read("./car-options.tsx")).not.toContain("Данные источника");
+    const css = read("../app/globals.css");
+    expect(css).toContain("@keyframes button-glow-spin");
+    expect(css).toContain("@keyframes button-glow-breathe");
   });
 
   it("keeps the catalog sync workflow valid without a secrets expression at job level", () => {

@@ -35,7 +35,7 @@ type PricingSettings = Awaited<ReturnType<typeof getPricingSettings>>;
 
 function priceCars(cars: ExternalCatalogCar[], settings: PricingSettings) {
   return cars.map((car) => {
-    const pricing = car.sourcePrice > 0 ? buildExternalPricing(car.country, car.sourcePrice, settings.rates[car.currencyCode]) : null;
+    const pricing = car.sourcePrice > 0 ? buildExternalPricing(car.country, car.sourcePrice, settings.rates[car.currencyCode], 0, settings.commissions[car.country]) : null;
     return { ...car, priceRub: pricing?.priceRub ?? null, details: { ...car.details, costBreakdown: pricing?.costBreakdown ?? [] } };
   });
 }

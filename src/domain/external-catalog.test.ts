@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, translateChineseCarName } from "./external-catalog";
+import { formatCnyPriceRange, getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, translateChineseCarName } from "./external-catalog";
 
 describe("external catalog parsers", () => {
   it("parses full Japanese API records with source details and photos", () => {
@@ -82,6 +82,11 @@ describe("external catalog parsers", () => {
     expect(parsed.cars).toEqual([expect.objectContaining({
       id: "dongchedi-535", make: "Toyota", model: "Camry", sourcePrice: 129_800
     })]);
+    expect(parsed.cars[0].details).toMatchObject({ optionGroups: [{ title: "Данные модели", items: ["Диапазон цен: 171 800 ¥"] }] });
+  });
+
+  it("formats Chinese ten-thousand-yuan ranges without hieroglyphs", () => {
+    expect(formatCnyPriceRange("12.98-21.98")).toBe("129 800–219 800 ¥");
   });
 
   it("reads Japan lots from Banzai24 cards", () => {

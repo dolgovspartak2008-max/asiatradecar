@@ -59,5 +59,6 @@ export function VideoHero() {
   return <div className="hero-media" aria-label="Автомобиль едет по горной дороге">
     {[0, 1].map((index) => <video className={`hero-video ${index === 0 ? "is-front" : ""}`} ref={(node) => { refs.current[index] = node; }} autoPlay={index === 0} muted playsInline preload="auto" poster="/media/hero-import.png" key={index}><source src="/media/hero-drive.mp4" type="video/mp4" />Ваш браузер не поддерживает фоновое видео.</video>)}
     <div className="hero-shade" />
+    <div className="hero-motion-cue" aria-hidden="true"><span />В движении</div>
   </div>;
 }

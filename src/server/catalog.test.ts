@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseCatalogParams } from "../domain/catalog";
-import { getCarBySlug, getCatalog, getLatestCars } from "./catalog";
+import { applyCommission, getCarBySlug, getCatalog, getLatestCars, type Car } from "./catalog";
 
 describe("live Trust Encar catalog", () => {
   afterEach(() => {
@@ -109,5 +109,17 @@ describe("live Trust Encar catalog", () => {
     expect(result.makes).toEqual(["BMW", "TOYOTA"]);
     expect(result.models).toEqual(["2 SERIES", "3 SERIES"]);
     expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
+  });
+});
+
+describe("Korea commission", () => {
+  const car = {
+    id: "db-1", slug: "db-1", sourceUrl: null, country: "kr", currencyCode: "KRW", make: "Kia", model: "K5", trim: null,
+    year: 2022, mileageKm: 20_000, engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null,
+    bodyType: null, exteriorColor: null, interiorColor: null, vin: null, priceKrw: 10_000_000, priceRub: 590_000, photos: [], details: {}
+  } satisfies Car;
+
+  it("adds current fees to a raw database price", () => {
+    expect(applyCommission(car, 150_000, false).priceRub).toBe(850_000);
   });
 });

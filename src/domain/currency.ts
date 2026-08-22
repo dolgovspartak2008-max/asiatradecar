@@ -16,6 +16,13 @@ export function parseCbrKrwRate(xml: string): number {
   return parseCbrCurrencyRate(xml, "KRW").rubPerUnit;
 }
 
+export function normalizeCatalogRate(code: "KRW" | "JPY" | "CNY", value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return value;
+  if (code === "KRW" && value >= 1) return value / 1_000;
+  if (code === "JPY" && value >= 10) return value / 100;
+  return value;
+}
+
 export function formatRub(value: number): string {
   return `${Math.round(value).toLocaleString("ru-RU")} ₽`;
 }

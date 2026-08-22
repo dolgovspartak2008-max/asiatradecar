@@ -4,24 +4,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { formatRub } from "@/domain/currency";
-import type { Car } from "@/server/catalog";
+import { isFavorite, parseFavoriteEntries, toggleFavorite, type FavoriteCar } from "@/domain/favorites";
 import { Icon } from "@/components/icons";
 
 const FAVORITES_KEY = "asia-trade-car-favorites";
-const getStored = () => {
-  try { return JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]") as string[]; } catch { return []; }
-};
+const getStored = () => parseFavoriteEntries(localStorage.getItem(FAVORITES_KEY) || "[]");
 
-export function CarCard({ car }: { car: Car }) {
+export function CarCard({ car }: { car: FavoriteCar }) {
   const favorite = useSyncExternalStore(
     (notify) => { window.addEventListener("favorites-change", notify); return () => window.removeEventListener("favorites-change", notify); },
-    () => getStored().includes(car.id),
+    () => isFavorite(getStored(), car),
     () => false
   );
   const toggle = () => {
-    const ids = new Set(getStored());
-    if (ids.has(car.id)) ids.delete(car.id); else ids.add(car.id);
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify([...ids]));
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(toggleFavorite(getStored(), car)));
     window.dispatchEvent(new Event("favorites-change"));
   };
   const name = `${car.make} ${car.model}${car.trim ? ` ${car.trim}` : ""}`;

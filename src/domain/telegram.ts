@@ -3,6 +3,12 @@ export function parseAdminValue(text: string) {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+export function parseCommissionCountry(action: string) {
+  if (action === "set:commission") return "kr" as const;
+  const country = action.match(/^set:commission:(kr|jp|cn)$/)?.[1];
+  return country ? country as "kr" | "jp" | "cn" : null;
+}
+
 export type ReviewDraft = { title?: string; text?: string };
 
 export function parseReviewStep(action: string, text: string | undefined, photoFileId: string | undefined, draft: ReviewDraft) {
