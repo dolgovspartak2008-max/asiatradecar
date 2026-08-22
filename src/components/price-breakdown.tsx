@@ -29,7 +29,9 @@ function fallbackLines(priceKrw: number, priceRub: number | null, details: Recor
 export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, currencyCode = "KRW", country = "kr", compact = false }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const initial = readCostBreakdown(details);
+  const commissionRub = country === "jp" ? 50_000 : 100_000;
+  const brokerRub = country === "kr" ? 110_000 : country === "jp" ? 60_000 : 80_000;
+  const initial = readCostBreakdown(details, commissionRub, brokerRub);
   const [lines, setLines] = useState(initial);
   const [livePriceRub, setLivePriceRub] = useState(priceRub);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -42,7 +44,7 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, cur
       const response = await fetch(`/api/catalog/details/${encodeURIComponent(slug)}`);
       const data = await response.json() as { priceRub?: number | null; details?: Record<string, unknown> };
       if (!response.ok) throw new Error();
-      setLines(readCostBreakdown(data.details || {}));
+      setLines(readCostBreakdown(data.details || {}, commissionRub, brokerRub));
       if (typeof data.priceRub === "number") setLivePriceRub(data.priceRub);
       setStatus("idle");
     } catch { setStatus("error"); }

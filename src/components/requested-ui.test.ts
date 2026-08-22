@@ -42,8 +42,11 @@ describe("requested mobile UI", () => {
   });
 
   it("labels external-market prices as preliminary instead of turnkey", () => {
+    const breakdown = read("./price-breakdown.tsx");
     expect(read("./car-card.tsx")).toContain("Предварительный расчёт");
     expect(read("../app/auto/[slug]/page.tsx")).toContain("Предварительный расчёт для РФ");
+    expect(breakdown).toContain('country === "jp" ? 50_000 : 100_000');
+    expect(breakdown).toContain('country === "kr" ? 110_000');
   });
 
   it("offers call, Telegram and WhatsApp for each manager without MAX", () => {
