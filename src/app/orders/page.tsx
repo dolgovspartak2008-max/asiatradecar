@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
+import { CatalogChooser } from "@/components/catalog-chooser";
 
 export const metadata: Metadata = { title: "Как заказать автомобиль", description: "Этапы подбора, проверки, выкупа, доставки и выдачи автомобиля из Южной Кореи.", alternates: { canonical: "/orders" } };
 
@@ -18,7 +19,7 @@ const documents = ["Договор с согласованными услови�
 
 export default function OrdersPage() {
   return <>
-    <section className="orders-hero"><div className="container orders-hero-content"><span>ASIA TRADE CAR</span><h1>Как заказать автомобиль</h1><p>Один понятный маршрут: от требований и проверки лота до таможни и выдачи в вашем городе.</p><div><Link className="button" href="/catalog?country=kr">Выбрать автомобиль</Link></div></div></section>
+    <section className="orders-hero"><div className="container orders-hero-content"><span>ASIA TRADE CAR</span><h1>Как заказать автомобиль</h1><p>Один понятный маршрут: от требований и проверки лота до таможни и выдачи в вашем городе.</p><div><CatalogChooser label="Выбрать автомобиль" /></div></div></section>
 
     <section className="section orders-process"><div className="container content-sheet"><div className="section-heading"><div><h2>Заказ по шагам</h2></div><p>Каждый следующий этап начинается после согласования результата предыдущего.</p></div><ol className="orders-timeline">{steps.map(([title, text], index) => <li key={title}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{title}</h3><p>{text}</p></div></li>)}</ol></div></section>
 

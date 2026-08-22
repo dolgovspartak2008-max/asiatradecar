@@ -1,6 +1,6 @@
 import type { CatalogFilters } from "../domain/catalog";
 import { buildCatalogQuery, parseCatalogParams } from "../domain/catalog";
-import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap, parseTrustEncarCatalogPage, parseTrustEncarModelsFacet, parseTrustEncarVehiclePage, type TrustEncarCatalogCar } from "../domain/sync";
+import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap, parseTrustEncarCatalogPage, parseTrustEncarGenerationsFacet, parseTrustEncarModelsFacet, parseTrustEncarVehiclePage, type TrustEncarCatalogCar } from "../domain/sync";
 import { hasDatabase, query } from "./db";
 import { parseBanzaiCatalog, parseDongchediSeriesPage, type ExternalCatalogCar } from "../domain/external-catalog";
 import { applyCatalogPricing } from "../domain/pricing";
@@ -69,20 +69,24 @@ function applyCommission(car: Car, commissionRub: number): Car {
 async function getExternalCatalog(filters: CatalogFilters) {
   const settings = await getPricingSettings();
   let parsed: { cars: ExternalCatalogCar[]; total: number };
+  let sourcePaged = false;
   if (filters.country === "jp") {
     const page = Math.floor(filters.offset / filters.limit) + 1;
     const response = await fetch(`https://banzai24.com/?page=${page}`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(12_000), headers: { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" } });
     if (!response.ok) throw new Error(`Banzai24 вернул ${response.status}`);
     parsed = parseBanzaiCatalog(await response.text());
   } else {
+    const hasLocalFilters = Boolean(filters.q || filters.make || filters.model || filters.yearFrom !== undefined || filters.yearTo !== undefined
+      || filters.priceFrom !== undefined || filters.priceTo !== undefined || filters.mileageTo !== undefined || filters.sort !== "newest");
+    sourcePaged = !hasLocalFilters;
     const response = await fetch("https://www.dongchedi.com/motor/brand/m/v6/select/series/?city_name=%E5%8C%97%E4%BA%AC", {
       method: "POST", next: { revalidate: 600 }, signal: AbortSignal.timeout(20_000),
       headers: { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0", "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ offset: "0", limit: "5000", is_refresh: "1", city_name: "北京" })
+      body: new URLSearchParams({ offset: String(sourcePaged ? filters.offset : 0), limit: String(sourcePaged ? filters.limit : 5000), is_refresh: "1", city_name: "北京" })
     });
     if (!response.ok) throw new Error(`Dongchedi вернул ${response.status}`);
     parsed = parseDongchediSeriesPage(await response.json());
-    if (parsed.total < 4_687 || parsed.cars.length !== parsed.total) throw new Error(`Dongchedi передал ${parsed.cars.length} из ${parsed.total} машин`);
+    if (!parsed.cars.length || parsed.total < parsed.cars.length) throw new Error("Dongchedi вернул некорректную страницу каталога");
   }
   const term = filters.q?.toLowerCase();
   const filtered = parsed.cars.filter((car) => (!term || `${car.make} ${car.model} ${car.trim || ""}`.toLowerCase().includes(term))
@@ -111,8 +115,8 @@ async function getExternalCatalog(filters: CatalogFilters) {
   else cars.sort((a, b) => b.year - a.year);
   const makes = [...new Set(filtered.map((car) => car.make))].sort();
   const models = filters.make ? [...new Set(filtered.filter((car) => car.make === filters.make).map((car) => car.model))].sort() : [];
-  const total = filters.country === "cn" ? cars.length : filters.q || filters.make || filters.model ? cars.length : parsed.total;
-  return { cars: filters.country === "cn" ? cars.slice(filters.offset, filters.offset + filters.limit) : cars, total, makes, models };
+  const total = sourcePaged ? parsed.total : filters.country === "cn" ? cars.length : filters.q || filters.make || filters.model ? cars.length : parsed.total;
+  return { cars: filters.country === "cn" && !sourcePaged ? cars.slice(filters.offset, filters.offset + filters.limit) : cars, total, makes, models, generations: [] };
 }
 
 const isDefaultBrowse = (filters: CatalogFilters) => filters.country === "kr" && filters.limit === 24 && filters.sort === "newest"
@@ -130,7 +134,7 @@ async function getBrowseCatalog(filters: CatalogFilters) {
   if (!response.ok) throw new Error(`Trust Encar вернул ${response.status}`);
   const parsed = parseTrustEncarCatalogPage(await response.text());
   if (!parsed.cars.length && page <= Math.ceil(parsed.total / filters.limit)) throw new Error("Trust Encar вернул пустую страницу каталога");
-  return { cars: parsed.cars.map(fromFeedCar), total: parsed.total, makes: parsed.makes, models: [] as string[] };
+  return { cars: parsed.cars.map(fromFeedCar), total: parsed.total, makes: parsed.makes, models: [] as string[], generations: [] };
 }
 
 async function getLiveCatalog(filters: CatalogFilters) {
@@ -169,7 +173,7 @@ async function getLiveCatalog(filters: CatalogFilters) {
   const modelsRequest = make ? fetch(bootstrap.ajaxUrl, {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-    body: new URLSearchParams({ action: "ajax_facets_state_db", nonce: bootstrap.nonce, marka_id: make.id }),
+    body: new URLSearchParams({ action: "ajax_facets_state_db", nonce: bootstrap.nonce, marka_id: make.id, ...(modelId ? { model_id: modelId } : {}) }),
     cache: "no-store",
     signal: AbortSignal.timeout(8_000)
   }) : null;
@@ -209,8 +213,10 @@ async function getLiveCatalog(filters: CatalogFilters) {
     }];
   });
   const total = count.status === "success" && Number.isFinite(Number(count.total)) ? Number(count.total) : bootstrap.total;
-  const models = modelsResponse?.ok ? parseTrustEncarModelsFacet(await modelsResponse.json()).map((model) => model.name) : [];
-  return { cars, total, makes: bootstrap.makes.map((make) => make.name), models };
+  const facets = modelsResponse?.ok ? await modelsResponse.json() : null;
+  const models = parseTrustEncarModelsFacet(facets).map((model) => model.name);
+  const generations = parseTrustEncarGenerationsFacet(facets);
+  return { cars, total, makes: bootstrap.makes.map((make) => make.name), models, generations };
 }
 
 async function getDatabaseCatalog(filters: CatalogFilters) {
@@ -223,13 +229,16 @@ async function getDatabaseCatalog(filters: CatalogFilters) {
     query<{ make: string }>("SELECT DISTINCT make FROM cars WHERE status = 'active' AND country = $1 ORDER BY make", [filters.country]),
     filters.make ? query<{ model: string }>("SELECT DISTINCT model FROM cars WHERE status = 'active' AND country = $1 AND make = $2 ORDER BY model", [filters.country, filters.make]) : Promise.resolve({ rows: [] as Array<{ model: string }> })
   ]);
-  return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models: modelsResult.rows.map((row) => row.model) };
+  return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models: modelsResult.rows.map((row) => row.model), generations: [] };
 }
 
 export async function getCatalog(filters: CatalogFilters) {
   if (filters.country === "jp" || filters.country === "cn") {
-    try { return await getExternalCatalog(filters); }
-    catch (error) { if (!hasDatabase()) throw error; return getDatabaseCatalog(filters); }
+    if (hasDatabase()) {
+      const cached = await getDatabaseCatalog(filters).catch(() => null);
+      if (cached?.total) return cached;
+    }
+    return getExternalCatalog(filters);
   }
   try {
     const [catalog, settings] = await Promise.all([isDefaultBrowse(filters) ? getBrowseCatalog(filters) : getLiveCatalog(filters), getPricingSettings()]);

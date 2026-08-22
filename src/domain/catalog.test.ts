@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { buildCatalogQuery, parseCatalogParams } from "./catalog";
 
 describe("catalog URL state", () => {
+  it("ignores empty numeric query values", () => {
+    const filters = parseCatalogParams({ yearFrom: "", yearTo: "", priceTo: "", mileageTo: "" });
+    expect(filters.yearFrom).toBeUndefined();
+    expect(filters.yearTo).toBeUndefined();
+    expect(filters.priceTo).toBeUndefined();
+    expect(filters.mileageTo).toBeUndefined();
+  });
+
   it("parses filters and clamps page size", () => {
     const filters = parseCatalogParams({ q: "Kia K5", country: "kr", yearFrom: "2021", limit: "500", sort: "mileage" });
     expect(filters).toMatchObject({ q: "Kia K5", country: "kr", yearFrom: 2021, limit: 24, sort: "mileage" });

@@ -13,7 +13,7 @@ beforeEach(() => {
 });
 
 it("waits for an incoming request before loading favorites", async () => {
-  vi.mocked(getCatalog).mockResolvedValue({ cars: [], total: 0, makes: [], models: [] });
+  vi.mocked(getCatalog).mockResolvedValue({ cars: [], total: 0, makes: [], models: [], generations: [] });
 
   await FavoritesPage();
 

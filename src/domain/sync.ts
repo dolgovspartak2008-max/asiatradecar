@@ -100,6 +100,22 @@ export function parseTrustEncarModelsFacet(value: unknown) {
   });
 }
 
+export type TrustEncarGeneration = { name: string; minYear: number; maxYear: number };
+
+export function parseTrustEncarGenerationsFacet(value: unknown): TrustEncarGeneration[] {
+  if (!value || typeof value !== "object") return [];
+  const response = value as { facets?: { generations?: unknown } };
+  if (!Array.isArray(response.facets?.generations)) return [];
+  return response.facets.generations.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const generation = item as { value?: unknown; name?: unknown; min_year?: unknown; max_year?: unknown };
+    const name = textFrom(generation.name || generation.value);
+    const minYear = numberFrom(generation.min_year);
+    const maxYear = numberFrom(generation.max_year);
+    return name && minYear >= 1900 && maxYear >= minYear ? [{ name, minYear, maxYear }] : [];
+  });
+}
+
 const cleanImageUrl = (value: string) => {
   try {
     const url = new URL(value, "https://trust-encar.ru");

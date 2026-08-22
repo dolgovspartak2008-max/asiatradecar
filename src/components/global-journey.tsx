@@ -122,15 +122,15 @@ export function GlobalJourney() {
       </g>
 
       <g className="journey-mobile" data-journey-route>
-        <path className="journey-route-road" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 250 584 210 625 196 600 180"/>
-        <path className="journey-route-base" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 250 584 210 625 196 600 180"/>
-        <path className="journey-route-progress" d="M638 546C566 482 606 424 606 424S679 350 622 296 545 250 584 210 625 196 600 180"/>
-        <g className="journey-car" transform="translate(638 546)" filter="url(#car-shadow)">{car}</g>
-        <g className="journey-city"><circle cx="638" cy="546" r="9"/><text x="716" y="552">Владивосток</text></g>
-        <g className="journey-city"><circle cx="606" cy="424" r="9"/><text x="548" y="432">Иркутск</text></g>
-        <g className="journey-city"><circle cx="622" cy="296" r="9"/><text x="700" y="303">Новосибирск</text></g>
-        <g className="journey-city"><circle cx="584" cy="210" r="9"/><text x="500" y="218">Екатеринбург</text></g>
-        <g className="journey-city"><circle cx="600" cy="180" r="9"/><text x="658" y="176">Москва</text></g>
+        <path className="journey-route-road" d="M720 548C692 490 662 447 650 416S680 350 625 302 570 260 555 224 518 185 470 154"/>
+        <path className="journey-route-base" d="M720 548C692 490 662 447 650 416S680 350 625 302 570 260 555 224 518 185 470 154"/>
+        <path className="journey-route-progress" d="M720 548C692 490 662 447 650 416S680 350 625 302 570 260 555 224 518 185 470 154"/>
+        <g className="journey-car" transform="translate(720 548)" filter="url(#car-shadow)">{car}</g>
+        <g className="journey-city"><circle cx="720" cy="548" r="9"/><text x="690" y="578">Владивосток</text></g>
+        <g className="journey-city"><circle cx="650" cy="416" r="9"/><text x="650" y="392">Иркутск</text></g>
+        <g className="journey-city"><circle cx="625" cy="302" r="9"/><text x="625" y="278">Новосибирск</text></g>
+        <g className="journey-city"><circle cx="555" cy="224" r="9"/><text x="570" y="258">Екатеринбург</text></g>
+        <g className="journey-city"><circle cx="470" cy="154" r="9"/><text x="492" y="130">Москва</text></g>
       </g>
     </svg>
     <div className="journey-label"><span>Маршрут по России</span><b>Доставка до вашего города</b></div>

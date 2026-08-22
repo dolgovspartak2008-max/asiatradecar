@@ -26,7 +26,9 @@ type SearchParams = Record<string, string | string[] | undefined>;
 
 const scalar = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 const positiveNumber = (value: string | string[] | undefined) => {
-  const parsed = Number(scalar(value));
+  const raw = scalar(value);
+  if (!raw?.trim()) return undefined;
+  const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 };
 

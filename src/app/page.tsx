@@ -3,6 +3,7 @@ import { Icon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
 import { VideoHero } from "@/components/video-hero";
 import { Testimonials } from "@/components/testimonials";
+import { CatalogChooser } from "@/components/catalog-chooser";
 import { site } from "@/config/site";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function Home() {
       <VideoHero />
       <div className="container hero-content">
         <h1><span>Импорт автомобилей</span>{" "}<strong>со всего мира</strong></h1>
-        <div className="hero-buttons"><Link className="button button-ghost hero-catalog-link" href="/catalog?country=kr">Смотреть каталог <Icon name="arrow" /></Link></div>
+        <div className="hero-buttons"><CatalogChooser className="button button-ghost hero-catalog-link" label="Смотреть каталог" /></div>
         <ul className="hero-facts">
           <li><Icon name="shield" /><span>Прозрачные<br/>условия</span></li>
           <li><Icon name="calculator" /><span>Фиксируем<br/>стоимость</span></li>
@@ -45,7 +46,7 @@ export default async function Home() {
 
     <section className="section dark-section" id="process"><div className="container"><div className="section-heading"><div><p className="eyebrow">Процесс</p><h2>От запроса до ключей</h2></div><p>На каждом этапе вы знаете, что происходит с автомобилем и за что платите.</p></div><ol className="stage-grid">{stages.map(([number, title, text]) => <li key={number}><span>{number}</span><h3>{title}</h3><p>{text}</p></li>)}</ol><details className="responsibility"><summary>За что мы отвечаем <Icon name="arrow" /></summary><div><p className="eyebrow">Полное сопровождение</p><h3>Вам не нужно разбираться во всём самому</h3><ul>{responsibilities.map((item) => <li key={item}><Icon name="check"/><span>{item}</span></li>)}</ul><Link className="button" href="#request">Получить расчёт</Link></div></details></div></section>
 
-    <section className="section countries"><div className="container content-sheet"><div className="section-heading"><div><p className="eyebrow">Направления</p><h2>Выберите рынок</h2></div></div><div className="country-grid"><Link className="country-card" href="/catalog?country=kr"><span className="country-code">KR</span><div><h3>Южная Корея</h3></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog?country=jp"><span className="country-code">JP</span><div><h3>Япония</h3></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog?country=cn"><span className="country-code">CN</span><div><h3>Китай</h3></div><Icon name="arrow" /></Link></div></div></section>
+    <section className="section countries" id="catalogs"><div className="container content-sheet"><div className="section-heading"><div><p className="eyebrow">Направления</p><h2>Выберите рынок</h2></div></div><div className="country-grid"><Link className="country-card" href="/catalog?country=kr"><span className="country-code">KR</span><div><h3>Южная Корея</h3></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog?country=jp"><span className="country-code">JP</span><div><h3>Япония</h3></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog?country=cn"><span className="country-code">CN</span><div><h3>Китай</h3></div><Icon name="arrow" /></Link></div></div></section>
 
     <Testimonials />
 

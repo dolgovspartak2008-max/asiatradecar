@@ -114,6 +114,21 @@ describe("authorized catalog feed", () => {
     ]);
   });
 
+  it("extracts real model generation year ranges from the live facets response", () => {
+    const parseGenerations = Reflect.get(sync, "parseTrustEncarGenerationsFacet");
+    expect(parseGenerations).toBeTypeOf("function");
+    if (typeof parseGenerations !== "function") return;
+
+    expect(parseGenerations({ status: "success", facets: { generations: [
+      { value: "1 Series (F40)", name: "1 Series (F40)", min_year: 2020, max_year: 2025 },
+      { value: "1 Series (F20)", name: "1 Series (F20)", min_year: "2012", max_year: "2019" },
+      { value: "broken", min_year: 0, max_year: 0 }
+    ] } })).toEqual([
+      { name: "1 Series (F40)", minYear: 2020, maxYear: 2025 },
+      { name: "1 Series (F20)", minYear: 2012, maxYear: 2019 }
+    ]);
+  });
+
   it("parses the server-rendered catalog page used for progressive loading", () => {
     const parsePage = Reflect.get(sync, "parseTrustEncarCatalogPage");
     expect(parsePage).toBeTypeOf("function");
