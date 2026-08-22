@@ -5,6 +5,16 @@ const DEFAULT_TRACE_KEY = "Q0RFRkdISUpLTE1OT1BRUlNUVVZXWFla";
 const BROWSER_HEADERS = { "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36" };
 let sessionCookie: string | undefined;
 
+export type BanzaiCatalogSelection = {
+  companyId?: number;
+  modelId?: number;
+  yearFrom?: number;
+  yearTo?: number;
+  mileageTo?: number;
+};
+
+export type BanzaiCatalogOption = { id: number; name: string; hasLots: boolean };
+
 async function getSessionCookie(force = false) {
   if (sessionCookie && !force) return sessionCookie;
   const response = await fetch("https://banzai24.com/", { cache: "no-store", signal: AbortSignal.timeout(10_000), headers: BROWSER_HEADERS });
@@ -25,11 +35,7 @@ function createTraceHeader() {
   return `${id}:${iv.toString("base64")}:${encrypted.toString("base64")}`;
 }
 
-export async function fetchBanzaiPage(page: number, perPage = 100) {
-  const url = new URL("https://banzai24.com/api/catalog-service/lots");
-  url.searchParams.set("source", "auctions");
-  url.searchParams.set("page", String(page));
-  url.searchParams.set("perPage", String(perPage));
+async function fetchBanzaiApi(url: URL) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let response: Response;
     try {
@@ -48,13 +54,56 @@ export async function fetchBanzaiPage(page: number, perPage = 100) {
       await new Promise((resolve) => setTimeout(resolve, delay));
       continue;
     }
-    if (!response.ok) throw new Error(`Banzai24 API вернул ${response.status} для страницы ${page}`);
-    const parsed = parseBanzaiApiPage(await response.json());
-    if (!parsed.cars.length) throw new Error(`Banzai24 API вернул пустую страницу ${page}`);
-    if (parsed.totalPages < 1) throw new Error("Banzai24 API не передал количество страниц");
-    return parsed;
+    if (!response.ok) throw new Error(`Banzai24 API вернул ${response.status}`);
+    return response;
   }
-  throw new Error(`Banzai24 API не ответил для страницы ${page}`);
+  throw new Error("Banzai24 API не ответил");
+}
+
+function parseOptions(payload: unknown): BanzaiCatalogOption[] {
+  if (!payload || typeof payload !== "object" || !Array.isArray((payload as { data?: unknown }).data)) return [];
+  return (payload as { data: unknown[] }).data.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const raw = item as { id?: unknown; name?: unknown; hasLots?: unknown };
+    const id = Number(raw.id);
+    const name = String(raw.name || "").trim();
+    return Number.isFinite(id) && name ? [{ id, name, hasLots: raw.hasLots !== false }] : [];
+  });
+}
+
+export async function fetchBanzaiMakes() {
+  const url = new URL("https://banzai24.com/api/catalog-service/companies");
+  url.searchParams.set("sort_column", "click_counter");
+  url.searchParams.set("sort_direction", "desc");
+  url.searchParams.set("countryISO", "JP");
+  return parseOptions(await (await fetchBanzaiApi(url)).json()).filter((item) => item.hasLots);
+}
+
+export async function fetchBanzaiModels(companyId: number) {
+  const url = new URL("https://banzai24.com/api/catalog-service/models");
+  url.searchParams.set("company", String(companyId));
+  url.searchParams.set("source", "auctions");
+  url.searchParams.set("sort_column", "name");
+  url.searchParams.set("sort_direction", "asc");
+  url.searchParams.set("per_page", "9999");
+  return parseOptions(await (await fetchBanzaiApi(url)).json()).filter((item) => item.hasLots);
+}
+
+export async function fetchBanzaiPage(page: number, perPage = 100, selection: BanzaiCatalogSelection = {}) {
+  const url = new URL("https://banzai24.com/api/catalog-service/lots");
+  url.searchParams.set("source", "auctions");
+  url.searchParams.set("countryISO", "JP");
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("perPage", String(perPage));
+  if (selection.companyId !== undefined) url.searchParams.set("company", String(selection.companyId));
+  if (selection.modelId !== undefined) url.searchParams.set("models[]", String(selection.modelId));
+  if (selection.yearFrom !== undefined) url.searchParams.set("yearStart", String(selection.yearFrom));
+  if (selection.yearTo !== undefined) url.searchParams.set("yearEnd", String(selection.yearTo));
+  if (selection.mileageTo !== undefined) url.searchParams.set("mileageEnd", String(selection.mileageTo));
+  const parsed = parseBanzaiApiPage(await (await fetchBanzaiApi(url)).json());
+  if (!parsed.cars.length) throw new Error(`Banzai24 API вернул пустую страницу ${page}`);
+  if (parsed.totalPages < 1) throw new Error("Banzai24 API не передал количество страниц");
+  return parsed;
 }
 
 export async function fetchBanzaiVehicle(id: string) {

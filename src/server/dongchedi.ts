@@ -1,8 +1,12 @@
 import { parseDongchediSeriesPage } from "@/domain/external-catalog";
 
 const ENDPOINT = "https://www.dongchedi.com/motor/brand/m/v6/select/series/?city_name=%E5%8C%97%E4%BA%AC";
+type DongchediPage = ReturnType<typeof parseDongchediSeriesPage>;
+let fullCatalogCache: { page: DongchediPage; expiresAt: number } | undefined;
 
 export async function fetchDongchediPage(offset: number, limit = 1_000) {
+  const isFullCatalog = offset === 0 && limit >= 5_000;
+  if (isFullCatalog && fullCatalogCache && fullCatalogCache.expiresAt > Date.now()) return fullCatalogCache.page;
   const response = await fetch(ENDPOINT, {
     method: "POST",
     cache: "no-store",
@@ -12,7 +16,9 @@ export async function fetchDongchediPage(offset: number, limit = 1_000) {
   });
   if (!response.ok) throw new Error(`Dongchedi вернул ${response.status}`);
   const page = parseDongchediSeriesPage(await response.json());
+  if (isFullCatalog && !page.cars.length && fullCatalogCache) return fullCatalogCache.page;
   if (!page.cars.length && offset < page.total) throw new Error(`Dongchedi вернул пустую страницу с offset ${offset}`);
+  if (isFullCatalog && page.cars.length) fullCatalogCache = { page, expiresAt: Date.now() + 5 * 60_000 };
   return page;
 }
 

@@ -73,26 +73,41 @@ describe("live Trust Encar catalog", () => {
     await expect(getCatalog(parseCatalogParams({ country: "kr", make: "BMW", model: "3-Series" }))).rejects.toThrow("идентификатор");
   });
 
-  it("loads China directly when the database is unavailable", async () => {
+  it("filters China by make and exposes that make models without a database", async () => {
     vi.stubEnv("DATABASE_URL", "");
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { series_count: 1, series: [{ concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/su7.webp" }] } }));
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { series_count: 3, series: [
+      { concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/su7.webp" },
+      { concern_id: 536, outter_name: "小米YU7", dealer_min_price: 25.35, cover_url: "https://example.test/yu7.webp" },
+      { concern_id: 5, outter_name: "凯美瑞", dealer_min_price: 17.18, cover_url: "https://example.test/camry.webp" }
+    ] } }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await getCatalog(parseCatalogParams({ country: "cn" }));
+    const result = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi", model: "SU7" }));
     expect(result.total).toBe(1);
+    expect(result.models).toEqual(["SU7", "YU7"]);
+    expect(fetchMock.mock.calls[0][1]?.body?.toString()).toContain("limit=5000");
     expect(result.cars[0]).toMatchObject({ country: "cn", make: "Xiaomi", model: "SU7", sourceUrl: "https://www.dongchedi.com/auto/series/535" });
+
+    const nextResult = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi", model: "YU7" }));
+    expect(nextResult.cars[0]).toMatchObject({ make: "Xiaomi", model: "YU7" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("loads Japan directly when the database is unavailable", async () => {
+  it("filters Japan by selected make and model without a database", async () => {
     vi.stubEnv("DATABASE_URL", "");
-    const payload = { items: [{ id: "4e75d2d8-0865-4c72-9bcc-5ddc11bca111", car: { mark: "Toyota", model: "Prius" }, characteristics: { year: "2022" }, onePrice: 1_250_000 }], pagination: { total: 86_781, totalPages: 868 } };
-    const fetchMock = vi.fn().mockImplementation((input: string | URL) => String(input) === "https://banzai24.com/"
-      ? Promise.resolve(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }))
-      : Promise.resolve(Response.json(payload)));
+    const payload = { items: [{ id: "4e75d2d8-0865-4c72-9bcc-5ddc11bca111", car: { mark: "BMW", model: "3 SERIES" }, characteristics: { year: "2022" }, onePrice: 1_250_000 }], pagination: { total: 283, totalPages: 3 } };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }))
+      .mockResolvedValueOnce(Response.json({ data: [{ id: 2, name: "BMW", hasLots: true }, { id: 5, name: "TOYOTA", hasLots: true }] }))
+      .mockResolvedValueOnce(Response.json({ data: [{ id: 11519, name: "3 SERIES", hasLots: true }, { id: 11591, name: "2 SERIES", hasLots: true }] }))
+      .mockResolvedValueOnce(Response.json(payload))
+      .mockResolvedValueOnce(Response.json(payload));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await getCatalog(parseCatalogParams({ country: "jp" }));
-    expect(result.total).toBe(86_781);
-    expect(result.cars[0]).toMatchObject({ country: "jp", make: "Toyota", model: "Prius", sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
+    const result = await getCatalog(parseCatalogParams({ country: "jp", make: "BMW", model: "3 SERIES" }));
+    expect(result.total).toBe(283);
+    expect(result.makes).toEqual(["BMW", "TOYOTA"]);
+    expect(result.models).toEqual(["2 SERIES", "3 SERIES"]);
+    expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
   });
 });

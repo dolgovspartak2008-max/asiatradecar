@@ -9,7 +9,7 @@ describe("requested mobile UI", () => {
     const header = read("./header.tsx");
     const orders = read("../app/orders/page.tsx");
     expect(home).toContain("Импорт автомобилей");
-    expect(home).toContain("из зарубежа");
+    expect(home).toContain("из-за рубежа");
     expect(header).not.toContain('["Каталог", "/catalog?country=kr"]');
     expect(orders).not.toContain('href="/catalog?country=kr"');
   });
@@ -54,6 +54,25 @@ describe("requested mobile UI", () => {
     expect(source).toContain("Позвонить");
     expect(source).toContain("Telegram");
     expect(source).toContain("WhatsApp");
+    expect(source).toContain("https://t.me/artur_sagitov02");
+    expect(source).toContain("https://t.me/Oleg_Ohty");
+    expect(source).toContain("https://t.me/pavel_platonov290989");
     expect(source).not.toContain("MAX");
+  });
+
+  it("remounts catalog results after filters change", () => {
+    expect(read("../app/catalog/page.tsx")).toContain("<CatalogResults key={query.toString()}");
+  });
+
+  it("keeps legal headings readable on narrow screens and highlights country names", () => {
+    const css = read("../app/globals.css");
+    expect(css).toContain(".legal-page h1 { font-size:");
+    expect(css).toContain(".country-card h3 { margin:");
+    expect(css).toContain("color: #f2b321");
+  });
+
+  it("keeps the catalog sync workflow valid without a secrets expression at job level", () => {
+    const workflow = read("../../.github/workflows/catalog-sync.yml");
+    expect(workflow).not.toContain("if: ${{ secrets.");
   });
 });
