@@ -98,9 +98,19 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
   await menu(chatId, "Изменение сохранено.");
 }
 
+export function telegramWebhookStatus(env: Record<string, string | undefined> = process.env, siteUrl = site.url) {
+  const missing = [
+    !env.TELEGRAM_BOT_TOKEN && "TELEGRAM_BOT_TOKEN",
+    !env.TELEGRAM_WEBHOOK_SECRET && "TELEGRAM_WEBHOOK_SECRET",
+    !siteUrl.startsWith("https://") && "SITE_URL",
+  ].filter((name): name is string => Boolean(name));
+  return { configured: missing.length === 0, missing };
+}
+
 export async function ensureTelegramWebhook() {
+  const status = telegramWebhookStatus();
+  if (!status.configured) return status;
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (!token() || !secret || !site.url.startsWith("https://")) return { configured: false };
-  await telegram("setWebhook", { url: `${site.url.replace(/\/$/, "")}/api/telegram/webhook`, secret_token: secret, allowed_updates: ["message", "callback_query"] });
-  return { configured: true };
+  await telegram("setWebhook", { url: `${site.url.replace(/\/$/, "")}/api/telegram/webhook`, secret_token: secret!, allowed_updates: ["message", "callback_query"] });
+  return status;
 }
