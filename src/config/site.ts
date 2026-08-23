@@ -15,6 +15,8 @@ export const site = {
   email: process.env.SITE_OWNER_EMAIL || "",
   phone: process.env.SITE_OWNER_PHONE || "",
   telegram: process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/AsiaTradeCar",
+  youtube: "https://youtube.com/@asiatradecar",
+  vk: "https://vk.ru/asiatradecar",
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_URL || "",
   policyVersion: process.env.PD_POLICY_VERSION || "2026-08-22",
   registrationDate: "03.06.2026",

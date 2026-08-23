@@ -95,20 +95,24 @@ describe("live Trust Encar catalog", () => {
 
   it("filters Japan by selected make and model without a database", async () => {
     vi.stubEnv("DATABASE_URL", "");
-    const payload = { items: [{ id: "4e75d2d8-0865-4c72-9bcc-5ddc11bca111", car: { mark: "BMW", model: "3 SERIES" }, characteristics: { year: "2022" }, onePrice: 1_250_000 }], pagination: { total: 283, totalPages: 3 } };
+    const payload = { items: [{ id: "4e75d2d8-0865-4c72-9bcc-5ddc11bca111", car: { mark: "BMW", model: "3 SERIES" }, characteristics: { year: "2022", engineCapacity: "1.8", engine: "1.8 л / Бензин / 156 л.с." }, onePrice: 1_250_000 }], pagination: { total: 283, totalPages: 3 } };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }))
       .mockResolvedValueOnce(Response.json({ data: [{ id: 2, name: "BMW", hasLots: true }, { id: 5, name: "TOYOTA", hasLots: true }] }))
       .mockResolvedValueOnce(Response.json({ data: [{ id: 11519, name: "3 SERIES", hasLots: true }, { id: 11591, name: "2 SERIES", hasLots: true }] }))
       .mockResolvedValueOnce(Response.json(payload))
-      .mockResolvedValueOnce(Response.json(payload));
+      .mockResolvedValueOnce(Response.json(payload))
+      .mockResolvedValueOnce(Response.json({ result: { details: { CUSTOMS_DUTY: { major: { value: 436_000, currency: "RUB" } } } } }));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getCatalog(parseCatalogParams({ country: "jp", make: "BMW", model: "3 SERIES" }));
     expect(result.total).toBe(283);
     expect(result.makes).toEqual(["BMW", "TOYOTA"]);
     expect(result.models).toEqual(["2 SERIES", "3 SERIES"]);
-    expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
+    expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", priceRub: 1_476_000, sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
+    expect(result.cars[0].details.costBreakdown).toEqual(expect.arrayContaining([
+      { label: "Таможенная пошлина (предварительно)", value: "436 000 ₽" }
+    ]));
   });
 });
 

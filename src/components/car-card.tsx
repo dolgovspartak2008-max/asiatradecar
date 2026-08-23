@@ -28,6 +28,6 @@ export function CarCard({ car }: { car: FavoriteCar }) {
       {car.photos[0] ? <Image src={car.photos[0]} alt={name} fill sizes="(max-width: 720px) 100vw, 33vw" unoptimized /> : <div className="car-placeholder"><Icon name="car" size={42} /><span>Фото обновляется</span></div>}
     </Link>
     <button className={`favorite-button ${favorite ? "active" : ""}`} type="button" onClick={toggle} aria-label={favorite ? "Удалить из избранного" : "Добавить в избранное"}><Icon name="heart" filled={favorite} /></button>
-    <div className="car-card-body"><p className="eyebrow">{meta}</p><h2><Link href={href} prefetch={false}>{name}</Link></h2><div className="car-chips">{car.engineCc && <span>{(car.engineCc / 1000).toFixed(1)} л</span>}{car.powerHp && <span>{car.powerHp} л.с.</span>}{car.drive && <span>{car.drive}</span>}</div><div className="car-price-row"><div><span>{car.country === "kr" ? "Под ключ в РФ" : "Предварительный расчёт"}</span><p className="car-price">{car.priceRub ? formatRub(car.priceRub) : "Цена уточняется"}</p></div></div></div>
+    <div className="car-card-body"><p className="eyebrow">{meta}</p><h2><Link href={href} prefetch={false}>{name}</Link></h2><div className="car-chips">{car.engineCc && <span>{(car.engineCc / 1000).toFixed(1)} л</span>}{car.powerHp && <span>{car.powerHp} л.с.</span>}{car.drive && <span>{car.drive}</span>}</div><div className="car-price-row"><div><span>Под ключ в РФ</span><p className="car-price">{car.priceRub ? formatRub(car.priceRub) : "Цена уточняется"}</p></div></div></div>
   </article>;
 }

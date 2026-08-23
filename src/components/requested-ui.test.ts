@@ -41,12 +41,19 @@ describe("requested mobile UI", () => {
     expect(read("./header.tsx")).toContain('"/#contacts"');
   });
 
-  it("labels external-market prices as preliminary instead of turnkey", () => {
+  it("labels every catalog price as turnkey in Russia", () => {
     const breakdown = read("./price-breakdown.tsx");
-    expect(read("./car-card.tsx")).toContain("Предварительный расчёт");
-    expect(read("../app/auto/[slug]/page.tsx")).toContain("Предварительный расчёт для РФ");
+    expect(read("./car-card.tsx")).toContain("Под ключ в РФ");
+    expect(read("./car-card.tsx")).not.toContain("Предварительный расчёт");
+    expect(read("../app/auto/[slug]/page.tsx")).toContain("Под ключ в РФ");
+    expect(read("../app/auto/[slug]/page.tsx")).not.toContain("Предварительный расчёт для РФ");
+    expect(breakdown).toContain("Под ключ в РФ");
     expect(breakdown).toContain('country === "jp" ? 50_000 : 100_000');
     expect(breakdown).toContain('country === "kr" ? 110_000');
+  });
+
+  it("removes wishes only from a selected-car application", () => {
+    expect(read("./lead-form.tsx")).toContain("{!carName && <label>Пожелания");
   });
 
   it("offers call, Telegram and WhatsApp for each manager without MAX", () => {
@@ -69,6 +76,22 @@ describe("requested mobile UI", () => {
     expect(css).toContain(".legal-page h1 { font-size:");
     expect(css).toContain(".country-card h3 { margin:");
     expect(css).toContain(".country-card h3 { margin: 0; color: var(--ink)");
+    expect(css).toContain(".catalog-choice-list a > strong { color: var(--ink)");
+    expect(css).toContain(".country-code, .country-card h3");
+    expect(css).toContain(".catalog-choice-list a > span, .catalog-choice-list a > strong");
+  });
+
+  it("removes the hero motion caption and adds animated YouTube and VK links", () => {
+    expect(read("./video-hero.tsx")).not.toContain("В движении");
+    const footer = read("./footer.tsx");
+    const site = read("../config/site.ts");
+    const css = read("../app/globals.css");
+    expect(site).toContain("https://youtube.com/@asiatradecar");
+    expect(site).toContain("https://vk.ru/asiatradecar");
+    expect(footer).toContain("site.youtube");
+    expect(footer).toContain("site.vk");
+    expect(css).toContain(".social-link:hover svg");
+    expect(css).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
   it("shows complete review photos and expandable long text", () => {

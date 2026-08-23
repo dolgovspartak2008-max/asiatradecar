@@ -29,7 +29,7 @@ export function LeadForm({ formId, compact = false, carName, calculationRub, sub
   }
   return <form className={`lead-form ${compact ? "lead-form-compact" : ""}`} onSubmit={submit} noValidate>
     <div className="form-grid"><label>Имя<input name="name" autoComplete="name" minLength={2} maxLength={80} required /></label><label>Телефон<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="+7 900 000-00-00" required /></label><label>Город<input name="city" autoComplete="address-level2" minLength={2} required /></label></div>
-    <label>Пожелания<textarea name="wishes" rows={compact ? 2 : 4} maxLength={1500} placeholder="Марка, модель, бюджет, год" /></label>
+    {!carName && <label>Пожелания<textarea name="wishes" rows={compact ? 2 : 4} maxLength={1500} placeholder="Марка, модель, бюджет, год" /></label>}
     <label className="honeypot" aria-hidden="true">Сайт<input name="website" tabIndex={-1} autoComplete="off" /></label>
     <label className="consent"><input name="consent" type="checkbox" required /><span>Я даю <Link href="/legal/consent" target="_blank">согласие на обработку персональных данных</Link> и ознакомлен(а) с <Link href="/legal/privacy" target="_blank">политикой</Link>.</span></label>
     <button className="button" type="submit" disabled={status === "sending"}>{status === "sending" ? "Отправляем…" : submitLabel}</button>

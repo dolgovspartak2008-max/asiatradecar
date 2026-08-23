@@ -75,14 +75,16 @@ describe("external catalog parsers", () => {
   it("reads a paginated Dongchedi series response and its complete total", () => {
     const parsed = parseDongchediSeriesPage({ status: "success", data: { series_count: 4687, series: [{
       concern_id: 535, outter_name: "凯美瑞", dealer_min_price: "12.98", min_price: 17.18,
-      cover_url: "http://p3-dcd.byteimg.com/camry.png"
+      cover_url: "http://p3-dcd.byteimg.com/camry.png", car_ids: [250143, 250144, 250145]
     }] } });
 
     expect(parsed.total).toBe(4687);
-    expect(parsed.cars).toEqual([expect.objectContaining({
-      id: "dongchedi-535", make: "Toyota", model: "Camry", sourcePrice: 129_800
-    })]);
-    expect(parsed.cars[0].details).toMatchObject({ optionGroups: [{ title: "Данные модели", items: ["Диапазон цен: 171 800 ¥"] }] });
+    expect(parsed.cars).toHaveLength(3);
+    expect(parsed.cars).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "dongchedi-250143", make: "Toyota", model: "Camry", trim: "Комплектация 1", sourcePrice: 129_800 }),
+      expect.objectContaining({ id: "dongchedi-250145", make: "Toyota", model: "Camry", trim: "Комплектация 3", sourcePrice: 129_800 })
+    ]));
+    expect(parsed.cars[0].details).toMatchObject({ optionGroups: [{ title: "Данные модели", items: ["Доступно комплектаций: 3", "Диапазон цен: 171 800 ¥"] }] });
   });
 
   it("formats Chinese ten-thousand-yuan ranges without hieroglyphs", () => {
@@ -122,6 +124,17 @@ describe("external catalog parsers", () => {
       make: "TOYOTA", model: "PRIUS", trim: "Z 4WD", year: 2023, mileageKm: 40_000,
       engineCc: 2_000, powerHp: 243, sourcePrice: 2_535_000,
       sourceUrl: "https://banzai24.com/car/JP/019eb9bd-bd29-7c5d-9df8-6c57d81d9c88"
+    });
+  });
+
+  it("uses the Japanese starting bid before an auction has a final price", () => {
+    const html = `<h1>TOYOTA PIXIS SPACE, CUSTOM RS</h1><main>
+      <div>Год : 2014.06</div><div>Пробег : 125 000 км</div><div>Двигатель : 0.7 л</div>
+      <div>Старт от: 17 000 ¥</div><div>Конечная цена: 0 ¥</div></main>`;
+
+    expect(parseBanzaiVehiclePage(html, "01a02386-f5d6-714c-8615-d221652bb6d1")).toMatchObject({
+      make: "TOYOTA", model: "PIXIS SPACE", trim: "CUSTOM RS", year: 2014,
+      mileageKm: 125_000, engineCc: 700, sourcePrice: 17_000
     });
   });
 });

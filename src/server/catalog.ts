@@ -91,6 +91,16 @@ function applyExternalPricing(car: Car, rubPerUnit: number, customsDutyRub = 0, 
   return { ...car, priceRub: pricing.priceRub, details: { ...car.details, customsSource: country === "jp" ? "Drom" : car.details.customsSource, costBreakdown: pricing.costBreakdown } };
 }
 
+async function applyExternalCatalogPricing(cars: Car[], settings: Awaited<ReturnType<typeof getPricingSettings>>) {
+  return Promise.all(cars.map(async (car) => {
+    const country = car.country === "jp" ? "jp" : "cn";
+    const duty = country === "jp" && car.engineCc
+      ? await getDromCustomsDutyRub({ priceJpy: car.priceKrw, year: car.year, engineCc: car.engineCc, powerHp: car.powerHp, fuel: car.fuel }).catch(() => null)
+      : null;
+    return applyExternalPricing(car, settings.rates[car.currencyCode], duty || 0, settings.commissions[country]);
+  }));
+}
+
 async function getExternalBrowseCatalog(filters: CatalogFilters) {
   const settings = await getPricingSettings();
   if (filters.country === "cn") {
@@ -130,7 +140,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
   const first = await fetchBanzaiPage(sourcePage, 100, selection);
   const pages = start + filters.limit > first.cars.length && sourcePage < first.totalPages ? [first, await fetchBanzaiPage(sourcePage + 1, 100, selection)] : [first];
   const sourceCars = pages.flatMap((page) => page.cars);
-  const cars = sourceCars.slice(start, start + filters.limit).map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.JPY, 0, settings.commissions.jp))
+  const cars = (await applyExternalCatalogPricing(sourceCars.slice(start, start + filters.limit).map(fromExternalCar), settings))
     .filter((car) => filters.priceFrom === undefined || (car.priceRub !== null && car.priceRub >= filters.priceFrom))
     .filter((car) => filters.priceTo === undefined || (car.priceRub !== null && car.priceRub <= filters.priceTo));
   return { cars, total: first.total, makes, models, generations: [] };
@@ -255,7 +265,7 @@ export async function getCatalog(filters: CatalogFilters) {
     if (hasDatabase()) {
       try {
         const [catalog, settings] = await Promise.all([getDatabaseCatalog(filters), getPricingSettings()]);
-        if (catalog.total > 0) return { ...catalog, cars: catalog.cars.map((car) => applyExternalPricing(car, settings.rates[car.currencyCode], 0, settings.commissions[car.country === "jp" ? "jp" : "cn"])) };
+        if (catalog.total > 0) return { ...catalog, cars: await applyExternalCatalogPricing(catalog.cars, settings) };
       } catch {}
     }
     return getExternalBrowseCatalog(filters);
@@ -290,9 +300,7 @@ export async function getCarBySlug(slug: string) {
       try {
         const [external, settings] = await Promise.all([fetchBanzaiVehicle(sourceId), getPricingSettings()]);
         if (external) {
-          const car = fromExternalCar(external);
-          const duty = car.engineCc ? await getDromCustomsDutyRub({ priceJpy: car.priceKrw, year: car.year, engineCc: car.engineCc, powerHp: car.powerHp, fuel: car.fuel }).catch(() => null) : null;
-          return applyExternalPricing(car, settings.rates.JPY, duty || 0, settings.commissions.jp);
+          return (await applyExternalCatalogPricing([fromExternalCar(external)], settings))[0];
         }
       } catch {}
     }
@@ -302,7 +310,7 @@ export async function getCarBySlug(slug: string) {
     if (sourceId) {
       try {
         const [external, settings] = await Promise.all([fetchDongchediVehicle(sourceId), getPricingSettings()]);
-        if (external) return applyExternalPricing(fromExternalCar(external), settings.rates.CNY, 0, settings.commissions.cn);
+        if (external) return (await applyExternalCatalogPricing([fromExternalCar(external)], settings))[0];
       } catch {}
     }
   }
@@ -312,10 +320,9 @@ export async function getCarBySlug(slug: string) {
   const car = toCar(result.rows[0]);
   const settings = await getPricingSettings();
   if (car.country === "jp") {
-    const duty = car.engineCc ? await getDromCustomsDutyRub({ priceJpy: car.priceKrw, year: car.year, engineCc: car.engineCc, powerHp: car.powerHp, fuel: car.fuel }).catch(() => null) : null;
-    return applyExternalPricing(car, settings.rates.JPY, duty || 0, settings.commissions.jp);
+    return (await applyExternalCatalogPricing([car], settings))[0];
   }
-  if (car.country === "cn") return applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn);
+  if (car.country === "cn") return (await applyExternalCatalogPricing([car], settings))[0];
   return applyCommission(car, settings.commissions.kr, false);
 }
 

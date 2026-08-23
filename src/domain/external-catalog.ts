@@ -147,13 +147,16 @@ function dongchediSeriesCar(value: unknown): ExternalCatalogCar[] {
   const formattedPriceRange = formatCnyPriceRange(priceRange);
   const modelItems = [count ? `Доступно комплектаций: ${count}` : "", formattedPriceRange ? `Диапазон цен: ${formattedPriceRange}` : ""].filter(Boolean);
   const sourceStatus = String(item.series_status_tag || "");
-  return [{
-    id: `dongchedi-${id}`, slug: `cn-${slugPart(make)}-${slugPart(model)}-${id}`, status: /停售|下架|停产/.test(sourceStatus) ? "inactive" : "active", source: "dongchedi",
-    sourceUrl: `https://www.dongchedi.com/auto/series/${id}`, country: "cn", currencyCode: "CNY", make, model, trim: null,
+  const carIds = Array.isArray(item.car_ids) ? item.car_ids.map(String).filter((carId) => /^\d+$/.test(carId)) : [];
+  const variants = carIds.length ? carIds : [id];
+  return variants.map((carId, index) => ({
+    id: `dongchedi-${carId}`, slug: `cn-${slugPart(make)}-${slugPart(model)}-${carId}`, status: /停售|下架|停产/.test(sourceStatus) ? "inactive" : "active", source: "dongchedi",
+    sourceUrl: `https://www.dongchedi.com/auto/series/${id}`, country: "cn", currencyCode: "CNY", make, model,
     year: 0, mileageKm: 0, engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null,
     bodyType: null, exteriorColor: null, interiorColor: null, vin: null, sourcePrice: Number.isFinite(priceWan) && priceWan > 0 ? Math.round(priceWan * 10_000) : 0,
-    photos: cover.startsWith("https://") ? [cover] : [], details: { originalName, priceRange, source: "Dongchedi", carIds: Array.isArray(item.car_ids) ? item.car_ids : [], optionGroups: modelItems.length ? [{ title: "Данные модели", items: modelItems }] : [] }
-  }];
+    photos: cover.startsWith("https://") ? [cover] : [], trim: carIds.length > 1 ? `Комплектация ${index + 1}` : null,
+    details: { originalName, priceRange, source: "Dongchedi", seriesId: id, carId, optionGroups: modelItems.length ? [{ title: "Данные модели", items: modelItems }] : [] }
+  }));
 }
 
 export function parseDongchediSeriesPage(payload: unknown) {
@@ -237,7 +240,7 @@ export function parseBanzaiVehiclePage(html: string, sourceId: string): External
   const text = $("body").text().replace(/\s+/g, " ").trim();
   const engine = text.match(/(?:Двигатель|Engine)\s*:\s*([\d.,]+)\s*(?:л|l)\s*(?:\/\s*([^/]+?))?(?:\s*\/\s*([\d\s]+)\s*(?:л\.с\.|hp))?/i);
   const price = numberFrom(text.match(/(?:Конечная цена|Final price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1])
-    || numberFrom(text.match(/(?:Стартовая цена|Start price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1]);
+    || numberFrom(text.match(/(?:Стартовая цена|Старт от|Start price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1]);
   if (!sourceId || !make || !model || !price) return null;
   const engineLiters = Number(engine?.[1]?.replace(",", "."));
   const photos = $("img[src]").toArray().map((image) => $(image).attr("src") || "").filter((url) => url.startsWith("https://banzai24.com/api/image-service/"));

@@ -62,7 +62,7 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, cur
     <dialog ref={dialog} className="site-dialog price-dialog" aria-labelledby={titleId} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>
       <div className="dialog-panel">
         <button className="dialog-close" type="button" onClick={() => dialog.current?.close()} aria-label="Закрыть расшифровку"><Icon name="x" /></button>
-        <p className="eyebrow">{country === "kr" ? "Цена под ключ" : "Предварительный расчёт"}</p><h2 id={titleId}>{carName}</h2>
+        <p className="eyebrow">Под ключ в РФ</p><h2 id={titleId}>{carName}</h2>
         <p className="dialog-total">{livePriceRub ? formatRub(livePriceRub) : "Итоговая цена уточняется"}</p>
         <dl className="price-lines">{visibleLines.map((line) => <div key={`${line.label}-${line.value}`}><dt>{line.label}</dt><dd>{line.value}</dd></div>)}</dl>
         {status === "loading" && <p className="dialog-note" role="status">Загружаем точные статьи расходов из источника…</p>}
