@@ -1,11 +1,14 @@
 import { getBanzaiCursorWindow, type ExternalCatalogCar } from "@/domain/external-catalog";
 import { buildExternalPricing } from "@/domain/pricing";
 import { fetchBanzaiPage } from "@/server/banzai";
-import { fetchDongchediPage } from "@/server/dongchedi";
+import { fetchDongchediPage, fetchDongchediUsedPage } from "@/server/dongchedi";
 import { inTransaction, query } from "@/server/db";
 import { getPricingSettings } from "@/server/pricing";
 
 const MIN_DONGCHEDI_SERIES = 4_687;
+const DONGCHEDI_USED_TOTAL = 10_000;
+const MIN_UNIQUE_DONGCHEDI_USED = 9_800;
+const DONGCHEDI_USED_LIMIT = 60;
 const CHINA_REFRESH_SECONDS = 23 * 60 * 60;
 const JAPAN_NEXT_PAGE = "catalog_banzai_next_page";
 const JAPAN_CYCLE_STARTED = "catalog_banzai_cycle_started_epoch";
@@ -13,16 +16,20 @@ const JAPAN_LAST_COMPLETED = "catalog_banzai_last_completed_epoch";
 const CHINA_LAST_COMPLETED = "catalog_china_last_completed_epoch";
 
 async function fetchChinaCatalog() {
-  const cars: ExternalCatalogCar[] = [];
-  let total = MIN_DONGCHEDI_SERIES;
-  for (let offset = 0; offset < total; offset += 1_000) {
-    const page = await fetchDongchediPage(offset);
-    total = page.total;
-    cars.push(...page.cars);
+  const [series, firstUsed] = await Promise.all([fetchDongchediPage(0, 5_000), fetchDongchediUsedPage(1, DONGCHEDI_USED_LIMIT)]);
+  const usedCars = [...firstUsed.cars];
+  const usedTotal = Math.min(DONGCHEDI_USED_TOTAL, firstUsed.total);
+  const usedPages = Math.ceil(usedTotal / DONGCHEDI_USED_LIMIT);
+  for (let page = 2; page <= usedPages; page += 12) {
+    const batch = Array.from({ length: Math.min(12, usedPages - page + 1) }, (_, index) => page + index);
+    const results = await Promise.all(batch.map((pageNumber) => fetchDongchediUsedPage(pageNumber, DONGCHEDI_USED_LIMIT)));
+    usedCars.push(...results.flatMap((result) => result.cars));
   }
-  const unique = [...new Map(cars.map((car) => [car.id, car])).values()];
-  if (total < MIN_DONGCHEDI_SERIES || unique.length < total) throw new Error(`Dongchedi передал ${unique.length} из ${total} моделей; ожидалось не меньше ${MIN_DONGCHEDI_SERIES}`);
-  return unique;
+  const uniqueSeries = [...new Map(series.cars.map((car) => [car.id, car])).values()];
+  const uniqueUsed = [...new Map(usedCars.map((car) => [car.id, car])).values()];
+  if (series.total < MIN_DONGCHEDI_SERIES || uniqueSeries.length < MIN_DONGCHEDI_SERIES) throw new Error(`Dongchedi передал ${uniqueSeries.length} из ${series.total} новых моделей; ожидалось не меньше ${MIN_DONGCHEDI_SERIES}`);
+  if (firstUsed.total < DONGCHEDI_USED_TOTAL || uniqueUsed.length < MIN_UNIQUE_DONGCHEDI_USED) throw new Error(`Dongchedi передал ${uniqueUsed.length} уникальных объявлений из ${firstUsed.total}; ожидалось ${DONGCHEDI_USED_TOTAL} позиций и не меньше ${MIN_UNIQUE_DONGCHEDI_USED} уникальных`);
+  return [...uniqueSeries, ...uniqueUsed];
 }
 
 const UPSERT = `WITH incoming AS (
@@ -51,7 +58,7 @@ async function writeState(client: import("pg").PoolClient, key: string, value: n
 }
 
 async function upsertPayload(client: import("pg").PoolClient, payload: ReturnType<typeof priceCars>) {
-  for (let index = 0; index < payload.length; index += 500) await client.query(UPSERT, [JSON.stringify(payload.slice(index, index + 500))]);
+  for (let index = 0; index < payload.length; index += 1_000) await client.query(UPSERT, [JSON.stringify(payload.slice(index, index + 1_000))]);
 }
 
 async function syncJapan(settings: PricingSettings, now: Date) {
@@ -91,8 +98,9 @@ async function syncChina(settings: PricingSettings, now: Date) {
   const cars = await fetchChinaCatalog();
   const payload = priceCars(cars, settings);
   await inTransaction(async (client) => {
+    await client.query("SET LOCAL statement_timeout = '5s'");
     await upsertPayload(client, payload);
-    await client.query("UPDATE cars SET status='inactive',updated_at=now() WHERE source='dongchedi' AND last_seen_at < $1", [startedAt]);
+    await client.query("UPDATE cars SET status='inactive',updated_at=now() WHERE source IN ('dongchedi','dongchedi-used') AND last_seen_at < $1", [startedAt]);
     await writeState(client, CHINA_LAST_COMPLETED, nowSeconds);
   });
   return { received: cars.length, skipped: false };

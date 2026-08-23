@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCnyPriceRange, getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, translateChineseCarName } from "./external-catalog";
+import { formatCnyPriceRange, getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, parseDongchediUsedPage, translateChineseCarName } from "./external-catalog";
 
 describe("external catalog parsers", () => {
   it("parses full Japanese API records with source details and photos", () => {
@@ -79,12 +79,31 @@ describe("external catalog parsers", () => {
     }] } });
 
     expect(parsed.total).toBe(4687);
-    expect(parsed.cars).toHaveLength(3);
-    expect(parsed.cars).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "dongchedi-250143", make: "Toyota", model: "Camry", trim: "Комплектация 1", sourcePrice: 129_800 }),
-      expect.objectContaining({ id: "dongchedi-250145", make: "Toyota", model: "Camry", trim: "Комплектация 3", sourcePrice: 129_800 })
-    ]));
-    expect(parsed.cars[0].details).toMatchObject({ optionGroups: [{ title: "Данные модели", items: ["Доступно комплектаций: 3", "Диапазон цен: 171 800 ¥"] }] });
+    expect(parsed.cars).toHaveLength(1);
+    expect(parsed.cars[0]).toMatchObject({ id: "dongchedi-535", make: "Toyota", model: "Camry", trim: null, sourcePrice: 129_800 });
+    expect(parsed.cars[0].details).toMatchObject({
+      listingType: "new",
+      carIds: ["250143", "250144", "250145"],
+      optionGroups: [{ title: "Данные модели", items: ["Доступно комплектаций: 3", "Диапазон цен: 171 800 ¥"] }]
+    });
+  });
+
+  it("reads genuine used Dongchedi listings with their own price, year and mileage", () => {
+    const parsed = parseDongchediUsedPage({ data: { total: 10_000, has_more: true, search_sh_sku_info_list: [{
+      sku_id: 356463767, brand_name: "别克", series_name: "英朗", car_name: "15T 双离合互联精英型 国VI",
+      car_year: 2019, sh_price: "\ue463.\ue411\ue4e3\ue40a", sub_title: "\ue463\ue439\ue525 | \ue411.\ue411\ue439\ue40a\ue492\ue4a8",
+      image: "https://example.test/buick.webp", car_source_city_name: "成都", transfer_cnt: 1, series_id: 344, car_id: 43015
+    }] } }, 1, 24);
+
+    expect(parsed.total).toBe(10_000);
+    expect(parsed.hasMore).toBe(true);
+    expect(parsed.cars[0]).toMatchObject({
+      id: "dongchedi-used-356463767", source: "dongchedi-used", make: "Buick", model: "英朗",
+      trim: "15T 双离合互联精英型 国VI", year: 2019, mileageKm: 55_000, sourcePrice: 25_800,
+      sourceUrl: "https://www.dongchedi.com/usedcar/356463767"
+    });
+    expect(parsed.cars[0].slug).toMatch(/-1-24-356463767$/);
+    expect(parsed.cars[0].details).toMatchObject({ listingType: "used", city: "成都", sourcePage: 1, sourceLimit: 24 });
   });
 
   it("formats Chinese ten-thousand-yuan ranges without hieroglyphs", () => {

@@ -75,7 +75,7 @@ describe("live Trust Encar catalog", () => {
 
   it("filters China by make and exposes that make models without a database", async () => {
     vi.stubEnv("DATABASE_URL", "");
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { series_count: 3, series: [
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { series_count: 4687, series: [
       { concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/su7.webp" },
       { concern_id: 536, outter_name: "小米YU7", dealer_min_price: 25.35, cover_url: "https://example.test/yu7.webp" },
       { concern_id: 5, outter_name: "凯美瑞", dealer_min_price: 17.18, cover_url: "https://example.test/camry.webp" }
@@ -91,6 +91,41 @@ describe("live Trust Encar catalog", () => {
     const nextResult = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi", model: "YU7" }));
     expect(nextResult.cars[0]).toMatchObject({ make: "Xiaomi", model: "YU7" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows genuine China listings immediately without waiting for a catalog reset", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const listings = Array.from({ length: 24 }, (_, index) => ({
+      sku_id: 9000 + index, brand_name: "宝马", series_name: "宝马3系", car_name: `325Li ${index + 1}`,
+      car_year: 2021 + index % 3, sh_price: `${18 + index / 10}万`, sub_title: `2022年 | ${2 + index / 10}万公里`,
+      image: `https://example.test/bmw-${index}.webp`, car_source_city_name: "成都"
+    }));
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { total: 10_000, has_more: true, search_sh_sku_info_list: listings } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getCatalog(parseCatalogParams({ country: "cn" }));
+
+    expect(result.total).toBe(14_687);
+    expect(result.cars).toHaveLength(24);
+    expect(result.cars[0]).toMatchObject({ id: "dongchedi-used-9000", make: "BMW", model: "3 Series", trim: "325Li 1", year: 2021, mileageKm: 20_000 });
+    expect(result.cars.every((car) => !car.trim?.startsWith("Комплектация "))).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain("/motor/pc/sh/sh_sku_list");
+  });
+
+  it("falls back to unique new China models when used listings are temporarily unavailable", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubGlobal("fetch", vi.fn()
+      .mockRejectedValueOnce(new Error("used source unavailable"))
+      .mockResolvedValue(Response.json({ data: { series_count: 4687, series: [
+        { concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/su7.webp" }
+      ] } })));
+
+    const result = await getCatalog(parseCatalogParams({ country: "cn" }));
+
+    expect(result.total).toBe(4_687);
+    expect(result.cars.length).toBeGreaterThan(0);
+    expect(result.cars.every((car) => car.trim === null)).toBe(true);
   });
 
   it("filters Japan by selected make and model without a database", async () => {

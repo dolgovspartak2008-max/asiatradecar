@@ -1,6 +1,7 @@
-import { parseDongchediSeriesPage } from "@/domain/external-catalog";
+import { parseDongchediSeriesPage, parseDongchediUsedPage } from "@/domain/external-catalog";
 
 const ENDPOINT = "https://www.dongchedi.com/motor/brand/m/v6/select/series/?city_name=%E5%8C%97%E4%BA%AC";
+const USED_ENDPOINT = "https://www.dongchedi.com/motor/pc/sh/sh_sku_list?aid=1839&app_name=auto_web_pc";
 type DongchediPage = ReturnType<typeof parseDongchediSeriesPage>;
 let fullCatalogCache: { page: DongchediPage; expiresAt: number } | undefined;
 
@@ -31,4 +32,25 @@ export async function fetchDongchediVehicle(id: string) {
     if (car) return car;
   }
   return null;
+}
+
+export async function fetchDongchediUsedPage(page: number, limit = 60) {
+  const safePage = Math.max(1, Math.floor(page));
+  const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+  const response = await fetch(USED_ENDPOINT, {
+    method: "POST",
+    cache: "no-store",
+    signal: AbortSignal.timeout(12_000),
+    headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" },
+    body: new URLSearchParams({ sh_city_name: "全国", page: String(safePage), limit: String(safeLimit) })
+  });
+  if (!response.ok) throw new Error(`Dongchedi с пробегом вернул ${response.status}`);
+  const parsed = parseDongchediUsedPage(await response.json(), safePage, safeLimit);
+  if (!parsed.cars.length && (parsed.hasMore || (safePage - 1) * safeLimit < parsed.total)) throw new Error(`Dongchedi с пробегом вернул пустую страницу ${safePage}`);
+  return parsed;
+}
+
+export async function fetchDongchediUsedVehicle(id: string, page: number, limit: number) {
+  const result = await fetchDongchediUsedPage(page, limit);
+  return result.cars.find((car) => car.id === `dongchedi-used-${id}`) || null;
 }

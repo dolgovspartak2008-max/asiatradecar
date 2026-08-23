@@ -4,7 +4,7 @@ export type ExternalCatalogCar = {
   id: string;
   slug: string;
   status: "active" | "inactive";
-  source: "banzai24" | "dongchedi";
+  source: "banzai24" | "dongchedi" | "dongchedi-used";
   sourceUrl: string;
   country: "jp" | "cn";
   currencyCode: "JPY" | "CNY";
@@ -148,15 +148,14 @@ function dongchediSeriesCar(value: unknown): ExternalCatalogCar[] {
   const modelItems = [count ? `Доступно комплектаций: ${count}` : "", formattedPriceRange ? `Диапазон цен: ${formattedPriceRange}` : ""].filter(Boolean);
   const sourceStatus = String(item.series_status_tag || "");
   const carIds = Array.isArray(item.car_ids) ? item.car_ids.map(String).filter((carId) => /^\d+$/.test(carId)) : [];
-  const variants = carIds.length ? carIds : [id];
-  return variants.map((carId, index) => ({
-    id: `dongchedi-${carId}`, slug: `cn-${slugPart(make)}-${slugPart(model)}-${carId}`, status: /停售|下架|停产/.test(sourceStatus) ? "inactive" : "active", source: "dongchedi",
+  return [{
+    id: `dongchedi-${id}`, slug: `cn-${slugPart(make)}-${slugPart(model)}-${id}`, status: /停售|下架|停产/.test(sourceStatus) ? "inactive" : "active", source: "dongchedi",
     sourceUrl: `https://www.dongchedi.com/auto/series/${id}`, country: "cn", currencyCode: "CNY", make, model,
     year: 0, mileageKm: 0, engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null,
     bodyType: null, exteriorColor: null, interiorColor: null, vin: null, sourcePrice: Number.isFinite(priceWan) && priceWan > 0 ? Math.round(priceWan * 10_000) : 0,
-    photos: cover.startsWith("https://") ? [cover] : [], trim: carIds.length > 1 ? `Комплектация ${index + 1}` : null,
-    details: { originalName, priceRange, source: "Dongchedi", seriesId: id, carId, optionGroups: modelItems.length ? [{ title: "Данные модели", items: modelItems }] : [] }
-  }));
+    photos: cover.startsWith("https://") ? [cover] : [], trim: null,
+    details: { originalName, priceRange, source: "Dongchedi", listingType: "new", seriesId: id, carIds, optionGroups: modelItems.length ? [{ title: "Данные модели", items: modelItems }] : [] }
+  }];
 }
 
 export function parseDongchediSeriesPage(payload: unknown) {
@@ -166,6 +165,60 @@ export function parseDongchediSeriesPage(payload: unknown) {
   const record = data as { series?: unknown; series_count?: unknown };
   const cars = Array.isArray(record.series) ? record.series.flatMap(dongchediSeriesCar) : [];
   return { cars, total: Number(record.series_count) || cars.length };
+}
+
+const dongchediPua: Record<string, string> = {
+  "\ue439": "0", "\ue54c": "1", "\ue463": "2", "\ue49d": "3", "\ue41d": "4",
+  "\ue411": "5", "\ue534": "6", "\ue3eb": "7", "\ue4e3": "8", "\ue45d": "9",
+  "\ue40a": "万", "\ue525": "年", "\ue492": "公", "\ue4a8": "里"
+};
+
+function decodeDongchediText(value: unknown) {
+  return [...String(value || "")].map((character) => dongchediPua[character] || character).join("");
+}
+
+function wanNumber(value: unknown) {
+  const decoded = decodeDongchediText(value);
+  const amount = Number(decoded.match(/\d+(?:\.\d+)?/)?.[0]);
+  return Number.isFinite(amount) && amount > 0 ? Math.round(amount * (decoded.includes("万") ? 10_000 : 1)) : 0;
+}
+
+export function parseDongchediUsedPage(payload: unknown, page = 1, limit = 24) {
+  if (!payload || typeof payload !== "object") return { cars: [] as ExternalCatalogCar[], total: 0, hasMore: false };
+  const data = (payload as { data?: unknown }).data;
+  if (!data || typeof data !== "object") return { cars: [] as ExternalCatalogCar[], total: 0, hasMore: false };
+  const record = data as Record<string, unknown>;
+  const items = Array.isArray(record.search_sh_sku_info_list) ? record.search_sh_sku_info_list : [];
+  const cars = items.flatMap((value): ExternalCatalogCar[] => {
+    if (!value || typeof value !== "object") return [];
+    const item = value as Record<string, unknown>;
+    const id = String(item.sku_id || "").trim();
+    const translated = translateChineseCarName(String(item.brand_name || "").trim(), String(item.series_name || "").trim());
+    const sourcePrice = wanNumber(item.sh_price);
+    if (!id || !translated.make || !translated.model || !sourcePrice) return [];
+    const subtitle = decodeDongchediText(item.sub_title);
+    const mileageText = subtitle.split("|").at(-1) || "";
+    const mileageKm = wanNumber(mileageText);
+    const image = String(item.image || "").replace(/^http:/, "https:");
+    const city = decodeDongchediText(item.car_source_city_name).trim();
+    const transfers = Number(item.transfer_cnt) || 0;
+    const listingItems = [city && `Город: ${city}`, transfers ? `Переходов права собственности: ${transfers}` : ""].filter(Boolean);
+    return [{
+      id: `dongchedi-used-${id}`,
+      slug: `cn-used-${slugPart(translated.make)}-${slugPart(translated.model)}-${Math.max(1, Math.floor(page))}-${Math.max(1, Math.floor(limit))}-${id}`,
+      status: "active", source: "dongchedi-used", sourceUrl: `https://www.dongchedi.com/usedcar/${id}`,
+      country: "cn", currencyCode: "CNY", make: translated.make, model: translated.model,
+      trim: String(item.car_name || "").trim() || null, year: Number(item.car_year) || 0, mileageKm,
+      engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null, bodyType: null,
+      exteriorColor: null, interiorColor: null, vin: null, sourcePrice,
+      photos: image.startsWith("https://") ? [image] : [], details: {
+        source: "Dongchedi", listingType: "used", city, sourcePage: Math.max(1, Math.floor(page)), sourceLimit: Math.max(1, Math.floor(limit)),
+        seriesId: String(item.series_id || ""), carId: String(item.car_id || ""), subtitle, transferCount: transfers,
+        optionGroups: listingItems.length ? [{ title: "Данные объявления", items: listingItems }] : []
+      }
+    }];
+  });
+  return { cars, total: Number(record.total) || cars.length, hasMore: Boolean(record.has_more) };
 }
 
 export function parseDongchediCatalog(html: string): ExternalCatalogCar[] {

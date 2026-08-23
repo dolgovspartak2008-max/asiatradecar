@@ -7,7 +7,7 @@ import { readCostBreakdown } from "../domain/car-details";
 import { buildExternalPricing, DEFAULT_COMMISSION_RUB, KOREA_BROKER_RUB } from "../domain/pricing";
 import type { ExternalCatalogCar } from "../domain/external-catalog";
 import { fetchBanzaiMakes, fetchBanzaiModels, fetchBanzaiPage, fetchBanzaiVehicle, type BanzaiCatalogSelection } from "./banzai";
-import { fetchDongchediPage, fetchDongchediVehicle } from "./dongchedi";
+import { fetchDongchediPage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle } from "./dongchedi";
 import { getDromCustomsDutyRub } from "./drom";
 import { ensureDatabaseSchema } from "./schema";
 
@@ -104,13 +104,45 @@ async function applyExternalCatalogPricing(cars: Car[], settings: Awaited<Return
 async function getExternalBrowseCatalog(filters: CatalogFilters) {
   const settings = await getPricingSettings();
   if (filters.country === "cn") {
-    const page = await fetchDongchediPage(0, 5_000);
     const same = (left: string, right: string | undefined) => left.localeCompare(right || "", undefined, { sensitivity: "base" }) === 0;
+    const hasFilters = Boolean(filters.q || filters.make || filters.model || filters.yearFrom !== undefined || filters.yearTo !== undefined
+      || filters.priceFrom !== undefined || filters.priceTo !== undefined || filters.mileageTo !== undefined || filters.bodyType || filters.fuel
+      || filters.drive || filters.engineFrom !== undefined || filters.engineTo !== undefined || filters.powerFrom !== undefined || filters.powerTo !== undefined
+      || filters.sort !== "newest");
+    if (!hasFilters) {
+      let used: Awaited<ReturnType<typeof fetchDongchediUsedPage>> | undefined;
+      try {
+        used = await fetchDongchediUsedPage(Math.floor(filters.offset / filters.limit) + 1, filters.limit);
+      } catch {}
+      if (used) {
+        if (used.cars.length === filters.limit) {
+          const cars = used.cars.map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
+          return { cars, total: used.total + 4_687, makes: [...new Set(cars.map((car) => car.make))].sort(), models: [], generations: [] };
+        }
+        try {
+          const series = await fetchDongchediPage(0, 5_000);
+          const seriesStart = Math.max(0, filters.offset + used.cars.length - used.total);
+          const sourceCars = [...used.cars, ...series.cars.slice(seriesStart, seriesStart + filters.limit - used.cars.length)];
+          const cars = sourceCars.map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
+          return { cars, total: used.total + series.total, makes: [...new Set([...used.cars, ...series.cars].map((car) => car.make))].sort(), models: [], generations: [] };
+        } catch {
+          if (used.cars.length) {
+            const cars = used.cars.map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
+            return { cars, total: used.total, makes: [...new Set(cars.map((car) => car.make))].sort(), models: [], generations: [] };
+          }
+        }
+      }
+      const series = await fetchDongchediPage(0, 5_000);
+      const cars = series.cars.slice(filters.offset, filters.offset + filters.limit).map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
+      return { cars, total: series.total, makes: [...new Set(series.cars.map((car) => car.make))].sort(), models: [], generations: [] };
+    }
+    const page = await fetchDongchediPage(0, 5_000);
     const makes = [...new Set(page.cars.map((car) => car.make))].sort();
     const makeCars = filters.make ? page.cars.filter((car) => same(car.make, filters.make)) : page.cars;
     const models = filters.make ? [...new Set(makeCars.map((car) => car.model))].sort() : [];
     const priced = makeCars
       .filter((car) => !filters.model || same(car.model, filters.model))
+      .filter((car) => !filters.q || `${car.make} ${car.model} ${car.trim || ""}`.toLocaleLowerCase().includes(filters.q.toLocaleLowerCase()))
       .map(fromExternalCar)
       .map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn))
       .filter((car) => filters.yearFrom === undefined || car.year >= filters.yearFrom)
@@ -260,9 +292,23 @@ async function getDatabaseCatalog(filters: CatalogFilters) {
   return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models: modelsResult.rows.map((row) => row.model), generations: [] };
 }
 
+async function hasSyncedChinaCatalog() {
+  if (!hasDatabase()) return false;
+  try {
+    const result = await query<{ ready: boolean }>(`SELECT (
+      count(*) FILTER (WHERE source = 'dongchedi-used' AND status = 'active') >= 9800
+      AND count(*) FILTER (WHERE source = 'dongchedi') >= 4687
+    ) AS ready FROM cars WHERE country = 'cn'`, []);
+    return result.rows[0]?.ready === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function getCatalog(filters: CatalogFilters) {
   if (filters.country === "jp" || filters.country === "cn") {
-    if (hasDatabase()) {
+    const databaseReady = filters.country === "jp" ? hasDatabase() : await hasSyncedChinaCatalog();
+    if (databaseReady) {
       try {
         const [catalog, settings] = await Promise.all([getDatabaseCatalog(filters), getPricingSettings()]);
         if (catalog.total > 0) return { ...catalog, cars: await applyExternalCatalogPricing(catalog.cars, settings) };
@@ -305,7 +351,15 @@ export async function getCarBySlug(slug: string) {
       } catch {}
     }
   }
-  if (slug.startsWith("cn-")) {
+  if (slug.startsWith("cn-used-")) {
+    const source = slug.match(/-(\d+)-(\d+)-(\d+)$/);
+    if (source) {
+      try {
+        const [external, settings] = await Promise.all([fetchDongchediUsedVehicle(source[3], Number(source[1]), Number(source[2])), getPricingSettings()]);
+        if (external) return (await applyExternalCatalogPricing([fromExternalCar(external)], settings))[0];
+      } catch {}
+    }
+  } else if (slug.startsWith("cn-")) {
     const sourceId = slug.match(/-(\d+)$/)?.[1];
     if (sourceId) {
       try {
