@@ -93,24 +93,70 @@ describe("live Trust Encar catalog", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps an expanded China make selectable when it is absent from the new-model feed", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const usedItem = (city: string) => ({
+      sku_id: 77, brand_id: 177, brand_name: "阿维塔", series_name: "阿维塔12", car_name: "阿维塔12 Max",
+      car_year: 2024, sh_price: "25.8万", sub_title: "2024年 | 1万公里", image: "https://example.test/avatr.webp", car_source_city_name: city
+    });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (!url.includes("/motor/pc/sh/sh_sku_list")) return Promise.resolve(Response.json({ data: { series_count: 4_687, series: [] } }));
+      const body = init?.body as URLSearchParams;
+      const city = body.get("sh_city_name") || "全国";
+      return Promise.resolve(Response.json({ data: {
+        total: body.get("brand") === "177" ? 321 : 6_000,
+        has_more: true,
+        search_sh_sku_info_list: [usedItem(city)]
+      } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getCatalog(parseCatalogParams({ country: "cn", make: "阿维塔" }));
+
+    expect(result.total).toBe(321);
+    expect(result.makes).toContain("阿维塔");
+    expect(result.cars[0]).toMatchObject({ id: "dongchedi-used-77", make: "阿维塔", model: "12" });
+    expect(fetchMock.mock.calls.some(([url, init]) => url.includes("/motor/pc/sh/sh_sku_list") && (init?.body as URLSearchParams).get("brand") === "177")).toBe(true);
+
+    await expect(getCarBySlug(result.cars[0].slug)).resolves.toMatchObject({ id: "dongchedi-used-77" });
+    expect((fetchMock.mock.calls.at(-1)?.[1]?.body as URLSearchParams).get("brand")).toBe("177");
+
+    const narrowed = await getCatalog(parseCatalogParams({ country: "cn", make: "阿维塔", yearFrom: "2025" }));
+    expect(narrowed).toMatchObject({ total: 0, cars: [] });
+  });
+
   it("shows genuine China listings immediately without waiting for a catalog reset", async () => {
     vi.stubEnv("DATABASE_URL", "");
-    const listings = Array.from({ length: 24 }, (_, index) => ({
-      sku_id: 9000 + index, brand_name: "宝马", series_name: "宝马3系", car_name: `325Li ${index + 1}`,
-      car_year: 2021 + index % 3, sh_price: `${18 + index / 10}万`, sub_title: `2022年 | ${2 + index / 10}万公里`,
-      image: `https://example.test/bmw-${index}.webp`, car_source_city_name: "成都"
-    }));
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { total: 10_000, has_more: true, search_sh_sku_info_list: listings } }));
+    const cities = ["北京", "上海", "广州", "深圳", "成都", "重庆", "杭州", "武汉", "南京", "天津"];
+    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      const city = (init?.body as URLSearchParams).get("sh_city_name") || "";
+      const cityIndex = cities.indexOf(city);
+      const listings = Array.from({ length: 80 }, (_, index) => ({
+        sku_id: 100_000 + cityIndex * 1_000 + index,
+        brand_id: cityIndex * 2 + index % 2 + 1,
+        brand_name: `Brand ${cityIndex}${index % 2 ? "B" : "A"}`,
+        series_name: `Model ${cityIndex}${index % 2 ? "B" : "A"}`,
+        car_name: `Trim ${index + 1}`,
+        car_year: 2021 + index % 3, sh_price: `${18 + index / 10}万`, sub_title: `2022年 | ${2 + index / 10}万公里`,
+        image: `https://example.test/car-${cityIndex}-${index}.webp`, car_source_city_name: city
+      }));
+      return Promise.resolve(Response.json({ data: { total: 6_000, has_more: true, search_sh_sku_info_list: listings } }));
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getCatalog(parseCatalogParams({ country: "cn" }));
 
-    expect(result.total).toBe(14_687);
+    expect(result.total).toBe(60_000);
     expect(result.cars).toHaveLength(24);
-    expect(result.cars[0]).toMatchObject({ id: "dongchedi-used-9000", make: "BMW", model: "3 Series", trim: "325Li 1", year: 2021, mileageKm: 20_000 });
+    expect(result.makes).toHaveLength(20);
+    expect(result.cars[0]).toMatchObject({ id: "dongchedi-used-100000", make: "Brand 0A", model: "Model 0A", trim: "Trim 1", year: 2021, mileageKm: 20_000 });
+    expect(result.cars[0].slug).toContain("-pool-beijing-");
     expect(result.cars.every((car) => !car.trim?.startsWith("Комплектация "))).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(10);
     expect(fetchMock.mock.calls[0][0]).toContain("/motor/pc/sh/sh_sku_list");
+
+    await expect(getCarBySlug(result.cars[0].slug)).resolves.toMatchObject({ id: "dongchedi-used-100000" });
+    expect((fetchMock.mock.calls.at(-1)?.[1]?.body as URLSearchParams).get("sh_city_name")).toBe("北京");
   });
 
   it("falls back to unique new China models when used listings are temporarily unavailable", async () => {

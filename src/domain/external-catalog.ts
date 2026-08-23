@@ -132,7 +132,8 @@ export function translateChineseTrim(value: string, sourceNames: string[] = []) 
 }
 
 export function translateChineseCarName(make: string, model: string, fallbackId = "") {
-  const translatedMake = chineseBrands[make] || cleanEnglish(make) || "China Auto";
+  const matchingBrand = Object.entries(chineseBrands).sort(([left], [right]) => right.length - left.length).find(([name]) => make.includes(name));
+  const translatedMake = chineseBrands[make] || matchingBrand?.[1] || cleanEnglish(make) || "China Auto";
   const translatedModel = chineseModels[model] || translateChineseTrim(model, [make]) || `Model${fallbackId ? ` ${fallbackId}` : ""}`;
   return { make: translatedMake, model: translatedModel };
 }
@@ -214,7 +215,7 @@ function wanNumber(value: unknown) {
   return Number.isFinite(amount) && amount > 0 ? Math.round(amount * (decoded.includes("万") ? 10_000 : 1)) : 0;
 }
 
-export function parseDongchediUsedPage(payload: unknown, page = 1, limit = 24) {
+export function parseDongchediUsedPage(payload: unknown, page = 1, limit = 24, sourceCity = "全国", sourceBrandId = "") {
   if (!payload || typeof payload !== "object") return { cars: [] as ExternalCatalogCar[], total: 0, hasMore: false };
   const data = (payload as { data?: unknown }).data;
   if (!data || typeof data !== "object") return { cars: [] as ExternalCatalogCar[], total: 0, hasMore: false };
@@ -224,7 +225,13 @@ export function parseDongchediUsedPage(payload: unknown, page = 1, limit = 24) {
     if (!value || typeof value !== "object") return [];
     const item = value as Record<string, unknown>;
     const id = String(item.sku_id || "").trim();
-    const translated = translateChineseCarName(String(item.brand_name || "").trim(), String(item.series_name || "").trim(), String(item.series_id || ""));
+    const sourceMake = String(item.brand_name || "").trim();
+    const sourceModel = String(item.series_name || "").trim();
+    const brandId = String(item.brand_id || "").trim();
+    const baseName = translateChineseCarName(sourceMake, sourceModel, String(item.series_id || ""));
+    const translated = brandId && baseName.make === "China Auto"
+      ? { make: sourceMake, model: translateChineseTrim(sourceModel, [sourceMake]) || sourceModel }
+      : baseName;
     const sourcePrice = wanNumber(item.sh_price);
     if (!id || !translated.make || !translated.model || !sourcePrice) return [];
     const sourceSubtitle = decodeDongchediText(item.sub_title);
@@ -240,14 +247,14 @@ export function parseDongchediUsedPage(payload: unknown, page = 1, limit = 24) {
     const trim = translateChineseTrim(String(item.car_name || ""), [String(item.brand_name || "").trim(), String(item.series_name || "").trim()]);
     return [{
       id: `dongchedi-used-${id}`,
-      slug: `cn-used-${slugPart(translated.make)}-${slugPart(translated.model)}-${Math.max(1, Math.floor(page))}-${Math.max(1, Math.floor(limit))}-${id}`,
+      slug: `cn-used-${slugPart(translated.make)}-${slugPart(translated.model)}${sourceCity === "全国" ? "" : `-pool-${slugPart(translateChineseCity(sourceCity))}`}${sourceBrandId ? `-brand-${slugPart(sourceBrandId)}` : ""}-${Math.max(1, Math.floor(page))}-${Math.max(1, Math.floor(limit))}-${id}`,
       status: "active", source: "dongchedi-used", sourceUrl: `https://www.dongchedi.com/usedcar/${id}`,
       country: "cn", currencyCode: "CNY", make: translated.make, model: translated.model,
       trim: trim || null, year: Number(item.car_year) || 0, mileageKm,
       engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null, bodyType: null,
       exteriorColor: null, interiorColor: null, vin: null, sourcePrice,
       photos: image.startsWith("https://") ? [image] : [], details: {
-        source: "Dongchedi", listingType: "used", city, sourcePage: Math.max(1, Math.floor(page)), sourceLimit: Math.max(1, Math.floor(limit)),
+        source: "Dongchedi", listingType: "used", city, brandId, sourcePage: Math.max(1, Math.floor(page)), sourceLimit: Math.max(1, Math.floor(limit)),
         seriesId: String(item.series_id || ""), carId: String(item.car_id || ""), subtitle, transferCount: transfers,
         optionGroups: listingItems.length ? [{ title: "Данные объявления", items: listingItems }] : []
       }

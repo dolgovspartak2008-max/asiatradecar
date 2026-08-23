@@ -7,7 +7,7 @@ import { readCostBreakdown } from "../domain/car-details";
 import { buildExternalPricing, DEFAULT_COMMISSION_RUB, KOREA_BROKER_RUB } from "../domain/pricing";
 import type { ExternalCatalogCar } from "../domain/external-catalog";
 import { fetchBanzaiMakes, fetchBanzaiModels, fetchBanzaiPage, fetchBanzaiVehicle, type BanzaiCatalogSelection } from "./banzai";
-import { fetchDongchediPage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle } from "./dongchedi";
+import { fetchDongchediPage, fetchDongchediUsedBrowsePage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle, getDongchediCityBySlug } from "./dongchedi";
 import { getDromCustomsDutyRub } from "./drom";
 import { ensureDatabaseSchema } from "./schema";
 
@@ -110,36 +110,41 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
       || filters.drive || filters.engineFrom !== undefined || filters.engineTo !== undefined || filters.powerFrom !== undefined || filters.powerTo !== undefined
       || filters.sort !== "newest");
     if (!hasFilters) {
-      let used: Awaited<ReturnType<typeof fetchDongchediUsedPage>> | undefined;
+      let used: Awaited<ReturnType<typeof fetchDongchediUsedBrowsePage>> | undefined;
       try {
-        used = await fetchDongchediUsedPage(Math.floor(filters.offset / filters.limit) + 1, filters.limit);
+        used = await fetchDongchediUsedBrowsePage(filters.offset, filters.limit);
       } catch {}
-      if (used) {
-        if (used.cars.length === filters.limit) {
-          const cars = used.cars.map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
-          return { cars, total: used.total + 4_687, makes: [...new Set(cars.map((car) => car.make))].sort(), models: [], generations: [] };
-        }
-        try {
-          const series = await fetchDongchediPage(0, 5_000);
-          const seriesStart = Math.max(0, filters.offset + used.cars.length - used.total);
-          const sourceCars = [...used.cars, ...series.cars.slice(seriesStart, seriesStart + filters.limit - used.cars.length)];
-          const cars = sourceCars.map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
-          return { cars, total: used.total + series.total, makes: [...new Set([...used.cars, ...series.cars].map((car) => car.make))].sort(), models: [], generations: [] };
-        } catch {
-          if (used.cars.length) {
-            const cars = used.cars.map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
-            return { cars, total: used.total, makes: [...new Set(cars.map((car) => car.make))].sort(), models: [], generations: [] };
-          }
-        }
+      if (used?.total) {
+        const cars = used.cars.map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
+        const makes = [...new Set(used.facets.map((car) => car.make))].sort();
+        return { cars, total: used.total, makes, models: [], generations: [] };
       }
       const series = await fetchDongchediPage(0, 5_000);
       const cars = series.cars.slice(filters.offset, filters.offset + filters.limit).map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
       return { cars, total: series.total, makes: [...new Set(series.cars.map((car) => car.make))].sort(), models: [], generations: [] };
     }
     const page = await fetchDongchediPage(0, 5_000);
-    const makes = [...new Set(page.cars.map((car) => car.make))].sort();
-    const makeCars = filters.make ? page.cars.filter((car) => same(car.make, filters.make)) : page.cars;
-    const models = filters.make ? [...new Set(makeCars.map((car) => car.model))].sort() : [];
+    let makes = [...new Set(page.cars.map((car) => car.make))].sort();
+    let makeCars = filters.make ? page.cars.filter((car) => same(car.make, filters.make)) : page.cars;
+    let usedTotal: number | undefined;
+    if (filters.make && !makeCars.length) {
+      try {
+        const overview = await fetchDongchediUsedBrowsePage(0, 1);
+        makes = [...new Set([...makes, ...overview.facets.map((car) => car.make)])].sort();
+        const makeFacet = overview.facets.find((car) => same(car.make, filters.make));
+        const brandId = String(makeFacet?.details.brandId || "");
+        const isMakeOnly = !filters.q && !filters.model && filters.yearFrom === undefined && filters.yearTo === undefined
+          && filters.priceFrom === undefined && filters.priceTo === undefined && filters.mileageTo === undefined
+          && !filters.bodyType && !filters.fuel && !filters.drive && filters.engineFrom === undefined && filters.engineTo === undefined
+          && filters.powerFrom === undefined && filters.powerTo === undefined && filters.sort === "newest";
+        if (brandId && isMakeOnly) {
+          const used = await fetchDongchediUsedPage(Math.floor(filters.offset / filters.limit) + 1, filters.limit, "全国", brandId);
+          makeCars = used.cars;
+          usedTotal = used.total;
+        }
+      } catch {}
+    }
+    const models = filters.make && usedTotal === undefined ? [...new Set(makeCars.map((car) => car.model))].sort() : [];
     const priced = makeCars
       .filter((car) => !filters.model || same(car.model, filters.model))
       .filter((car) => !filters.q || `${car.make} ${car.model} ${car.trim || ""}`.toLocaleLowerCase().includes(filters.q.toLocaleLowerCase()))
@@ -154,7 +159,11 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
       : filters.sort === "price-desc" ? (right.priceRub || 0) - (left.priceRub || 0)
       : filters.sort === "mileage" ? left.mileageKm - right.mileageKm
       : right.year - left.year);
-    return { cars: priced.slice(filters.offset, filters.offset + filters.limit), total: priced.length, makes, models, generations: [] };
+    return {
+      cars: usedTotal === undefined ? priced.slice(filters.offset, filters.offset + filters.limit) : priced,
+      total: usedTotal ?? priced.length,
+      makes, models, generations: []
+    };
   }
   const makeOptions = await fetchBanzaiMakes();
   const makes = makeOptions.map((item) => item.name).sort();
@@ -369,7 +378,10 @@ export async function getCarBySlug(slug: string) {
     const source = slug.match(/-(\d+)-(\d+)-(\d+)$/);
     if (source) {
       try {
-        const [external, settings] = await Promise.all([fetchDongchediUsedVehicle(source[3], Number(source[1]), Number(source[2])), getPricingSettings()]);
+        const pool = slug.match(/-pool-([a-z0-9-]+)-(\d+)-(\d+)-(\d+)$/i);
+        const city = pool ? getDongchediCityBySlug(pool[1]) : "全国";
+        const brandId = slug.match(/-brand-(\d+)-\d+-\d+-\d+$/)?.[1];
+        const [external, settings] = await Promise.all([fetchDongchediUsedVehicle(source[3], Number(source[1]), Number(source[2]), city, brandId), getPricingSettings()]);
         if (external) return (await applyExternalCatalogPricing([fromExternalCar(external)], settings))[0];
       } catch {}
     }

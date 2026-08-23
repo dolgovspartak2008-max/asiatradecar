@@ -112,6 +112,15 @@ describe("external catalog parsers", () => {
     expect(JSON.stringify(parsed.cars[0])).not.toMatch(/[\u3400-\u9fff]/);
   });
 
+  it("keeps a real Chinese brand instead of collapsing it into China Auto", () => {
+    const parsed = parseDongchediUsedPage({ data: { total: 1, has_more: false, search_sh_sku_info_list: [{
+      sku_id: 9, brand_id: 177, brand_name: "阿维塔", series_name: "阿维塔12", car_name: "阿维塔12 Max",
+      car_year: 2024, sh_price: "25.8万", sub_title: "2024年 | 1万公里", image: "https://example.test/avatr.webp", car_source_city_name: "成都"
+    }] } });
+
+    expect(parsed.cars[0]).toMatchObject({ make: "阿维塔", model: "12", details: { brandId: "177" } });
+  });
+
   it("formats Chinese ten-thousand-yuan ranges without hieroglyphs", () => {
     expect(formatCnyPriceRange("12.98-21.98")).toBe("129 800–219 800 ¥");
   });
