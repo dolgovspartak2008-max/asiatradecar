@@ -3,7 +3,7 @@ type CostBreakdownLine = { label: string; value: string };
 export const DEFAULT_COMMISSION_RUB = 100_000;
 export const DEFAULT_COMMISSIONS_RUB = { kr: DEFAULT_COMMISSION_RUB, jp: 50_000, cn: 100_000 } as const;
 export const KOREA_BROKER_RUB = 110_000;
-export const JAPAN_EXPENSES_JPY = 250_000;
+export const JAPAN_EXPENSES_JPY = 260_000;
 
 const COUNTRY_FEES = {
   jp: { commissionRub: 50_000, brokerRub: 60_000 },
@@ -46,13 +46,16 @@ export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, 
   const japanExpensesRub = country === "jp" ? Math.round(JAPAN_EXPENSES_JPY * rubPerUnit) : 0;
   const countryName = country === "jp" ? "Японии" : "Китае";
   const costBreakdown: CostBreakdownLine[] = [
-    { label: `Стоимость автомобиля в ${countryName}`, value: `${sourcePrice.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ¥ (${formatRub(sourceRub)})` }
-  ];
-  if (country === "jp") costBreakdown.push({ label: "Расходы по Японии", value: `${JAPAN_EXPENSES_JPY.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ¥ (${formatRub(japanExpensesRub)})` });
-  if (customsDutyRub > 0) costBreakdown.push({ label: "Таможенная пошлина (предварительно)", value: formatRub(customsDutyRub) });
-  costBreakdown.push(
     { label: "Комиссия компании", value: formatRub(commissionRub) },
-    { label: "Таможенный брокер", value: formatRub(fees.brokerRub) }
-  );
+    { label: `Стоимость автомобиля в ${countryName}`, value: `${sourcePrice.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ¥ (${formatRub(sourceRub)})` },
+    { label: `Расходы по ${country === "jp" ? "Японии" : "Китаю"} и фрахт во Владивосток`, value: country === "jp" ? `${JAPAN_EXPENSES_JPY.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ¥ (${formatRub(japanExpensesRub)})` : formatRub(0) },
+    { label: "Таможенная пошлина", value: formatRub(customsDutyRub) },
+    { label: "Таможенный сбор", value: formatRub(0) },
+    { label: "Утилизационный сбор", value: formatRub(0) },
+    { label: "Акциз", value: formatRub(0) },
+    { label: "НДС", value: formatRub(0) },
+    { label: "Таможенный брокер", value: formatRub(fees.brokerRub) },
+    { label: "Логистика (автовоз)", value: "Рассчитывается отдельно в зависимости от города доставки" }
+  ];
   return { priceRub: sourceRub + japanExpensesRub + customsDutyRub + commissionRub + fees.brokerRub, costBreakdown };
 }

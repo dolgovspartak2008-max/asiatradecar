@@ -35,7 +35,7 @@ export function readInsuranceHistory(details: Record<string, unknown>) {
         const count = Number(match[1]);
         const cases = count === 1 ? "страховой случай" : count > 1 && count < 5 ? "страховых случая" : "страховых случаев";
         const rubles = match[2].includes("₩") ? match[2].match(/([\d\s\u00a0]+\s*₽)/)?.[1] : null;
-        return `${count} ${cases} · сумма ${(rubles || match[2]).trim()}`;
+        return `${count} ${cases}\nсумма ${(rubles || match[2]).trim()}`;
       }
       return clean;
     }

@@ -68,7 +68,7 @@ describe("requested mobile UI", () => {
   });
 
   it("remounts catalog results after filters change", () => {
-    expect(read("../app/catalog/page.tsx")).toContain("<CatalogResults key={query.toString()}");
+    expect(read("./catalog-page.tsx")).toContain("<CatalogResults key={query.toString()}");
   });
 
   it("keeps legal headings readable on narrow screens and uses black country names", () => {
@@ -113,6 +113,12 @@ describe("requested mobile UI", () => {
     const css = read("../app/globals.css");
     expect(css).toContain("@keyframes button-glow-spin");
     expect(css).toContain("@keyframes button-glow-breathe");
+  });
+
+  it("keeps the route map visible behind reviews and preserves the insurance line break", () => {
+    const css = read("../app/globals.css");
+    expect(css).toContain(".testimonials { background: transparent;");
+    expect(css).toMatch(/\.car-specs dd \{[^}]*white-space: pre-line/);
   });
 
   it("keeps the catalog sync workflow valid without a secrets expression at job level", () => {

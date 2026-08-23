@@ -1,63 +1,35 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function VideoHero() {
-  const refs = useRef<Array<HTMLVideoElement | null>>([]);
+  const video = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(true);
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion: reduce)");
-    const videos = refs.current.filter((video): video is HTMLVideoElement => Boolean(video));
-    let active = 0;
-    let switching = false;
-    let cleanupTimer = 0;
-    let animationFrame = 0;
-
     const sync = () => {
-      videos.forEach((video, index) => {
-        if (media.matches) video.pause();
-        else if (index === active) void video.play().catch(() => undefined);
-      });
-    };
-    const crossfade = async () => {
-      if (switching || media.matches) return;
-      const current = videos[active];
-      const nextIndex = active === 0 ? 1 : 0;
-      const next = videos[nextIndex];
-      if (!current || !next) return;
-      switching = true;
-      next.currentTime = 0;
-      try {
-        await next.play();
-        current.classList.remove("is-front");
-        current.classList.add("is-outgoing");
-        next.classList.add("is-front");
-        cleanupTimer = window.setTimeout(() => {
-          current.pause();
-          current.currentTime = 0;
-          current.classList.remove("is-outgoing");
-          active = nextIndex;
-          switching = false;
-        }, 1600);
-      } catch { switching = false; }
-    };
-    const checkSeam = () => {
-      const current = videos[active];
-      if (current?.duration && current.duration - current.currentTime < 2.4) void crossfade();
-      animationFrame = requestAnimationFrame(checkSeam);
+      if (!video.current) return;
+      if (media.matches) {
+        video.current.pause();
+        setPlaying(false);
+      } else {
+        void video.current.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      }
     };
     sync();
-    animationFrame = requestAnimationFrame(checkSeam);
     media.addEventListener("change", sync);
-    return () => {
-      media.removeEventListener("change", sync);
-      cancelAnimationFrame(animationFrame);
-      videos.forEach((video) => video.pause());
-      clearTimeout(cleanupTimer);
-    };
+    return () => media.removeEventListener("change", sync);
   }, []);
 
+  const toggle = () => {
+    if (!video.current) return;
+    if (video.current.paused) void video.current.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    else { video.current.pause(); setPlaying(false); }
+  };
+
   return <div className="hero-media" aria-label="Автомобиль едет по горной дороге">
-    {[0, 1].map((index) => <video className={`hero-video ${index === 0 ? "is-front" : ""}`} ref={(node) => { refs.current[index] = node; }} autoPlay={index === 0} muted playsInline preload="auto" poster="/media/hero-import.png" key={index}><source src="/media/hero-drive.mp4" type="video/mp4" />Ваш браузер не поддерживает фоновое видео.</video>)}
+    <video className="hero-video" ref={video} autoPlay muted playsInline loop preload="metadata" poster="/media/hero-import.webp"><source src="/media/hero-drive.mp4" type="video/mp4" />Ваш браузер не поддерживает фоновое видео.</video>
     <div className="hero-shade" />
+    <button className="hero-video-toggle" type="button" onClick={toggle} aria-label={playing ? "Остановить фоновое видео" : "Включить фоновое видео"}>{playing ? "Пауза" : "Включить"}</button>
   </div>;
 }

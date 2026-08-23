@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCnyPriceRange, getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, parseDongchediUsedPage, translateChineseCarName } from "./external-catalog";
+import { formatCnyPriceRange, getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, parseDongchediUsedPage, translateChineseCarName, translateChineseTrim } from "./external-catalog";
 
 describe("external catalog parsers", () => {
   it("parses full Japanese API records with source details and photos", () => {
@@ -49,6 +49,11 @@ describe("external catalog parsers", () => {
     expect(translateChineseCarName("红旗", "红旗HS5")).toEqual({ make: "Hongqi", model: "HS5" });
     expect(translateChineseCarName("丰田", "凯美瑞")).toEqual({ make: "Toyota", model: "Camry" });
     expect(translateChineseCarName("比亚迪", "海豹06DM")).toEqual({ make: "BYD", model: "Seal 06 DM" });
+    expect(translateChineseCarName("蔚来", "蔚来EC6")).toEqual({ make: "NIO", model: "EC6" });
+    expect(translateChineseCarName("捷豹", "捷豹XEL")).toEqual({ make: "Jaguar", model: "XEL" });
+    expect(translateChineseCarName("宝马", "宝马2系(进口)", "101")).toEqual({ make: "BMW", model: "2 Series (Import)" });
+    expect(translateChineseCarName("未知品牌", "未知车型", "99")).toEqual({ make: "China Auto", model: "Model 99" });
+    expect(translateChineseTrim("15T 双离合互联精英型 国VI", ["双离合", "互联"])).toBe("15T Dual-Clutch Connected Elite China VI");
   });
 
   it("reads China models from Dongchedi Next data", () => {
@@ -98,12 +103,13 @@ describe("external catalog parsers", () => {
     expect(parsed.total).toBe(10_000);
     expect(parsed.hasMore).toBe(true);
     expect(parsed.cars[0]).toMatchObject({
-      id: "dongchedi-used-356463767", source: "dongchedi-used", make: "Buick", model: "英朗",
-      trim: "15T 双离合互联精英型 国VI", year: 2019, mileageKm: 55_000, sourcePrice: 25_800,
+      id: "dongchedi-used-356463767", source: "dongchedi-used", make: "Buick", model: "Excelle GT",
+      trim: "15T Dual-Clutch Connected Elite China VI", year: 2019, mileageKm: 55_000, sourcePrice: 25_800,
       sourceUrl: "https://www.dongchedi.com/usedcar/356463767"
     });
     expect(parsed.cars[0].slug).toMatch(/-1-24-356463767$/);
-    expect(parsed.cars[0].details).toMatchObject({ listingType: "used", city: "成都", sourcePage: 1, sourceLimit: 24 });
+    expect(parsed.cars[0].details).toMatchObject({ listingType: "used", city: "Chengdu", sourcePage: 1, sourceLimit: 24 });
+    expect(JSON.stringify(parsed.cars[0])).not.toMatch(/[\u3400-\u9fff]/);
   });
 
   it("formats Chinese ten-thousand-yuan ranges without hieroglyphs", () => {

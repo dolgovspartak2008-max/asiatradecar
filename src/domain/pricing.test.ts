@@ -18,30 +18,43 @@ describe("catalog pricing", () => {
 
   it("calculates Japan with local expenses, customs, commission and broker", () => {
     expect(buildExternalPricing("jp", 1_250_000, 0.62, 436_000)).toEqual({
-      priceRub: 1_476_000,
+      priceRub: 1_482_200,
       costBreakdown: [
-        { label: "Стоимость автомобиля в Японии", value: "1 250 000 ¥ (775 000 ₽)" },
-        { label: "Расходы по Японии", value: "250 000 ¥ (155 000 ₽)" },
-        { label: "Таможенная пошлина (предварительно)", value: "436 000 ₽" },
         { label: "Комиссия компании", value: "50 000 ₽" },
-        { label: "Таможенный брокер", value: "60 000 ₽" }
+        { label: "Стоимость автомобиля в Японии", value: "1 250 000 ¥ (775 000 ₽)" },
+        { label: "Расходы по Японии и фрахт во Владивосток", value: "260 000 ¥ (161 200 ₽)" },
+        { label: "Таможенная пошлина", value: "436 000 ₽" },
+        { label: "Таможенный сбор", value: "0 ₽" },
+        { label: "Утилизационный сбор", value: "0 ₽" },
+        { label: "Акциз", value: "0 ₽" },
+        { label: "НДС", value: "0 ₽" },
+        { label: "Таможенный брокер", value: "60 000 ₽" },
+        { label: "Логистика (автовоз)", value: "Рассчитывается отдельно в зависимости от города доставки" }
       ]
     });
   });
 
   it("calculates China with a 100000 commission and an 80000 broker", () => {
-    expect(buildExternalPricing("cn", 100_000, 11.5)).toMatchObject({
+    expect(buildExternalPricing("cn", 100_000, 11.5)).toEqual({
       priceRub: 1_330_000,
-      costBreakdown: expect.arrayContaining([
+      costBreakdown: [
         { label: "Комиссия компании", value: "100 000 ₽" },
-        { label: "Таможенный брокер", value: "80 000 ₽" }
-      ])
+        { label: "Стоимость автомобиля в Китае", value: "100 000 ¥ (1 150 000 ₽)" },
+        { label: "Расходы по Китаю и фрахт во Владивосток", value: "0 ₽" },
+        { label: "Таможенная пошлина", value: "0 ₽" },
+        { label: "Таможенный сбор", value: "0 ₽" },
+        { label: "Утилизационный сбор", value: "0 ₽" },
+        { label: "Акциз", value: "0 ₽" },
+        { label: "НДС", value: "0 ₽" },
+        { label: "Таможенный брокер", value: "80 000 ₽" },
+        { label: "Логистика (автовоз)", value: "Рассчитывается отдельно в зависимости от города доставки" }
+      ]
     });
   });
 
   it("uses country commission configured by the Telegram admin", () => {
     expect(buildExternalPricing("jp", 1_000_000, 0.62, 0, 75_000)).toMatchObject({
-      priceRub: 910_000,
+      priceRub: 916_200,
       costBreakdown: expect.arrayContaining([{ label: "Комиссия компании", value: "75 000 ₽" }])
     });
   });

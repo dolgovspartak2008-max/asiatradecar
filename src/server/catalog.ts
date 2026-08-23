@@ -1,5 +1,5 @@
 import type { CatalogFilters } from "../domain/catalog";
-import { buildCatalogQuery, parseCatalogParams } from "../domain/catalog";
+import { buildCatalogQuery, catalogStatusClause, parseCatalogParams } from "../domain/catalog";
 import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBootstrap, parseTrustEncarCatalogPage, parseTrustEncarGenerationsFacet, parseTrustEncarModelsFacet, parseTrustEncarVehiclePage, type TrustEncarCatalogCar } from "../domain/sync";
 import { hasDatabase, query } from "./db";
 import { getPricingSettings } from "./pricing";
@@ -281,13 +281,14 @@ async function getLiveCatalog(filters: CatalogFilters) {
 async function getDatabaseCatalog(filters: CatalogFilters) {
   await ensureDatabaseSchema();
   const built = buildCatalogQuery(filters);
+  const statusClause = catalogStatusClause(filters.country);
   const countValues = built.values.slice(0, -2);
   const where = built.text.match(/FROM cars WHERE (.+) ORDER BY/s)?.[1] ?? "status = 'active'";
   const [carsResult, countResult, makesResult, modelsResult] = await Promise.all([
     query<CarRow>(built.text, built.values),
     query<{ count: string }>(`SELECT count(*)::text AS count FROM cars WHERE ${where}`, countValues),
-    query<{ make: string }>("SELECT DISTINCT make FROM cars WHERE status = 'active' AND country = $1 ORDER BY make", [filters.country]),
-    filters.make ? query<{ model: string }>("SELECT DISTINCT model FROM cars WHERE status = 'active' AND country = $1 AND make = $2 ORDER BY model", [filters.country, filters.make]) : Promise.resolve({ rows: [] as Array<{ model: string }> })
+    query<{ make: string }>(`SELECT DISTINCT make FROM cars WHERE ${statusClause} AND country = $1 ORDER BY make`, [filters.country]),
+    filters.make ? query<{ model: string }>(`SELECT DISTINCT model FROM cars WHERE ${statusClause} AND country = $1 AND make = $2 ORDER BY model`, [filters.country, filters.make]) : Promise.resolve({ rows: [] as Array<{ model: string }> })
   ]);
   return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models: modelsResult.rows.map((row) => row.model), generations: [] };
 }
@@ -369,7 +370,7 @@ export async function getCarBySlug(slug: string) {
     }
   }
   if (!hasDatabase()) return null;
-  const result = await query<CarRow>("SELECT * FROM cars WHERE slug = $1 AND status = 'active' LIMIT 1", [slug]).catch(() => null);
+  const result = await query<CarRow>("SELECT * FROM cars WHERE slug = $1 AND (status = 'active' OR country = 'jp') LIMIT 1", [slug]).catch(() => null);
   if (!result?.rows[0]) return null;
   const car = toCar(result.rows[0]);
   const settings = await getPricingSettings();
@@ -378,6 +379,24 @@ export async function getCarBySlug(slug: string) {
   }
   if (car.country === "cn") return (await applyExternalCatalogPricing([car], settings))[0];
   return applyCommission(car, settings.commissions.kr, false);
+}
+
+export async function getSitemapCars() {
+  if (!hasDatabase()) return [];
+  try {
+    await ensureDatabaseSchema();
+    const result = await query<{ slug: string; updated_at: Date; photos: unknown }>(
+      "SELECT slug, updated_at, photos FROM cars WHERE status = 'active' AND slug <> '' ORDER BY updated_at DESC LIMIT 50000",
+      []
+    );
+    return result.rows.map((row) => ({
+      slug: row.slug,
+      updatedAt: row.updated_at,
+      image: Array.isArray(row.photos) && typeof row.photos[0] === "string" ? row.photos[0] : undefined
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getLatestCars(limit = 4) {

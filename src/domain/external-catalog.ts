@@ -100,7 +100,8 @@ const chineseBrands: Record<string, string> = {
   "特斯拉": "Tesla", "保时捷": "Porsche", "凯迪拉克": "Cadillac", "别克": "Buick", "福特": "Ford", "雪佛兰": "Chevrolet",
   "马自达": "Mazda", "三菱": "Mitsubishi", "斯巴鲁": "Subaru", "铃木": "Suzuki", "吉利": "Geely", "长安": "Changan",
   "奇瑞": "Chery", "长城": "Great Wall", "哈弗": "Haval", "理想": "Li Auto", "蔚来": "NIO", "小鹏": "XPeng", "小米": "Xiaomi",
-  "零跑": "Leapmotor", "五菱": "Wuling", "广汽传祺": "GAC Trumpchi", "领克": "Lynk & Co", "极氪": "Zeekr", "问界": "AITO"
+  "零跑": "Leapmotor", "五菱": "Wuling", "广汽传祺": "GAC Trumpchi", "领克": "Lynk & Co", "极氪": "Zeekr", "问界": "AITO",
+  "捷豹": "Jaguar", "讴歌": "Acura", "荣威": "Roewe", "宝骏": "Baojun", "广汽埃安": "GAC Aion", "坦克": "Tank", "哪吒汽车": "Neta"
 };
 const chineseModels: Record<string, string> = {
   "红旗HS5": "HS5", "凯美瑞": "Camry", "宝马M3": "M3", "红旗HS3 PHEV": "HS3 PHEV",
@@ -108,11 +109,41 @@ const chineseModels: Record<string, string> = {
   "海豹06DM": "Seal 06 DM", "海豹06EV": "Seal 06 EV", "雷克萨斯LX": "LX", "雷克萨斯GX": "GX", "红旗天工08": "Tiangong 08",
   "星愿": "Xingyuan", "宝马3系": "3 Series", "奔驰E级": "E-Class", "奔驰C级": "C-Class", "奥迪A6L": "A6L", "小米SU7": "SU7", "小米YU7": "YU7",
   "帕萨特": "Passat", "朗逸": "Lavida", "速腾": "Sagitar", "凯迪拉克CT5": "CT5", "亚洲龙": "Avalon", "零跑A10": "A10", "零跑C10": "C10",
-  "理想i6": "i6", "小鹏MONA M03": "MONA M03", "星瑞": "Preface", "元UP": "Yuan UP", "宋Pro DM": "Song Pro DM", "宝马5系": "5 Series"
+  "理想i6": "i6", "小鹏MONA M03": "MONA M03", "星瑞": "Preface", "元UP": "Yuan UP", "宋Pro DM": "Song Pro DM", "宝马5系": "5 Series",
+  "英朗": "Excelle GT", "蔚来EC6": "EC6", "捷豹XEL": "XEL", "捷豹XFL": "XFL", "雅阁": "Accord", "思域": "Civic", "天籁": "Altima",
+  "轩逸": "Sylphy", "卡罗拉": "Corolla", "雷凌": "Levin", "汉兰达": "Highlander", "途观L": "Tiguan L", "迈腾": "Magotan"
 };
 
-export function translateChineseCarName(make: string, model: string) {
-  return { make: chineseBrands[make] || make, model: chineseModels[model] || model };
+const chineseTerms: Array<[string, string]> = [
+  ["双离合", "Dual-Clutch"], ["无级变速", "CVT"], ["手自一体", "Automatic"], ["插电混动", "Plug-in Hybrid"], ["纯电动", "Electric"],
+  ["互联", "Connected"], ["智能", "Smart"], ["精英型", "Elite"], ["性能版", "Performance"], ["运动版", "Sport"], ["豪华型", "Luxury"],
+  ["尊贵型", "Premium"], ["旗舰型", "Flagship"], ["进取", "Progressive"], ["领先型", "Leading"], ["标准版", "Standard"], ["舒适型", "Comfort"],
+  ["四驱", "4WD"], ["两驱", "2WD"], ["自动", "Automatic"], ["手动", "Manual"], ["国VI", "China VI"], ["国V", "China V"],
+  ["进口", "Import"], ["系", "Series"], ["版", "Edition"], ["型", ""]
+];
+
+const cleanEnglish = (value: string) => value.replace(/[\u3400-\u9fff]+/g, " ").replace(/[，、]/g, " ").replace(/\s+/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").trim();
+
+export function translateChineseTrim(value: string, sourceNames: string[] = []) {
+  let translated = value.trim();
+  for (const [source, english] of chineseTerms) translated = translated.replaceAll(source, ` ${english} `);
+  for (const sourceName of sourceNames) if (sourceName) translated = translated.replaceAll(sourceName, " ");
+  return cleanEnglish(translated);
+}
+
+export function translateChineseCarName(make: string, model: string, fallbackId = "") {
+  const translatedMake = chineseBrands[make] || cleanEnglish(make) || "China Auto";
+  const translatedModel = chineseModels[model] || translateChineseTrim(model, [make]) || `Model${fallbackId ? ` ${fallbackId}` : ""}`;
+  return { make: translatedMake, model: translatedModel };
+}
+
+const chineseCities: Record<string, string> = {
+  "北京": "Beijing", "上海": "Shanghai", "广州": "Guangzhou", "深圳": "Shenzhen", "成都": "Chengdu", "重庆": "Chongqing",
+  "杭州": "Hangzhou", "武汉": "Wuhan", "南京": "Nanjing", "天津": "Tianjin", "西安": "Xi'an", "苏州": "Suzhou", "郑州": "Zhengzhou"
+};
+
+function translateChineseCity(value: string) {
+  return chineseCities[value] || cleanEnglish(value) || "China";
 }
 
 export function formatCnyPriceRange(raw: string) {
@@ -193,22 +224,26 @@ export function parseDongchediUsedPage(payload: unknown, page = 1, limit = 24) {
     if (!value || typeof value !== "object") return [];
     const item = value as Record<string, unknown>;
     const id = String(item.sku_id || "").trim();
-    const translated = translateChineseCarName(String(item.brand_name || "").trim(), String(item.series_name || "").trim());
+    const translated = translateChineseCarName(String(item.brand_name || "").trim(), String(item.series_name || "").trim(), String(item.series_id || ""));
     const sourcePrice = wanNumber(item.sh_price);
     if (!id || !translated.make || !translated.model || !sourcePrice) return [];
-    const subtitle = decodeDongchediText(item.sub_title);
-    const mileageText = subtitle.split("|").at(-1) || "";
+    const sourceSubtitle = decodeDongchediText(item.sub_title);
+    const mileageText = sourceSubtitle.split("|").at(-1) || "";
     const mileageKm = wanNumber(mileageText);
+    const subtitle = cleanEnglish(sourceSubtitle
+      .replace(/(\d+(?:\.\d+)?)万公里/g, (_, amount: string) => `${Math.round(Number(amount) * 10_000).toLocaleString("en-US")} km`)
+      .replace(/(\d+)年/g, "$1 year"));
     const image = String(item.image || "").replace(/^http:/, "https:");
-    const city = decodeDongchediText(item.car_source_city_name).trim();
+    const city = translateChineseCity(decodeDongchediText(item.car_source_city_name).trim());
     const transfers = Number(item.transfer_cnt) || 0;
     const listingItems = [city && `Город: ${city}`, transfers ? `Переходов права собственности: ${transfers}` : ""].filter(Boolean);
+    const trim = translateChineseTrim(String(item.car_name || ""), [String(item.brand_name || "").trim(), String(item.series_name || "").trim()]);
     return [{
       id: `dongchedi-used-${id}`,
       slug: `cn-used-${slugPart(translated.make)}-${slugPart(translated.model)}-${Math.max(1, Math.floor(page))}-${Math.max(1, Math.floor(limit))}-${id}`,
       status: "active", source: "dongchedi-used", sourceUrl: `https://www.dongchedi.com/usedcar/${id}`,
       country: "cn", currencyCode: "CNY", make: translated.make, model: translated.model,
-      trim: String(item.car_name || "").trim() || null, year: Number(item.car_year) || 0, mileageKm,
+      trim: trim || null, year: Number(item.car_year) || 0, mileageKm,
       engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null, bodyType: null,
       exteriorColor: null, interiorColor: null, vin: null, sourcePrice,
       photos: image.startsWith("https://") ? [image] : [], details: {
@@ -232,7 +267,7 @@ export function parseDongchediCatalog(html: string): ExternalCatalogCar[] {
     if (!value || typeof value !== "object") return [];
     const item = value as Record<string, unknown>;
     const id = String(item.series_id || "");
-    const translated = translateChineseCarName(String(item.brand_name || "").trim(), String(item.series_name || "").trim());
+    const translated = translateChineseCarName(String(item.brand_name || "").trim(), String(item.series_name || "").trim(), id);
     const { make, model } = translated;
     const priceInfo = item.price_info && typeof item.price_info === "object" ? item.price_info as Record<string, unknown> : {};
     const priceWan = Number(String(priceInfo.price || "").split("-")[0]);

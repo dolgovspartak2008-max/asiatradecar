@@ -16,4 +16,10 @@ describe("lead validation", () => {
     expect(message).toContain("asia-trade-car.ru");
     expect(message).not.toContain("trust-encar.ru");
   });
+
+  it("accepts a selected-car lead without the optional wishes field", () => {
+    const result = validateLead({ name: "Анна", phone: "+79991234567", city: "Тюмень", consent: true, website: "" });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.wishes).toBe("");
+  });
 });

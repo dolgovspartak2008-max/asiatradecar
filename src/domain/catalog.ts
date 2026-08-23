@@ -63,8 +63,10 @@ export function parseCatalogParams(params: SearchParams): CatalogFilters {
   };
 }
 
+export const catalogStatusClause = (country: string) => country === "jp" ? "status IN ('active', 'inactive')" : "status = 'active'";
+
 export function buildCatalogQuery(filters: CatalogFilters) {
-  const where = ["status = 'active'", "country = $1"];
+  const where = [catalogStatusClause(filters.country), "country = $1"];
   const values: unknown[] = [filters.country];
   const add = (clause: string, value: unknown) => { values.push(value); where.push(clause.replace("?", `$${values.length}`)); };
 

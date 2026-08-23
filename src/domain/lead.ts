@@ -4,7 +4,7 @@ const leadSchema = z.object({
   name: z.string().trim().min(2).max(80),
   phone: z.string().trim().regex(/^\+?[\d\s()-]{10,20}$/),
   city: z.string().trim().min(2).max(100),
-  wishes: z.string().trim().max(1500),
+  wishes: z.string().trim().max(1500).default(""),
   consent: z.literal(true),
   website: z.string().max(0)
 });

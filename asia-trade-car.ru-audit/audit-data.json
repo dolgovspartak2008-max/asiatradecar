@@ -1,0 +1,66 @@
+{
+  "summary": {
+    "date": "2026-08-23",
+    "health_score": 79,
+    "previous_health_score": 58,
+    "business_type": "Hybrid service landing + automotive catalog",
+    "target": "Local production build; canonical https://asia-trade-car.ru inferred from repository",
+    "verdict": "Critical first-audit issues are fixed; run live robots, sitemap, TLS and DB smoke checks before production indexation.",
+    "top_findings": [
+      "Pricing promises conflict with preliminary-price and separate-expense disclaimers",
+      "Sitemap can exceed 50000 URLs near the SQL inventory limit",
+      "Arbitrary page=N catalog URLs can return indexable empty 200 pages",
+      "Sitemap silently drops vehicle URLs when the database is unavailable",
+      "Vehicle evidence, reviews and team expertise remain partly unverifiable"
+    ]
+  },
+  "categories": [
+    {"name":"Technical SEO","weight":22,"previous_score":61,"score":84},
+    {"name":"Content Quality","weight":23,"previous_score":61,"score":72},
+    {"name":"On-Page SEO","weight":20,"previous_score":57,"score":82},
+    {"name":"Schema","weight":10,"previous_score":58,"score":82},
+    {"name":"Performance (CWV proxy)","weight":10,"previous_score":56,"score":74},
+    {"name":"AI Search / GEO","weight":10,"previous_score":52,"score":76},
+    {"name":"Images","weight":5,"previous_score":49,"score":88}
+  ],
+  "separate_scores": {
+    "sxo": 77,
+    "visual_mobile_a11y": 82,
+    "eeat": 60,
+    "sitemap": 72,
+    "backlinks": "INSUFFICIENT DATA (0/7 factors)"
+  },
+  "verification": {
+    "tests": "119 passed",
+    "test_files": "27 passed",
+    "typescript": "passed",
+    "eslint": "passed",
+    "production_build": "passed",
+    "browser_viewports": ["1440x900", "390x844"],
+    "horizontal_overflow": false,
+    "console_errors": 0,
+    "sample_vehicle_pages": 2,
+    "local_sitemap_urls_without_database": 6
+  },
+  "findings": [
+    {"severity":"High","area":"Content/Trust","title":"Conflicting turnkey and fixed-price promise"},
+    {"severity":"High-Conditional","area":"Technical/Sitemap","title":"Potential sitemap limit overflow"},
+    {"severity":"Medium","area":"Technical","title":"Indexable empty pagination URLs"},
+    {"severity":"Medium","area":"Technical/Sitemap","title":"Silent empty vehicle sitemap on DB failure"},
+    {"severity":"Medium","area":"Content/E-E-A-T","title":"Thin vehicle evidence and weak review attribution"},
+    {"severity":"Medium","area":"Performance","title":"Dynamic no-store catalogs and 2.07 MiB autoplay video"},
+    {"severity":"Medium","area":"Accessibility","title":"15px mobile form controls, contrast and field error gaps"},
+    {"severity":"Medium-Low","area":"Schema/On-page","title":"Missing BreadcrumbList/WebSite and incomplete social metadata"},
+    {"severity":"Low","area":"Technical","title":"Trailing-slash SITE_URL and inherited home canonicals on noindex pages"}
+  ],
+  "limitations": [
+    "Live deployment, DNS, TLS, CDN and production environment were not verified",
+    "No Search Console, GA4, Lighthouse or CrUX field data",
+    "Backlink score withheld because 0 of 7 required factors were available"
+  ],
+  "artifacts": {
+    "report": "FULL-AUDIT-REPORT.md",
+    "action_plan": "ACTION-PLAN.md",
+    "findings_dir": "findings/"
+  }
+}

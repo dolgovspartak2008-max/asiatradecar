@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { query } from "./db";
-import { getCarBySlug } from "./catalog";
+import { getCarBySlug, getSitemapCars } from "./catalog";
 
-vi.mock("./db", () => ({ hasDatabase: () => true, query: vi.fn() }));
+vi.mock("./db", () => ({ hasDatabase: () => true, query: vi.fn(), getPool: () => ({ query: vi.fn().mockResolvedValue({}) }) }));
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -30,4 +30,11 @@ it("adds the current commission and broker fee to a raw Korea database price", a
   });
 
   await expect(getCarBySlug("db-car")).resolves.toMatchObject({ priceRub: 850_000 });
+});
+
+it("returns active sitemap cars with real update dates and first images", async () => {
+  vi.mocked(query).mockResolvedValue({ rows: [{ slug: "kia-k5-1", updated_at: new Date("2026-08-20"), photos: ["https://example.test/k5.webp"] }] } as never);
+
+  await expect(getSitemapCars()).resolves.toEqual([{ slug: "kia-k5-1", updatedAt: new Date("2026-08-20"), image: "https://example.test/k5.webp" }]);
+  expect(vi.mocked(query).mock.calls[0][0]).toContain("status = 'active'");
 });

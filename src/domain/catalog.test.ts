@@ -20,4 +20,9 @@ describe("catalog URL state", () => {
     expect(query.text).not.toContain("OR 1=1");
     expect(query.values).toContain("%' OR 1=1 --");
   });
+
+  it("includes completed Japanese auction lots without exposing inactive cars from other catalogs", () => {
+    expect(buildCatalogQuery(parseCatalogParams({ country: "jp" })).text).toContain("status IN ('active', 'inactive')");
+    expect(buildCatalogQuery(parseCatalogParams({ country: "kr" })).text).toContain("status = 'active'");
+  });
 });

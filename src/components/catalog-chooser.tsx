@@ -5,9 +5,9 @@ import { useId, useRef } from "react";
 import { Icon } from "@/components/icons";
 
 const countries = [
-  { code: "KR", name: "Южная Корея", href: "/catalog?country=kr" },
-  { code: "JP", name: "Япония", href: "/catalog?country=jp" },
-  { code: "CN", name: "Китай", href: "/catalog?country=cn" }
+  { code: "KR", name: "Южная Корея", href: "/catalog/korea" },
+  { code: "JP", name: "Япония", href: "/catalog/japan" },
+  { code: "CN", name: "Китай", href: "/catalog/china" }
 ] as const;
 
 export function CatalogChooser({ label, className = "button" }: { label: string; className?: string }) {

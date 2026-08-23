@@ -1,3 +1,3 @@
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
-export default function CalculatorPage() { redirect("/#catalogs"); }
+export default function CalculatorPage() { permanentRedirect("/#catalogs"); }

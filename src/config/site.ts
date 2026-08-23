@@ -4,6 +4,18 @@ export function resolveSiteUrl(env: Record<string, string | undefined> = process
   return vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000";
 }
 
+export function isSiteIndexable(env: Record<string, string | undefined> = process.env) {
+  if (env.SITE_INDEXING_DISABLED?.toLowerCase() === "true") return false;
+  const publicUrl = env.SITE_URL || env.VERCEL_PROJECT_PRODUCTION_URL || (env.VERCEL_ENV === "production" ? env.VERCEL_URL : undefined);
+  if (!publicUrl) return false;
+  try {
+    const url = new URL(publicUrl.startsWith("http") ? publicUrl : `https://${publicUrl}`);
+    return url.protocol === "https:" && !["localhost", "127.0.0.1"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export const site = {
   name: "ASIA TRADE CAR",
   description: "Подбор, проверка, выкуп и доставка автомобилей из Азии в Россию.",
@@ -31,7 +43,4 @@ export const site = {
 export const operatorReady = Boolean(site.owner && site.inn && site.ogrn && site.address);
 export const retentionDays = Number(process.env.PD_RETENTION_DAYS);
 export const retentionReady = Number.isInteger(retentionDays) && retentionDays > 0;
-export const isPublicSiteUrl = (() => {
-  try { const url = new URL(site.url); return url.protocol === "https:" && !["localhost", "127.0.0.1"].includes(url.hostname); } catch { return false; }
-})();
-export const launchReady = operatorReady && retentionReady && isPublicSiteUrl;
+export const siteIndexable = isSiteIndexable();
