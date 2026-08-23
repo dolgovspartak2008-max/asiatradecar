@@ -2,6 +2,7 @@ import { createCipheriv, randomBytes, randomUUID } from "node:crypto";
 import { parseBanzaiApiPage, parseBanzaiVehiclePage } from "@/domain/external-catalog";
 
 const DEFAULT_TRACE_KEY = "Q0RFRkdISUpLTE1OT1BRUlNUVVZXWFla";
+const CATALOG_SOURCE = "archive";
 const BROWSER_HEADERS = { "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36" };
 let sessionCookie: string | undefined;
 
@@ -76,13 +77,14 @@ export async function fetchBanzaiMakes() {
   url.searchParams.set("sort_column", "click_counter");
   url.searchParams.set("sort_direction", "desc");
   url.searchParams.set("countryISO", "JP");
+  url.searchParams.set("source", CATALOG_SOURCE);
   return parseOptions(await (await fetchBanzaiApi(url)).json()).filter((item) => item.hasLots);
 }
 
 export async function fetchBanzaiModels(companyId: number) {
   const url = new URL("https://banzai24.com/api/catalog-service/models");
   url.searchParams.set("company", String(companyId));
-  url.searchParams.set("source", "auctions");
+  url.searchParams.set("source", CATALOG_SOURCE);
   url.searchParams.set("sort_column", "name");
   url.searchParams.set("sort_direction", "asc");
   url.searchParams.set("per_page", "9999");
@@ -91,7 +93,7 @@ export async function fetchBanzaiModels(companyId: number) {
 
 export async function fetchBanzaiPage(page: number, perPage = 100, selection: BanzaiCatalogSelection = {}) {
   const url = new URL("https://banzai24.com/api/catalog-service/lots");
-  url.searchParams.set("source", "auctions");
+  url.searchParams.set("source", CATALOG_SOURCE);
   url.searchParams.set("countryISO", "JP");
   url.searchParams.set("page", String(page));
   url.searchParams.set("perPage", String(perPage));

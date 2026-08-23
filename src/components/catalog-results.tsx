@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import type { Car } from "@/server/catalog";
 import { appendUniqueById } from "@/domain/pagination";
 import { CarCard } from "@/components/car-card";
 
 type PageResponse = { items?: Car[]; total?: number; page?: number; hasMore?: boolean; message?: string };
 
-export function CatalogResults({ initialCars, total, initialPage, query, previousHref, nextHref }: { initialCars: Car[]; total: number; initialPage: number; query: string; previousHref?: string; nextHref?: string }) {
+export function CatalogResults({ initialCars, total, initialPage, query }: { initialCars: Car[]; total: number; initialPage: number; query: string }) {
   const [cars, setCars] = useState(initialCars);
   const [page, setPage] = useState(initialPage);
   const [hasMore, setHasMore] = useState(initialPage * 24 < total);
@@ -43,6 +42,5 @@ export function CatalogResults({ initialCars, total, initialPage, query, previou
       {hasMore && <button className="button" type="button" onClick={loadMore} disabled={status === "loading"}>{status === "loading" ? "Загружаем автомобили…" : "Показать ещё"}</button>}
       {status === "error" && <div className="load-more-error"><span>{message}</span><button type="button" onClick={loadMore}>Повторить</button></div>}
     </div>
-    {(previousHref || nextHref) && <nav className="pagination" aria-label="Страницы каталога">{previousHref ? <Link href={previousHref} rel="prev">Предыдущая страница</Link> : <span />}{nextHref && <Link href={nextHref} rel="next">Следующая страница</Link>}</nav>}
   </>;
 }

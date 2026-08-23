@@ -201,7 +201,13 @@ export function parseTrustEncarVehiclePage(html: string): TrustEncarCatalogCar |
     if (vehicle) return;
     try {
       const value = JSON.parse($(element).text()) as Record<string, unknown>;
-      if (value["@type"] === "Vehicle") vehicle = value;
+      const candidates = [value, ...(Array.isArray(value["@graph"]) ? value["@graph"] : [])];
+      vehicle = candidates.find((candidate) => {
+        if (!candidate || typeof candidate !== "object") return false;
+        const raw = candidate as Record<string, unknown>;
+        const types = Array.isArray(raw["@type"]) ? raw["@type"].map(String) : [String(raw["@type"] || "")];
+        return types.some((type) => type === "Vehicle" || type === "Car") && Boolean(raw.sku);
+      }) as Record<string, unknown> | undefined || null;
     } catch {}
   });
   if (!vehicle) return null;

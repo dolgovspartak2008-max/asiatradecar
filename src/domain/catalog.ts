@@ -63,7 +63,9 @@ export function parseCatalogParams(params: SearchParams): CatalogFilters {
   };
 }
 
-export const catalogStatusClause = (country: string) => country === "jp" ? "status IN ('active', 'inactive')" : "status = 'active'";
+export const catalogStatusClause = (country: string) => country === "jp"
+  ? "status IN ('active', 'inactive') AND details->>'catalogSection' = 'archive'"
+  : "status = 'active'";
 
 export function buildCatalogQuery(filters: CatalogFilters) {
   const where = [catalogStatusClause(filters.country), "country = $1"];

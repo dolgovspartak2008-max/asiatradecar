@@ -3,12 +3,25 @@ import { expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-it("ships indexable country catalog routes and crawlable pagination", () => {
+it("ships indexable country catalog routes without previous and next controls", () => {
   expect(existsSync(new URL("../app/catalog/[market]/page.tsx", import.meta.url))).toBe(true);
   const results = read("./catalog-results.tsx");
-  expect(results).toContain("previousHref");
-  expect(results).toContain("nextHref");
-  expect(results).toContain("<Link");
+  expect(results).not.toContain("previousHref");
+  expect(results).not.toContain("nextHref");
+  expect(results).not.toContain("Предыдущая страница");
+  expect(results).not.toContain("Следующая страница");
+});
+
+it("identifies the Japanese inventory as the Banzai24 trade archive", () => {
+  expect(read("../domain/seo.ts")).toContain("архиву торгов Banzai24");
+});
+
+it("covers the iPhone safe area with the dark hero background and a full-button glow", () => {
+  const layout = read("../app/layout.tsx");
+  const css = read("../app/globals.css");
+  expect(layout).toContain('viewportFit: "cover"');
+  expect(css).toMatch(/html, body\s*\{[^}]*background:\s*var\(--dark\)/);
+  expect(css).toMatch(/\.button::before\s*\{[^}]*inset:\s*0[^}]*border-radius:\s*inherit/);
 });
 
 it("builds sitemap from active inventory instead of legal or query URLs", () => {
@@ -35,7 +48,10 @@ it("uses optimized local media and Next image optimization", () => {
   expect(existsSync(new URL("../../public/media/reviews/volkswagen-sagitar.webp", import.meta.url))).toBe(true);
   expect(read("./logo.tsx")).toContain("asia-trade-car-logo-transparent.webp");
   expect(read("./car-card.tsx")).not.toContain("unoptimized");
-  expect(read("./car-gallery.tsx")).not.toContain("unoptimized");
+  const gallery = read("./car-gallery.tsx");
+  expect(gallery).not.toContain("unoptimized");
+  expect(gallery).toContain('loading="eager"');
+  expect(gallery).not.toContain(" priority");
 });
 
 it("revalidates the homepage instead of forcing uncached rendering", () => {

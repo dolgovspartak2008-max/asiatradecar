@@ -111,7 +111,7 @@ describe("requested mobile UI", () => {
   it("removes the source-data label and provides shared glow motion", () => {
     expect(read("./car-options.tsx")).not.toContain("Данные источника");
     const css = read("../app/globals.css");
-    expect(css).toContain("@keyframes button-glow-spin");
+    expect(css).toContain("@keyframes button-glow-fill");
     expect(css).toContain("@keyframes button-glow-breathe");
   });
 

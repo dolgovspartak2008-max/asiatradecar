@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { parseCatalogParams } from "../domain/catalog";
 import { query } from "./db";
-import { getCarBySlug, getSitemapCars } from "./catalog";
+import { getCarBySlug, getCatalog, getSitemapCars } from "./catalog";
 
 vi.mock("./db", () => ({ hasDatabase: () => true, query: vi.fn(), getPool: () => ({ query: vi.fn().mockResolvedValue({}) }) }));
 
@@ -37,4 +38,23 @@ it("returns active sitemap cars with real update dates and first images", async 
 
   await expect(getSitemapCars()).resolves.toEqual([{ slug: "kia-k5-1", updatedAt: new Date("2026-08-20"), image: "https://example.test/k5.webp" }]);
   expect(vi.mocked(query).mock.calls[0][0]).toContain("status = 'active'");
+});
+
+it("keeps Japan on the live archive until the first archive sync cycle is complete", async () => {
+  vi.mocked(query).mockResolvedValue({ rows: [{ ready: false }] } as never);
+  const payload = {
+    items: [{ id: "4e75d2d8-0865-4c72-9bcc-5ddc11bca111", car: { mark: "BMW", model: "3 SERIES" }, characteristics: { year: "2022", engineCapacity: "1.8" }, onePrice: 1_250_000 }],
+    pagination: { total: 2_733_154, totalPages: 1 }
+  };
+  vi.stubGlobal("fetch", vi.fn()
+    .mockResolvedValueOnce(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }))
+    .mockResolvedValueOnce(Response.json({ data: [{ id: 2, name: "BMW", hasLots: true }] }))
+    .mockResolvedValueOnce(Response.json(payload))
+    .mockResolvedValueOnce(Response.json({ result: { details: {} } })));
+
+  const result = await getCatalog(parseCatalogParams({ country: "jp" }));
+
+  expect(result.total).toBe(2_733_154);
+  expect(vi.mocked(query).mock.calls.some(([sql]) => String(sql).includes("catalog_banzai_archive_last_completed_epoch"))).toBe(true);
+  expect(vi.mocked(query).mock.calls.some(([sql]) => String(sql).startsWith("SELECT * FROM cars"))).toBe(false);
 });

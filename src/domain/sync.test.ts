@@ -204,6 +204,25 @@ describe("authorized catalog feed", () => {
     });
   });
 
+  it("parses the current Product/Car JSON-LD graph used by Trust Encar", () => {
+    const parseVehicle = Reflect.get(sync, "parseTrustEncarVehiclePage");
+    expect(parseVehicle).toBeTypeOf("function");
+    if (typeof parseVehicle !== "function") return;
+    const graph = {
+      "@context": "https://schema.org",
+      "@graph": [{
+        "@type": ["Product", "Car"], sku: "42592487", name: "BMW X3 xDrive 20d High",
+        brand: { "@type": "Brand", name: "BMW" }, model: "X3", vehicleConfiguration: "xDrive 20d High",
+        productionDate: "2011", mileageFromOdometer: { value: 171000 },
+        vehicleEngine: { "@type": "EngineSpecification", engineDisplacement: { value: 1995 } },
+        fuelType: "Дизель", image: ["https://trust-encar.ru/images/car.jpg"], offers: { price: "2450000" }
+      }]
+    };
+    const html = `<script type="application/ld+json">${JSON.stringify(graph)}</script>`;
+
+    expect(parseVehicle(html)).toMatchObject({ id: "42592487", make: "BMW", model: "X3", year: 2011, mileageKm: 171000, engineCc: 1995, priceRub: 2450000 });
+  });
+
   it("does not label the Korea-only price as a turnkey price", () => {
     const parsePage = Reflect.get(sync, "parseTrustEncarCatalogPage");
     const html = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>

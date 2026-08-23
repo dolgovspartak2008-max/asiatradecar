@@ -18,6 +18,7 @@ describe("Banzai24 session", () => {
     expect(result.total).toBe(86_781);
     expect(fetchMock).toHaveBeenNthCalledWith(1, "https://banzai24.com/", expect.any(Object));
     expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ Cookie: "banzai_session=live" });
+    expect((fetchMock.mock.calls[1][0] as URL).searchParams.get("source")).toBe("archive");
   });
 
   it("passes selected make, model and range filters to the catalog API", async () => {
@@ -30,6 +31,7 @@ describe("Banzai24 session", () => {
     await fetchBanzaiPage(1, 100, { companyId: 2, modelId: 11519, yearFrom: 2020, yearTo: 2026, mileageTo: 80_000 });
 
     const url = fetchMock.mock.calls[0][0] as URL;
+    expect(url.searchParams.get("source")).toBe("archive");
     expect(url.searchParams.get("company")).toBe("2");
     expect(url.searchParams.get("models[]")).toBe("11519");
     expect(url.searchParams.get("yearStart")).toBe("2020");

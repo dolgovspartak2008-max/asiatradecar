@@ -297,7 +297,7 @@ async function hasSyncedChinaCatalog() {
   if (!hasDatabase()) return false;
   try {
     const result = await query<{ ready: boolean }>(`SELECT (
-      count(*) FILTER (WHERE source = 'dongchedi-used' AND status = 'active') >= 9800
+      count(*) FILTER (WHERE source = 'dongchedi-used' AND status = 'active') >= 50000
       AND count(*) FILTER (WHERE source = 'dongchedi') >= 4687
     ) AS ready FROM cars WHERE country = 'cn'`, []);
     return result.rows[0]?.ready === true;
@@ -306,9 +306,22 @@ async function hasSyncedChinaCatalog() {
   }
 }
 
+async function hasSyncedJapanArchive() {
+  if (!hasDatabase()) return false;
+  try {
+    const result = await query<{ ready: boolean }>(`SELECT (
+      EXISTS (SELECT 1 FROM site_settings WHERE key = 'catalog_banzai_archive_last_completed_epoch')
+      AND EXISTS (SELECT 1 FROM cars WHERE country = 'jp' AND details->>'catalogSection' = 'archive')
+    ) AS ready`, []);
+    return result.rows[0]?.ready === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function getCatalog(filters: CatalogFilters) {
   if (filters.country === "jp" || filters.country === "cn") {
-    const databaseReady = filters.country === "jp" ? hasDatabase() : await hasSyncedChinaCatalog();
+    const databaseReady = filters.country === "jp" ? await hasSyncedJapanArchive() : await hasSyncedChinaCatalog();
     if (databaseReady) {
       try {
         const [catalog, settings] = await Promise.all([getDatabaseCatalog(filters), getPricingSettings()]);

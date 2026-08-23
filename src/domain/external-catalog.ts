@@ -86,7 +86,7 @@ export function parseBanzaiApiPage(payload: unknown) {
       sourcePrice, photos: [...new Set(photos)], details: {
         auction: String(auction.name || "").trim(), lot: String(lot.number || "").trim(),
         tradeDate: String(lot.tradeDate || "").trim(), tradeTime: String(lot.tradeTime || "").trim(),
-        grade: String(item.grade || "").trim(), status: statusName, tags, source: "Banzai24",
+        grade: String(item.grade || "").trim(), status: statusName, tags, source: "Banzai24", catalogSection: "archive",
         optionGroups: lotItems.length ? [{ title: "Данные лота", items: lotItems }] : []
       }
     }];

@@ -34,7 +34,7 @@ export async function fetchDongchediVehicle(id: string) {
   return null;
 }
 
-export async function fetchDongchediUsedPage(page: number, limit = 60) {
+export async function fetchDongchediUsedPage(page: number, limit = 60, city = "全国") {
   const safePage = Math.max(1, Math.floor(page));
   const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
   const response = await fetch(USED_ENDPOINT, {
@@ -42,12 +42,29 @@ export async function fetchDongchediUsedPage(page: number, limit = 60) {
     cache: "no-store",
     signal: AbortSignal.timeout(12_000),
     headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" },
-    body: new URLSearchParams({ sh_city_name: "全国", page: String(safePage), limit: String(safeLimit) })
+    body: new URLSearchParams({ sh_city_name: city, page: String(safePage), limit: String(safeLimit) })
   });
   if (!response.ok) throw new Error(`Dongchedi с пробегом вернул ${response.status}`);
   const parsed = parseDongchediUsedPage(await response.json(), safePage, safeLimit);
   if (!parsed.cars.length && (parsed.hasMore || (safePage - 1) * safeLimit < parsed.total)) throw new Error(`Dongchedi с пробегом вернул пустую страницу ${safePage}`);
   return parsed;
+}
+
+export async function fetchDongchediUsedCatalog(cities: readonly string[], minimumUnique: number, limit = 80) {
+  const firstPages = await Promise.all(cities.map((city) => fetchDongchediUsedPage(1, limit, city)));
+  const cars = firstPages.flatMap((result) => result.cars);
+  const remaining = firstPages.flatMap((result, cityIndex) => Array.from(
+    { length: Math.max(0, Math.ceil(result.total / limit) - 1) },
+    (_, index) => ({ city: cities[cityIndex], page: index + 2 })
+  ));
+  for (let index = 0; index < remaining.length; index += 12) {
+    const batch = remaining.slice(index, index + 12);
+    const results = await Promise.all(batch.map(({ city, page }) => fetchDongchediUsedPage(page, limit, city)));
+    cars.push(...results.flatMap((result) => result.cars));
+  }
+  const unique = [...new Map(cars.map((car) => [car.id, car])).values()];
+  if (unique.length < minimumUnique) throw new Error(`Dongchedi передал ${unique.length} уникальных объявлений; ожидалось не меньше ${minimumUnique}`);
+  return { cars: unique, sourceTotal: firstPages.reduce((total, result) => total + result.total, 0) };
 }
 
 export async function fetchDongchediUsedVehicle(id: string, page: number, limit: number) {

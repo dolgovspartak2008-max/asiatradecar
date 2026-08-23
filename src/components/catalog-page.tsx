@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { parseCatalogParams } from "@/domain/catalog";
-import { buildCatalogHref, type CatalogMarket } from "@/domain/seo";
+import type { CatalogMarket } from "@/domain/seo";
 import { getCatalog } from "@/server/catalog";
 import { CatalogResults } from "@/components/catalog-results";
 import { CatalogFilters } from "@/components/catalog-filters";
@@ -16,14 +16,9 @@ export async function CatalogPageContent({ market, raw }: { market: CatalogMarke
   const query = new URLSearchParams();
   Object.entries(raw).forEach(([key, value]) => (Array.isArray(value) ? value : [value]).forEach((item) => { if (item !== undefined && key !== "country") query.append(key, item); }));
   query.set("country", market.country);
-  const cleanQuery = new URLSearchParams(query);
-  cleanQuery.delete("country");
-  const previousHref = page > 1 ? buildCatalogHref(market.slug, cleanQuery.toString(), page - 1) : undefined;
-  const nextHref = page * filters.limit < total && cars.length > 0 ? buildCatalogHref(market.slug, cleanQuery.toString(), page + 1) : undefined;
-
   return <section className="page-section catalog-page"><div className="container"><div className="catalog-top"><div><p className="eyebrow">{market.name}</p><h1>{market.title}</h1><p>{sourceError ? "Live-источник временно не отвечает" : `${total.toLocaleString("ru-RU")} предложений в live-каталоге`}</p></div><Link className="button button-ghost" href="/catalog/favorites"><Icon name="heart" /> Избранное</Link></div>
     <div className="catalog-intro"><p>{market.source}</p><p>Итоговые цена, наличие, сроки, маршрут, таможенные платежи и комплект документов подтверждаются после проверки выбранного автомобиля.</p></div>
     <CatalogFilters filters={filters} makes={makes} models={models} generations={generations} />
-    {cars.length ? <CatalogResults key={query.toString()} initialCars={cars} total={total} initialPage={page} query={query.toString()} previousHref={previousHref} nextHref={nextHref} /> : <div className="empty-state"><Icon name="car" size={48}/><h2>{sourceError ? "Не удалось получить страницу" : "Автомобили не найдены"}</h2><p>{sourceError ? "Источник не ответил. Повторите загрузку позже." : "Измените фильтры — каталог обновится автоматически."}</p><Link className="button" href={`/catalog/${market.slug}`}>{sourceError ? "Повторить загрузку" : "Сбросить фильтры"}</Link></div>}
+    {cars.length ? <CatalogResults key={query.toString()} initialCars={cars} total={total} initialPage={page} query={query.toString()} /> : <div className="empty-state"><Icon name="car" size={48}/><h2>{sourceError ? "Не удалось получить страницу" : "Автомобили не найдены"}</h2><p>{sourceError ? "Источник не ответил. Повторите загрузку позже." : "Измените фильтры — каталог обновится автоматически."}</p><Link className="button" href={`/catalog/${market.slug}`}>{sourceError ? "Повторить загрузку" : "Сбросить фильтры"}</Link></div>}
   </div></section>;
 }

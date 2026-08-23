@@ -1,35 +1,28 @@
 import { getBanzaiCursorWindow, type ExternalCatalogCar } from "@/domain/external-catalog";
 import { buildExternalPricing } from "@/domain/pricing";
 import { fetchBanzaiPage } from "@/server/banzai";
-import { fetchDongchediPage, fetchDongchediUsedPage } from "@/server/dongchedi";
+import { fetchDongchediPage, fetchDongchediUsedCatalog } from "@/server/dongchedi";
 import { inTransaction, query } from "@/server/db";
 import { getPricingSettings } from "@/server/pricing";
 
 const MIN_DONGCHEDI_SERIES = 4_687;
-const DONGCHEDI_USED_TOTAL = 10_000;
-const MIN_UNIQUE_DONGCHEDI_USED = 9_800;
-const DONGCHEDI_USED_LIMIT = 60;
+export const CHINA_MIN_UNIQUE = 50_000;
+export const CHINA_SYNC_CITIES = ["北京", "上海", "广州", "深圳", "成都", "重庆", "杭州", "武汉", "南京", "天津"] as const;
+const DONGCHEDI_USED_LIMIT = 80;
 const CHINA_REFRESH_SECONDS = 23 * 60 * 60;
-const JAPAN_NEXT_PAGE = "catalog_banzai_next_page";
-const JAPAN_CYCLE_STARTED = "catalog_banzai_cycle_started_epoch";
-const JAPAN_LAST_COMPLETED = "catalog_banzai_last_completed_epoch";
+const JAPAN_NEXT_PAGE = "catalog_banzai_archive_next_page";
+const JAPAN_CYCLE_STARTED = "catalog_banzai_archive_cycle_started_epoch";
+const JAPAN_LAST_COMPLETED = "catalog_banzai_archive_last_completed_epoch";
 const CHINA_LAST_COMPLETED = "catalog_china_last_completed_epoch";
 
 async function fetchChinaCatalog() {
-  const [series, firstUsed] = await Promise.all([fetchDongchediPage(0, 5_000), fetchDongchediUsedPage(1, DONGCHEDI_USED_LIMIT)]);
-  const usedCars = [...firstUsed.cars];
-  const usedTotal = Math.min(DONGCHEDI_USED_TOTAL, firstUsed.total);
-  const usedPages = Math.ceil(usedTotal / DONGCHEDI_USED_LIMIT);
-  for (let page = 2; page <= usedPages; page += 12) {
-    const batch = Array.from({ length: Math.min(12, usedPages - page + 1) }, (_, index) => page + index);
-    const results = await Promise.all(batch.map((pageNumber) => fetchDongchediUsedPage(pageNumber, DONGCHEDI_USED_LIMIT)));
-    usedCars.push(...results.flatMap((result) => result.cars));
-  }
+  const [series, used] = await Promise.all([
+    fetchDongchediPage(0, 5_000),
+    fetchDongchediUsedCatalog(CHINA_SYNC_CITIES, CHINA_MIN_UNIQUE, DONGCHEDI_USED_LIMIT)
+  ]);
   const uniqueSeries = [...new Map(series.cars.map((car) => [car.id, car])).values()];
-  const uniqueUsed = [...new Map(usedCars.map((car) => [car.id, car])).values()];
   if (series.total < MIN_DONGCHEDI_SERIES || uniqueSeries.length < MIN_DONGCHEDI_SERIES) throw new Error(`Dongchedi передал ${uniqueSeries.length} из ${series.total} новых моделей; ожидалось не меньше ${MIN_DONGCHEDI_SERIES}`);
-  if (firstUsed.total < DONGCHEDI_USED_TOTAL || uniqueUsed.length < MIN_UNIQUE_DONGCHEDI_USED) throw new Error(`Dongchedi передал ${uniqueUsed.length} уникальных объявлений из ${firstUsed.total}; ожидалось ${DONGCHEDI_USED_TOTAL} позиций и не меньше ${MIN_UNIQUE_DONGCHEDI_USED} уникальных`);
-  return [...uniqueSeries, ...uniqueUsed];
+  return [...uniqueSeries, ...used.cars];
 }
 
 const UPSERT = `WITH incoming AS (
@@ -98,7 +91,7 @@ async function syncChina(settings: PricingSettings, now: Date) {
   const cars = await fetchChinaCatalog();
   const payload = priceCars(cars, settings);
   await inTransaction(async (client) => {
-    await client.query("SET LOCAL statement_timeout = '5s'");
+    await client.query("SET LOCAL statement_timeout = '30s'");
     await upsertPayload(client, payload);
     await client.query("UPDATE cars SET status='inactive',updated_at=now() WHERE source IN ('dongchedi','dongchedi-used') AND last_seen_at < $1", [startedAt]);
     await writeState(client, CHINA_LAST_COMPLETED, nowSeconds);

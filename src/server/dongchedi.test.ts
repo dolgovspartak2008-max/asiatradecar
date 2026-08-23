@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchDongchediUsedPage } from "./dongchedi";
+import * as dongchedi from "./dongchedi";
+
+const { fetchDongchediUsedPage } = dongchedi;
 
 describe("Dongchedi used catalog client", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -21,7 +23,7 @@ describe("Dongchedi used catalog client", () => {
     } }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await fetchDongchediUsedPage(3, 60);
+    const result = await fetchDongchediUsedPage(3, 60, "成都");
 
     expect(result.cars[0]).toMatchObject({ id: "dongchedi-used-123", make: "BMW", model: "3 Series", sourcePrice: 205_000, mileageKm: 25_000 });
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/motor/pc/sh/sh_sku_list"), expect.objectContaining({
@@ -30,5 +32,27 @@ describe("Dongchedi used catalog client", () => {
     }));
     expect(fetchMock.mock.calls[0][1].body.toString()).toContain("page=3");
     expect(fetchMock.mock.calls[0][1].body.toString()).toContain("limit=60");
+    expect(fetchMock.mock.calls[0][1].body.toString()).toContain("sh_city_name=%E6%88%90%E9%83%BD");
+  });
+
+  it("merges city pools by real listing id without duplicates", async () => {
+    const fetchCatalog = Reflect.get(dongchedi, "fetchDongchediUsedCatalog");
+    expect(fetchCatalog).toBeTypeOf("function");
+    if (typeof fetchCatalog !== "function") return;
+    const item = (id: number) => ({
+      sku_id: id, brand_name: "宝马", series_name: "宝马3系", car_name: `BMW ${id}`, car_year: 2022,
+      sh_price: "\ue463\ue439.\ue411\ue40a", sub_title: "\ue463\ue439\ue463\ue463\ue525 | \ue463.\ue411\ue40a\ue40a\ue492\ue4a8", image: `https://example.test/${id}.webp`
+    });
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = init.body as URLSearchParams;
+      const ids = body.get("sh_city_name") === "成都" ? [1, 2] : [2, 3];
+      return Response.json({ data: { total: 2, has_more: false, search_sh_sku_info_list: ids.map(item) } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchCatalog(["成都", "北京"], 3, 2);
+
+    expect(result.cars.map((car: { id: string }) => car.id)).toEqual(["dongchedi-used-1", "dongchedi-used-2", "dongchedi-used-3"]);
+    expect(result.sourceTotal).toBe(4);
   });
 });
