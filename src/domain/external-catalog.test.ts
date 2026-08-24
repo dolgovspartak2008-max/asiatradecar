@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCnyPriceRange, getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, parseDongchediUsedPage, translateChineseCarName, translateChineseTrim } from "./external-catalog";
+import { formatCnyPriceRange, getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, parseDongchediUsedPage, parseDongchediVehicleSpecs, parseDongchediVehicleSpecsHtml, translateChineseCarName, translateChineseTrim } from "./external-catalog";
 
 describe("external catalog parsers", () => {
   it("parses full Japanese API records with source details and photos", () => {
@@ -110,6 +110,20 @@ describe("external catalog parsers", () => {
     expect(parsed.cars[0].slug).toMatch(/-1-24-356463767$/);
     expect(parsed.cars[0].details).toMatchObject({ listingType: "used", city: "Chengdu", sourcePage: 1, sourceLimit: 24 });
     expect(JSON.stringify(parsed.cars[0])).not.toMatch(/[\u3400-\u9fff]/);
+  });
+
+  it("reads engine size and horsepower for a specific Dongchedi trim", () => {
+    const specs = parseDongchediVehicleSpecs({ data: { tab_list: [{ data: [
+      { type: "1137", info: { name: "2025年款" } },
+      { type: "1115", info: { car_id: 243993, tags: ["2.0T", "后驱"], car_group_list_key: "2.0T/212马力" } }
+    ] }] } }, "243993");
+
+    expect(specs).toEqual({ engineCc: 2_000, powerHp: 212, fuel: "Бензин" });
+  });
+
+  it("falls back to the public Dongchedi trim page for specifications", () => {
+    expect(parseDongchediVehicleSpecsHtml("<main><h1>BMW 525Li</h1><p>2.0T 212马力 L4 48V轻混</p></main>"))
+      .toEqual({ engineCc: 2_000, powerHp: 212, fuel: "Гибрид" });
   });
 
   it("keeps a real Chinese brand instead of collapsing it into China Auto", () => {

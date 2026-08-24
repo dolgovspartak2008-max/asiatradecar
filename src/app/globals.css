@@ -288,11 +288,12 @@ textarea { resize: vertical; }
 .catalog-top { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 38px; }
 .catalog-top h1, .page-intro h1, .legal-page h1, .favorites-page h1 { font-size: clamp(3rem, 7vw, 6rem); margin-bottom: 14px; }
 .catalog-top p { margin: 0; }
-.catalog-intro { max-width: 850px; margin: -18px 0 30px; color: var(--muted); }
+.catalog-intro { max-width: 850px; margin: 36px 0 0; color: var(--muted); }
 .catalog-intro p { margin-bottom: 9px; }
 .catalog-filters { display: grid; grid-template-columns: repeat(6, minmax(110px, 1fr)) auto; align-items: end; gap: 10px; padding: 18px; margin-bottom: 36px; background: rgba(251,250,247,.9); border: 1px solid var(--line); border-radius: 15px; }
 .catalog-filters input, .catalog-filters select { min-height: 46px; padding: 9px 11px; }
 .catalog-filters .button { min-height: 46px; }
+.catalog-filter-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; }
 .generation-buttons { grid-column: 1 / -1; min-width: 0; padding: 0; margin: 4px 0 0; border: 0; }
 .generation-buttons legend { margin-bottom: 8px; color: var(--muted); font-size: .78rem; font-weight: 800; }
 .generation-buttons > div { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x proximity; }

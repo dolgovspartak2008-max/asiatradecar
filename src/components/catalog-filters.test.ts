@@ -12,7 +12,7 @@ describe("CatalogFilters", () => {
     expect(source).toContain("generation-buttons");
     expect(source).toContain("generation.minYear");
     expect(source).toContain("generation.maxYear");
-    expect(source).toContain("requestSubmit()");
+    expect(source).toContain("applyFilters(");
   });
 
   it("shows separate year-from and year-to controls", () => {
@@ -20,5 +20,13 @@ describe("CatalogFilters", () => {
     expect(source).toContain('<label>Год от<input name="yearFrom" type="number"');
     expect(source).toContain('<label>Год до<input name="yearTo" type="number"');
     expect(source).not.toContain('<input name="yearTo" type="hidden"');
+  });
+
+  it("updates and resets filters without scrolling the catalog to the top", () => {
+    const source = readFileSync(new URL("./catalog-filters.tsx", import.meta.url), "utf8");
+    expect(source).toContain("router.replace");
+    expect(source).toContain("{ scroll: false }");
+    expect(source).toContain("Сбросить все фильтры");
+    expect(source).not.toContain("requestSubmit()");
   });
 });

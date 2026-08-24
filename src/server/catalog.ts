@@ -4,11 +4,11 @@ import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBo
 import { hasDatabase, query } from "./db";
 import { getPricingSettings } from "./pricing";
 import { readCostBreakdown } from "../domain/car-details";
-import { buildExternalPricing, DEFAULT_COMMISSION_RUB, KOREA_BROKER_RUB } from "../domain/pricing";
+import { buildExternalPricing, DEFAULT_COMMISSION_RUB, KOREA_BROKER_RUB, type CustomsCostsRub } from "../domain/pricing";
 import type { ExternalCatalogCar } from "../domain/external-catalog";
 import { fetchBanzaiMakes, fetchBanzaiModels, fetchBanzaiPage, fetchBanzaiVehicle, type BanzaiCatalogSelection } from "./banzai";
-import { fetchDongchediPage, fetchDongchediUsedBrowsePage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle, getDongchediCityBySlug } from "./dongchedi";
-import { getDromCustomsDutyRub } from "./drom";
+import { fetchDongchediPage, fetchDongchediUsedBrowsePage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle, fetchDongchediVehicleSpecs, getDongchediCityBySlug } from "./dongchedi";
+import { getDromCustomsCostsRub } from "./drom";
 import { ensureDatabaseSchema } from "./schema";
 
 export type Car = {
@@ -84,20 +84,29 @@ const fromExternalCar = (car: ExternalCatalogCar): Car => ({
   vin: car.vin, priceKrw: car.sourcePrice, priceRub: null, photos: car.photos, details: car.details
 });
 
-function applyExternalPricing(car: Car, rubPerUnit: number, customsDutyRub = 0, commissionRub?: number): Car {
+function applyExternalPricing(car: Car, rubPerUnit: number, customs: CustomsCostsRub = {}): Car {
   const country = car.country === "jp" ? "jp" : "cn";
   if (!car.priceKrw) return car;
-  const pricing = buildExternalPricing(country, car.priceKrw, rubPerUnit, customsDutyRub, commissionRub);
-  return { ...car, priceRub: pricing.priceRub, details: { ...car.details, customsSource: country === "jp" ? "Drom" : car.details.customsSource, costBreakdown: pricing.costBreakdown } };
+  const pricing = buildExternalPricing(country, car.priceKrw, rubPerUnit, customs);
+  return { ...car, priceRub: pricing.priceRub, details: { ...car.details, customsSource: Object.keys(customs).length ? "Drom" : car.details.customsSource, costBreakdown: pricing.costBreakdown } };
 }
 
 async function applyExternalCatalogPricing(cars: Car[], settings: Awaited<ReturnType<typeof getPricingSettings>>) {
   return Promise.all(cars.map(async (car) => {
     const country = car.country === "jp" ? "jp" : "cn";
-    const duty = country === "jp" && car.engineCc
-      ? await getDromCustomsDutyRub({ priceJpy: car.priceKrw, year: car.year, engineCc: car.engineCc, powerHp: car.powerHp, fuel: car.fuel }).catch(() => null)
+    let detailed = car;
+    if (country === "cn" && (!car.engineCc || !car.powerHp || car.year < 1900)) {
+      const seriesId = String(car.details.seriesId || "");
+      const carIds = Array.isArray(car.details.carIds) ? car.details.carIds.map(String) : [];
+      const carId = String(car.details.carId || carIds[0] || "");
+      const specs = seriesId && carId ? await fetchDongchediVehicleSpecs(seriesId, carId).catch(() => null) : null;
+      if (specs) detailed = { ...car, engineCc: specs.engineCc, powerHp: specs.powerHp, fuel: specs.fuel, year: "year" in specs ? specs.year : car.year };
+    }
+    const currency = country === "jp" ? "YEN" : "CNY";
+    const customs = detailed.engineCc && detailed.powerHp && detailed.year >= 1900
+      ? await getDromCustomsCostsRub({ sourcePrice: detailed.priceKrw, currency, year: detailed.year, engineCc: detailed.engineCc, powerHp: detailed.powerHp, fuel: detailed.fuel }).catch(() => null)
       : null;
-    return applyExternalPricing(car, settings.rates[car.currencyCode], duty || 0, settings.commissions[country]);
+    return applyExternalPricing(detailed, settings.rates[detailed.currencyCode], customs || {});
   }));
 }
 
@@ -115,17 +124,18 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
         used = await fetchDongchediUsedBrowsePage(filters.offset, filters.limit);
       } catch {}
       if (used?.total) {
-        const cars = used.cars.map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
+        const cars = await applyExternalCatalogPricing(used.cars.map(fromExternalCar), settings);
         const makes = [...new Set(used.facets.map((car) => car.make))].sort();
         return { cars, total: used.total, makes, models: [], generations: [] };
       }
       const series = await fetchDongchediPage(0, 5_000);
-      const cars = series.cars.slice(filters.offset, filters.offset + filters.limit).map(fromExternalCar).map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn));
+      const cars = await applyExternalCatalogPricing(series.cars.slice(filters.offset, filters.offset + filters.limit).map(fromExternalCar), settings);
       return { cars, total: series.total, makes: [...new Set(series.cars.map((car) => car.make))].sort(), models: [], generations: [] };
     }
     const page = await fetchDongchediPage(0, 5_000);
     let makes = [...new Set(page.cars.map((car) => car.make))].sort();
     let makeCars = filters.make ? page.cars.filter((car) => same(car.make, filters.make)) : page.cars;
+    const newMakeCars = makeCars;
     let usedTotal: number | undefined;
     try {
       const overview = await fetchDongchediUsedBrowsePage(filters.make ? 0 : filters.offset, filters.make ? 1 : filters.limit);
@@ -135,8 +145,8 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
         const brandId = String(makeFacet?.details.brandId || "");
         if (brandId) {
           const used = await fetchDongchediUsedPage(Math.floor(filters.offset / filters.limit) + 1, filters.limit, "全国", brandId);
-          makeCars = used.cars;
-          usedTotal = used.total;
+          makeCars = filters.offset === 0 ? [...newMakeCars, ...used.cars] : used.cars;
+          usedTotal = used.total + newMakeCars.length;
         }
       } else {
         makeCars = overview.cars;
@@ -144,16 +154,16 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
       }
     } catch {}
     const models = filters.make ? [...new Set(makeCars.map((car) => car.model))].sort() : [];
-    const priced = makeCars
+    const filtered = makeCars
       .filter((car) => !filters.model || same(car.model, filters.model))
       .filter((car) => !filters.q || `${car.make} ${car.model} ${car.trim || ""}`.toLocaleLowerCase().includes(filters.q.toLocaleLowerCase()))
       .map(fromExternalCar)
-      .map((car) => applyExternalPricing(car, settings.rates.CNY, 0, settings.commissions.cn))
       .filter((car) => filters.yearFrom === undefined || car.year >= filters.yearFrom)
       .filter((car) => filters.yearTo === undefined || car.year <= filters.yearTo)
-      .filter((car) => filters.priceFrom === undefined || (car.priceRub !== null && car.priceRub >= filters.priceFrom))
-      .filter((car) => filters.priceTo === undefined || (car.priceRub !== null && car.priceRub <= filters.priceTo))
       .filter((car) => filters.mileageTo === undefined || car.mileageKm <= filters.mileageTo);
+    const priced = (await applyExternalCatalogPricing(filtered, settings))
+      .filter((car) => filters.priceFrom === undefined || (car.priceRub !== null && car.priceRub >= filters.priceFrom))
+      .filter((car) => filters.priceTo === undefined || (car.priceRub !== null && car.priceRub <= filters.priceTo));
     priced.sort((left, right) => filters.sort === "price-asc" ? (left.priceRub || Infinity) - (right.priceRub || Infinity)
       : filters.sort === "price-desc" ? (right.priceRub || 0) - (left.priceRub || 0)
       : filters.sort === "mileage" ? left.mileageKm - right.mileageKm
@@ -162,7 +172,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
       || filters.priceFrom !== undefined || filters.priceTo !== undefined || filters.mileageTo !== undefined || filters.bodyType || filters.fuel
       || filters.drive || filters.engineFrom !== undefined || filters.engineTo !== undefined || filters.powerFrom !== undefined || filters.powerTo !== undefined);
     return {
-      cars: usedTotal === undefined ? priced.slice(filters.offset, filters.offset + filters.limit) : priced,
+      cars: usedTotal === undefined ? priced.slice(filters.offset, filters.offset + filters.limit) : priced.slice(0, filters.limit),
       total: usedTotal !== undefined && !narrowed ? usedTotal : priced.length,
       makes, models, generations: []
     };

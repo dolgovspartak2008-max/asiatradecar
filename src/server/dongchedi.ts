@@ -1,7 +1,8 @@
-import { parseDongchediSeriesPage, parseDongchediUsedPage, type ExternalCatalogCar } from "@/domain/external-catalog";
+import { parseDongchediSeriesPage, parseDongchediUsedPage, parseDongchediVehicleSpecs, parseDongchediVehicleSpecsHtml, type ExternalCatalogCar } from "@/domain/external-catalog";
 
 const ENDPOINT = "https://www.dongchedi.com/motor/brand/m/v6/select/series/?city_name=%E5%8C%97%E4%BA%AC";
 const USED_ENDPOINT = "https://www.dongchedi.com/motor/pc/sh/sh_sku_list?aid=1839&app_name=auto_web_pc";
+const VEHICLE_LIST_ENDPOINT = "https://www.dongchedi.com/motor/pc/car/series/car_list";
 type DongchediPage = ReturnType<typeof parseDongchediSeriesPage>;
 type DongchediUsedPage = ReturnType<typeof parseDongchediUsedPage>;
 let fullCatalogCache: { page: DongchediPage; expiresAt: number } | undefined;
@@ -44,6 +45,28 @@ export async function fetchDongchediVehicle(id: string) {
     if (car) return car;
   }
   return null;
+}
+
+export async function fetchDongchediVehicleSpecs(seriesId: string, carId: string) {
+  if (!/^\d+$/.test(seriesId) || !/^\d+$/.test(carId)) return null;
+  const url = new URL(VEHICLE_LIST_ENDPOINT);
+  url.searchParams.set("series_id", seriesId);
+  url.searchParams.set("city_name", "北京");
+  const response = await fetch(url, {
+    next: { revalidate: 86_400 },
+    signal: AbortSignal.timeout(20_000),
+    headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" }
+  });
+  if (!response.ok) throw new Error(`Dongchedi характеристики вернули ${response.status}`);
+  const specs = parseDongchediVehicleSpecs(await response.json(), carId);
+  if (specs) return specs;
+  const detailResponse = await fetch(`https://i.snssdk.com/motor/car_page/v1/get_entity/?car_id_list=${carId}`, {
+    next: { revalidate: 86_400 },
+    signal: AbortSignal.timeout(20_000),
+    headers: { "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" }
+  });
+  if (!detailResponse.ok) return null;
+  return parseDongchediVehicleSpecsHtml(await detailResponse.text());
 }
 
 export async function fetchDongchediUsedPage(page: number, limit = 60, city = "全国", brandId?: string) {

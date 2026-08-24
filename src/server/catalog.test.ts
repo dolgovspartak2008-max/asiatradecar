@@ -119,6 +119,9 @@ describe("live Trust Encar catalog", () => {
     expect(result.models).toContain("SU7");
     expect(result.cars[0]).toMatchObject({ id: "dongchedi-used-88", make: "Xiaomi", model: "SU7", year: 2024, mileageKm: 20_000 });
     expect(fetchMock.mock.calls.some(([url, init]) => url.includes("/motor/pc/sh/sh_sku_list") && (init?.body as URLSearchParams).get("brand") === "535")).toBe(true);
+
+    const makeOnly = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi" }));
+    expect(new Set(makeOnly.cars.map((car) => car.details.listingType))).toEqual(new Set(["new", "used"]));
   });
 
   it("keeps an expanded China make selectable when it is absent from the new-model feed", async () => {
@@ -211,16 +214,24 @@ describe("live Trust Encar catalog", () => {
       .mockResolvedValueOnce(Response.json({ data: [{ id: 11519, name: "3 SERIES", hasLots: true }, { id: 11591, name: "2 SERIES", hasLots: true }] }))
       .mockResolvedValueOnce(Response.json(payload))
       .mockResolvedValueOnce(Response.json(payload))
-      .mockResolvedValueOnce(Response.json({ result: { details: { CUSTOMS_DUTY: { major: { value: 436_000, currency: "RUB" } } } } }));
+      .mockResolvedValueOnce(Response.json({ result: { details: {
+        CUSTOMS_DUTY: { major: { value: 436_000, currency: "RUB" } },
+        CUSTOMS_FEE: { major: { value: 4_924, currency: "RUB" } },
+        RECYCLING_FEE: { major: { value: 5_200, currency: "RUB" } },
+        EXCISE_TAX: { major: { value: 0, currency: "RUB" } },
+        VAT: { major: { value: 0, currency: "RUB" } }
+      } } }));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getCatalog(parseCatalogParams({ country: "jp", make: "BMW", model: "3 SERIES" }));
     expect(result.total).toBe(283);
     expect(result.makes).toEqual(["BMW", "TOYOTA"]);
     expect(result.models).toEqual(["2 SERIES", "3 SERIES"]);
-    expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", priceRub: 1_482_200, sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
+    expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", priceRub: 1_542_324, sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
     expect(result.cars[0].details.costBreakdown).toEqual(expect.arrayContaining([
       { label: "Таможенная пошлина", value: "436 000 ₽" }
+      ,{ label: "Таможенный сбор", value: "4 924 ₽" }
+      ,{ label: "Утилизационный сбор", value: "5 200 ₽" }
     ]));
   });
 });

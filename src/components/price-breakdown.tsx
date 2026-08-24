@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { readCostBreakdown, type CostBreakdownLine } from "@/domain/car-details";
 import { formatRub } from "@/domain/currency";
+import { DEFAULT_COMMISSION_RUB } from "@/domain/pricing";
 import { Icon } from "@/components/icons";
 
 type Props = {
@@ -26,17 +27,11 @@ function fallbackLines(priceKrw: number, priceRub: number | null, details: Recor
   return lines;
 }
 
-function feeFrom(details: Record<string, unknown>, pattern: RegExp, fallback: number) {
-  if (!Array.isArray(details.costBreakdown)) return fallback;
-  const line = details.costBreakdown.find((item) => item && typeof item === "object" && pattern.test(String((item as { label?: unknown }).label || ""))) as { value?: unknown } | undefined;
-  return Number(String(line?.value || "").replace(/[^\d]/g, "")) || fallback;
-}
-
 export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, currencyCode = "KRW", country = "kr", compact = false }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const brokerRub = country === "kr" ? 110_000 : country === "jp" ? 60_000 : 80_000;
-  const readLines = (source: Record<string, unknown>) => readCostBreakdown(source, feeFrom(source, /комисси/i, country === "jp" ? 50_000 : 100_000), brokerRub);
+  const readLines = (source: Record<string, unknown>) => readCostBreakdown(source, DEFAULT_COMMISSION_RUB, brokerRub);
   const initial = readLines(details);
   const [lines, setLines] = useState(initial);
   const [livePriceRub, setLivePriceRub] = useState(priceRub);

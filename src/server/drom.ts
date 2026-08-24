@@ -1,8 +1,11 @@
+import type { CustomsCostsRub } from "../domain/pricing";
+
 type CustomsInput = {
-  priceJpy: number;
+  sourcePrice: number;
+  currency: "YEN" | "CNY";
   year: number;
   engineCc: number;
-  powerHp?: number | null;
+  powerHp: number;
   fuel?: string | null;
 };
 
@@ -13,17 +16,23 @@ export function vehicleAgeGroup(year: number, currentYear = new Date().getFullYe
   return "OVER_5";
 }
 
-export async function getDromCustomsDutyRub(input: CustomsInput, currentYear = new Date().getFullYear()) {
-  if (input.priceJpy <= 0 || input.year < 1900 || input.engineCc <= 0) return null;
+function rubValue(details: Record<string, { major?: { value?: unknown; currency?: unknown } } | undefined>, key: string) {
+  const major = details[key]?.major;
+  const value = Number(major?.value);
+  return major?.currency === "RUB" && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
+}
+
+export async function getDromCustomsCostsRub(input: CustomsInput, currentYear = new Date().getFullYear()): Promise<CustomsCostsRub | null> {
+  if (input.sourcePrice <= 0 || input.year < 1900 || input.engineCc <= 0 || input.powerHp <= 0) return null;
   const url = new URL("https://www.drom.ru/api/world/calculate/");
   const electric = /элект|electric|ev/i.test(input.fuel || "");
   const params = {
-    price: String(Math.round(input.priceJpy)),
-    currency: "YEN",
+    price: String(Math.round(input.sourcePrice)),
+    currency: input.currency,
     vehicleAge: vehicleAgeGroup(input.year, currentYear),
     engineType: electric ? "ELECTRIC_MOTOR" : "DIESEL_OR_GASOLINE",
     engineVolumeInCubicCentimeters: String(Math.round(input.engineCc)),
-    engineHorsePower: String(Math.max(1, Math.round(input.powerHp || 1))),
+    engineHorsePower: String(Math.round(input.powerHp)),
     importPurpose: "USAGE"
   };
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -33,8 +42,17 @@ export async function getDromCustomsDutyRub(input: CustomsInput, currentYear = n
     headers: { Accept: "application/json", Referer: "https://www.drom.ru/world/calculator/" }
   });
   if (!response.ok) throw new Error(`Drom вернул ${response.status}`);
-  const payload = await response.json() as { result?: { details?: { CUSTOMS_DUTY?: { major?: { value?: unknown; currency?: unknown } } } } };
-  const duty = payload.result?.details?.CUSTOMS_DUTY?.major;
-  const value = Number(duty?.value);
-  return duty?.currency === "RUB" && Number.isFinite(value) && value > 0 ? Math.round(value) : null;
+  const payload = await response.json() as { result?: { details?: Record<string, { major?: { value?: unknown; currency?: unknown } } | undefined> } };
+  const details = payload.result?.details || {};
+  const dutyRub = rubValue(details, "CUSTOMS_DUTY");
+  const customsFeeRub = rubValue(details, "CUSTOMS_FEE");
+  const recyclingFeeRub = rubValue(details, "RECYCLING_FEE");
+  if (dutyRub === null || customsFeeRub === null || recyclingFeeRub === null) return null;
+  return {
+    dutyRub,
+    customsFeeRub,
+    recyclingFeeRub,
+    exciseRub: rubValue(details, "EXCISE_TAX") || 0,
+    vatRub: rubValue(details, "VAT") || 0
+  };
 }

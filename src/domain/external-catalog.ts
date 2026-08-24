@@ -263,6 +263,45 @@ export function parseDongchediUsedPage(payload: unknown, page = 1, limit = 24, s
   return { cars, total: Number(record.total) || cars.length, hasMore: Boolean(record.has_more) };
 }
 
+export type DongchediVehicleSpecs = { engineCc: number; powerHp: number; fuel: string; year?: number };
+
+function dongchediSpecsFromText(text: string): DongchediVehicleSpecs | null {
+  const liters = Number(text.match(/(\d+(?:[.,]\d+)?)\s*(?:T|L(?![A-Z]))/i)?.[1]?.replace(",", "."));
+  const powerHp = Number(text.match(/(\d+)\s*马力/)?.[1]);
+  const engineCc = Number.isFinite(liters) && liters > 0 ? Math.round(liters * 1_000) : 0;
+  if (!engineCc || !Number.isFinite(powerHp) || powerHp <= 0) return null;
+  const fuel = /纯电|电动/.test(text) ? "Электро" : /混动|插电|轻混/.test(text) ? "Гибрид" : /柴油/.test(text) ? "Дизель" : "Бензин";
+  return { engineCc, powerHp: Math.round(powerHp), fuel };
+}
+
+export function parseDongchediVehicleSpecs(payload: unknown, carId: string): DongchediVehicleSpecs | null {
+  const data = payload && typeof payload === "object" ? (payload as { data?: unknown }).data : null;
+  const tabs = data && typeof data === "object" && Array.isArray((data as { tab_list?: unknown }).tab_list)
+    ? (data as { tab_list: unknown[] }).tab_list
+    : [];
+  const rows = tabs.flatMap((tab) => tab && typeof tab === "object" && Array.isArray((tab as { data?: unknown }).data)
+    ? (tab as { data: unknown[] }).data
+    : []);
+  const row = rows.find((value) => {
+    if (!value || typeof value !== "object") return false;
+    const info = (value as { info?: unknown }).info;
+    return info && typeof info === "object" && String((info as { car_id?: unknown; id?: unknown }).car_id || (info as { id?: unknown }).id || "") === carId;
+  });
+  const info = row && typeof row === "object" && (row as { info?: unknown }).info && typeof (row as { info?: unknown }).info === "object"
+    ? (row as { info: Record<string, unknown> }).info
+    : null;
+  if (!info) return null;
+  const tags = Array.isArray(info.tags) ? info.tags.map(String) : [];
+  const text = [info.car_group_list_key, info.name, ...tags].map(String).join(" ");
+  const specs = dongchediSpecsFromText(text);
+  const year = Number(info.year);
+  return specs ? { ...specs, ...(year >= 1900 ? { year } : {}) } : null;
+}
+
+export function parseDongchediVehicleSpecsHtml(html: string): DongchediVehicleSpecs | null {
+  return dongchediSpecsFromText(load(html)("body").text().replace(/\s+/g, " "));
+}
+
 export function parseDongchediCatalog(html: string): ExternalCatalogCar[] {
   const $ = load(html);
   const raw = $("#__NEXT_DATA__").text();

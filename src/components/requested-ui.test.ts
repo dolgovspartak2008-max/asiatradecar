@@ -48,8 +48,21 @@ describe("requested mobile UI", () => {
     expect(read("../app/auto/[slug]/page.tsx")).toContain("Под ключ в РФ");
     expect(read("../app/auto/[slug]/page.tsx")).not.toContain("Предварительный расчёт для РФ");
     expect(breakdown).toContain("Под ключ в РФ");
-    expect(breakdown).toContain('country === "jp" ? 50_000 : 100_000');
+    expect(breakdown).toContain("DEFAULT_COMMISSION_RUB");
     expect(breakdown).toContain('country === "kr" ? 110_000');
+  });
+
+  it("uses native request anchors for reliable desktop and mobile scrolling", () => {
+    const home = read("../app/page.tsx");
+    const header = read("./header.tsx");
+    expect(header).toContain('<a className="button button-small" href="/#request">Подобрать авто</a>');
+    expect(home).toContain('<a className="button" href="#request">Получить подбор</a>');
+    expect(home).toContain('<a className="button" href="#request">Получить расчёт</a>');
+  });
+
+  it("moves the secondary catalog disclaimer below the results", () => {
+    const source = read("./catalog-page.tsx");
+    expect(source.indexOf("catalog-intro")).toBeGreaterThan(source.indexOf("<CatalogResults"));
   });
 
   it("removes wishes only from a selected-car application", () => {

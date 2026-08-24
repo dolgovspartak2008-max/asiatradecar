@@ -11,18 +11,10 @@ const FALLBACK: PricingSettings = { commissions: { ...DEFAULT_COMMISSIONS_RUB },
 
 export async function getPricingSettings(): Promise<PricingSettings> {
   if (!hasDatabase()) return FALLBACK;
-  const [settings, rates] = await Promise.all([
-    query<{ key: string; value: string }>("SELECT key,value FROM site_settings WHERE key IN ('commission_rub','commission_kr_rub','commission_jp_rub','commission_cn_rub')").catch(() => null),
-    query<{ code: string; rub_per_unit: string }>("SELECT code, rub_per_unit FROM exchange_rates WHERE code IN ('KRW','JPY','CNY')").catch(() => null)
-  ]);
-  const byKey = new Map(settings?.rows.map((row) => [row.key, Number(row.value)]) || []);
+  const rates = await query<{ code: string; rub_per_unit: string }>("SELECT code, rub_per_unit FROM exchange_rates WHERE code IN ('KRW','JPY','CNY')").catch(() => null);
   const byCode = new Map(rates?.rows.map((row) => [row.code, Number(row.rub_per_unit)]) || []);
   return {
-    commissions: {
-      kr: byKey.get("commission_kr_rub") || byKey.get("commission_rub") || FALLBACK.commissions.kr,
-      jp: byKey.get("commission_jp_rub") || FALLBACK.commissions.jp,
-      cn: byKey.get("commission_cn_rub") || FALLBACK.commissions.cn
-    },
+    commissions: { ...DEFAULT_COMMISSIONS_RUB },
     rates: {
       KRW: normalizeCatalogRate("KRW", byCode.get("KRW") || FALLBACK.rates.KRW),
       JPY: normalizeCatalogRate("JPY", byCode.get("JPY") || FALLBACK.rates.JPY),

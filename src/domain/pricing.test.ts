@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildExternalPricing, normalizeCostBreakdown } from "./pricing";
+import { buildExternalPricing, CHINA_EXPENSES_RUB, normalizeCostBreakdown } from "./pricing";
 
 describe("catalog pricing", () => {
   const raw = [
@@ -17,15 +17,15 @@ describe("catalog pricing", () => {
   });
 
   it("calculates Japan with local expenses, customs, commission and broker", () => {
-    expect(buildExternalPricing("jp", 1_250_000, 0.62, 436_000)).toEqual({
-      priceRub: 1_482_200,
+    expect(buildExternalPricing("jp", 1_250_000, 0.62, { dutyRub: 436_000, customsFeeRub: 4_924, recyclingFeeRub: 5_200 })).toEqual({
+      priceRub: 1_542_324,
       costBreakdown: [
-        { label: "Комиссия компании", value: "50 000 ₽" },
+        { label: "Комиссия компании", value: "100 000 ₽" },
         { label: "Стоимость автомобиля в Японии", value: "1 250 000 ¥ (775 000 ₽)" },
         { label: "Расходы по Японии и фрахт во Владивосток", value: "260 000 ¥ (161 200 ₽)" },
         { label: "Таможенная пошлина", value: "436 000 ₽" },
-        { label: "Таможенный сбор", value: "0 ₽" },
-        { label: "Утилизационный сбор", value: "0 ₽" },
+        { label: "Таможенный сбор", value: "4 924 ₽" },
+        { label: "Утилизационный сбор", value: "5 200 ₽" },
         { label: "Акциз", value: "0 ₽" },
         { label: "НДС", value: "0 ₽" },
         { label: "Таможенный брокер", value: "60 000 ₽" },
@@ -35,15 +35,16 @@ describe("catalog pricing", () => {
   });
 
   it("calculates China with a 100000 commission and an 80000 broker", () => {
-    expect(buildExternalPricing("cn", 100_000, 11.5)).toEqual({
-      priceRub: 1_330_000,
+    expect(CHINA_EXPENSES_RUB).toBe(113_000);
+    expect(buildExternalPricing("cn", 100_000, 11.5, { dutyRub: 523_000, customsFeeRub: 13_541, recyclingFeeRub: 1_838_400 })).toEqual({
+      priceRub: 3_817_941,
       costBreakdown: [
         { label: "Комиссия компании", value: "100 000 ₽" },
         { label: "Стоимость автомобиля в Китае", value: "100 000 ¥ (1 150 000 ₽)" },
-        { label: "Расходы по Китаю и фрахт во Владивосток", value: "0 ₽" },
-        { label: "Таможенная пошлина", value: "0 ₽" },
-        { label: "Таможенный сбор", value: "0 ₽" },
-        { label: "Утилизационный сбор", value: "0 ₽" },
+        { label: "Расходы по Китаю и фрахт во Владивосток", value: "113 000 ₽" },
+        { label: "Таможенная пошлина", value: "523 000 ₽" },
+        { label: "Таможенный сбор", value: "13 541 ₽" },
+        { label: "Утилизационный сбор", value: "1 838 400 ₽" },
         { label: "Акциз", value: "0 ₽" },
         { label: "НДС", value: "0 ₽" },
         { label: "Таможенный брокер", value: "80 000 ₽" },
@@ -52,10 +53,10 @@ describe("catalog pricing", () => {
     });
   });
 
-  it("uses country commission configured by the Telegram admin", () => {
-    expect(buildExternalPricing("jp", 1_000_000, 0.62, 0, 75_000)).toMatchObject({
-      priceRub: 916_200,
-      costBreakdown: expect.arrayContaining([{ label: "Комиссия компании", value: "75 000 ₽" }])
+  it("uses the fixed 100000 ruble company commission for every country", () => {
+    expect(buildExternalPricing("jp", 1_000_000, 0.62)).toMatchObject({
+      priceRub: 941_200,
+      costBreakdown: expect.arrayContaining([{ label: "Комиссия компании", value: "100 000 ₽" }])
     });
   });
 
