@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAdminValue, parseCommissionCountry, parseReviewStep } from "./telegram";
+import { inferTelegramImageContentType, parseAdminValue, parseCommissionCountry, parseReviewStep } from "./telegram";
 
 describe("telegram admin input", () => {
   it("accepts spaced decimal values", () => {
@@ -26,5 +26,12 @@ describe("telegram review input", () => {
     expect(parseReviewStep("review:title", "Toyota Camry", undefined, {})).toEqual({ nextAction: "review:text", draft: { title: "Toyota Camry" } });
     expect(parseReviewStep("review:text", "Машина пришла в идеальном состоянии", undefined, { title: "Toyota Camry" })).toEqual({ nextAction: "review:image", draft: { title: "Toyota Camry", text: "Машина пришла в идеальном состоянии" } });
     expect(parseReviewStep("review:image", undefined, "photo-1", { title: "Toyota Camry", text: "Отзыв" })).toEqual({ complete: { title: "Toyota Camry", text: "Отзыв", photoFileId: "photo-1" } });
+  });
+
+  it("recognizes Telegram photos when the file endpoint uses a generic content type", () => {
+    expect(inferTelegramImageContentType("application/octet-stream", "photos/review_1.jpg")).toBe("image/jpeg");
+    expect(inferTelegramImageContentType("image/webp", "photos/review_1.bin")).toBe("image/webp");
+    expect(inferTelegramImageContentType("text/html", "photos/review_1.jpg")).toBeNull();
+    expect(inferTelegramImageContentType("text/html", "photos/review_1.bin")).toBeNull();
   });
 });

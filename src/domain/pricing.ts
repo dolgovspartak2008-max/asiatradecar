@@ -49,7 +49,7 @@ export function applyCatalogPricing(sourcePrice: number, rubPerUnit: number, com
   return Math.round(sourcePrice * rubPerUnit + commissionRub);
 }
 
-export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, rubPerUnit: number, customs: CustomsCostsRub | number = {}) {
+export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, rubPerUnit: number, customs: CustomsCostsRub | number = {}, commissionRub = DEFAULT_COMMISSION_RUB) {
   const fees = COUNTRY_FEES[country];
   const costs = typeof customs === "number" ? { dutyRub: customs } : customs;
   const dutyRub = costs.dutyRub || 0;
@@ -62,7 +62,7 @@ export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, 
   const countryExpensesRub = country === "jp" ? japanExpensesRub : CHINA_EXPENSES_RUB;
   const countryName = country === "jp" ? "Японии" : "Китае";
   const costBreakdown: CostBreakdownLine[] = [
-    { label: "Комиссия компании", value: formatRub(DEFAULT_COMMISSION_RUB) },
+    { label: "Комиссия компании", value: formatRub(commissionRub) },
     { label: `Стоимость автомобиля в ${countryName}`, value: `${sourcePrice.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ¥ (${formatRub(sourceRub)})` },
     { label: `Расходы по ${country === "jp" ? "Японии" : "Китаю"} и фрахт во Владивосток`, value: country === "jp" ? `${JAPAN_EXPENSES_JPY.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ¥ (${formatRub(japanExpensesRub)})` : formatRub(CHINA_EXPENSES_RUB) },
     { label: "Таможенная пошлина", value: formatRub(dutyRub) },
@@ -74,5 +74,5 @@ export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, 
     { label: "Логистика (автовоз)", value: "Рассчитывается отдельно в зависимости от города доставки" }
   ];
   const customsTotalRub = dutyRub + customsFeeRub + recyclingFeeRub + exciseRub + vatRub;
-  return { priceRub: sourceRub + countryExpensesRub + customsTotalRub + DEFAULT_COMMISSION_RUB + fees.brokerRub, costBreakdown };
+  return { priceRub: sourceRub + countryExpensesRub + customsTotalRub + commissionRub + fees.brokerRub, costBreakdown };
 }

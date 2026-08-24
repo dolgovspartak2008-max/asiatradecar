@@ -2,6 +2,7 @@ import { parseAdminValue, parseCommissionCountry, parseReviewStep, type ReviewDr
 import { query } from "@/server/db";
 import { getPricingSettings, setCatalogRate, setCommissionRub } from "@/server/pricing";
 import { site } from "@/config/site";
+import { revalidatePath } from "next/cache";
 
 type TelegramUpdate = {
   message?: { text?: string; photo?: Array<{ file_id: string; width: number; height: number }>; from?: { id: number; first_name?: string; username?: string }; chat: { id: number } };
@@ -83,6 +84,7 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
     if ("complete" in step && step.complete) {
       await query("INSERT INTO reviews (title,text,telegram_file_id,created_by) VALUES ($1,$2,$3,$4) ON CONFLICT (telegram_file_id) DO NOTHING", [step.complete.title, step.complete.text, step.complete.photoFileId, user.id]);
       await query("DELETE FROM bot_sessions WHERE user_id=$1", [user.id]);
+      revalidatePath("/");
       await menu(chatId, "Отзыв опубликован на сайте.");
       return;
     }

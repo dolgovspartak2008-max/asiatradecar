@@ -129,7 +129,7 @@ export function GlobalJourney() {
         <g className="journey-city"><circle cx="720" cy="548" r="9"/><text x="690" y="578">Владивосток</text></g>
         <g className="journey-city"><circle cx="650" cy="416" r="9"/><text x="650" y="392">Иркутск</text></g>
         <g className="journey-city"><circle cx="625" cy="302" r="9"/><text x="625" y="278">Новосибирск</text></g>
-        <g className="journey-city"><circle cx="555" cy="224" r="9"/><text x="570" y="258">Екатеринбург</text></g>
+        <g className="journey-city"><circle cx="555" cy="224" r="9"/><text x="570" y="198">Екатеринбург</text></g>
         <g className="journey-city"><circle cx="470" cy="154" r="9"/><text x="492" y="130">Москва</text></g>
       </g>
     </svg>

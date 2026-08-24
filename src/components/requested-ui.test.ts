@@ -134,6 +134,12 @@ describe("requested mobile UI", () => {
     expect(css).toMatch(/\.car-specs dd \{[^}]*white-space: pre-line/);
   });
 
+  it("separates Ekaterinburg and Novosibirsk labels on the mobile route", () => {
+    const mobile = read("./global-journey.tsx").split('<g className="journey-mobile"')[1];
+    expect(mobile).toContain('<text x="570" y="198">Екатеринбург</text>');
+    expect(mobile).toContain('<text x="625" y="278">Новосибирск</text>');
+  });
+
   it("keeps the catalog sync workflow valid without a secrets expression at job level", () => {
     const workflow = read("../../.github/workflows/catalog-sync.yml");
     expect(workflow).not.toContain("if: ${{ secrets.");

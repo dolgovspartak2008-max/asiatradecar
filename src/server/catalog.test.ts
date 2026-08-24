@@ -73,6 +73,21 @@ describe("live Trust Encar catalog", () => {
     await expect(getCatalog(parseCatalogParams({ country: "kr", make: "BMW", model: "3-Series" }))).rejects.toThrow("идентификатор");
   });
 
+  it("adjusts the live Korea price filter to the displayed fees", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const html = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>
+      <script>window.TE_CATALOG_SSR = {"total":159958,"facets":{"facets":{"marks":[]}}};</script>`;
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json({ status: "success", total: 0 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getCatalog(parseCatalogParams({ country: "kr", priceTo: "1000000" }));
+
+    expect((fetchMock.mock.calls[1][1]?.body as URLSearchParams).get("priceRubTo")).toBe("950000");
+  });
+
   it("filters China by make and exposes that make models without a database", async () => {
     vi.stubEnv("DATABASE_URL", "");
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { series_count: 4687, series: [

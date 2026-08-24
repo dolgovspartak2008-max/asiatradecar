@@ -11,6 +11,8 @@ import { fetchDongchediPage, fetchDongchediUsedBrowsePage, fetchDongchediUsedPag
 import { getDromCustomsCostsRub } from "./drom";
 import { ensureDatabaseSchema } from "./schema";
 
+const TRUST_ENCAR_BROKER_RUB = 60_000;
+
 export type Car = {
   id: string;
   slug: string;
@@ -72,7 +74,7 @@ function moneyFromLine(raw: unknown, pattern: RegExp, fallback: number) {
 export function applyCommission(car: Car, commissionRub: number, includedFees = true): Car {
   const raw = Array.isArray(car.details.costBreakdown) ? car.details.costBreakdown : [];
   const previousCommission = moneyFromLine(raw, /комисси/i, includedFees ? DEFAULT_COMMISSION_RUB : 0);
-  const previousBroker = moneyFromLine(raw, /брокер/i, includedFees ? 60_000 : 0);
+  const previousBroker = moneyFromLine(raw, /брокер/i, includedFees ? TRUST_ENCAR_BROKER_RUB : 0);
   return { ...car, priceRub: car.priceRub ? car.priceRub - previousCommission - previousBroker + commissionRub + KOREA_BROKER_RUB : car.priceRub, details: { ...car.details, costBreakdown: readCostBreakdown(car.details, commissionRub, KOREA_BROKER_RUB) } };
 }
 
@@ -84,10 +86,10 @@ const fromExternalCar = (car: ExternalCatalogCar): Car => ({
   vin: car.vin, priceKrw: car.sourcePrice, priceRub: null, photos: car.photos, details: car.details
 });
 
-function applyExternalPricing(car: Car, rubPerUnit: number, customs: CustomsCostsRub = {}): Car {
+function applyExternalPricing(car: Car, rubPerUnit: number, customs: CustomsCostsRub = {}, commissionRub = DEFAULT_COMMISSION_RUB): Car {
   const country = car.country === "jp" ? "jp" : "cn";
   if (!car.priceKrw) return car;
-  const pricing = buildExternalPricing(country, car.priceKrw, rubPerUnit, customs);
+  const pricing = buildExternalPricing(country, car.priceKrw, rubPerUnit, customs, commissionRub);
   return { ...car, priceRub: pricing.priceRub, details: { ...car.details, customsSource: Object.keys(customs).length ? "Drom" : car.details.customsSource, costBreakdown: pricing.costBreakdown } };
 }
 
@@ -106,7 +108,7 @@ async function applyExternalCatalogPricing(cars: Car[], settings: Awaited<Return
     const customs = detailed.engineCc && detailed.year >= 1900
       ? await getDromCustomsCostsRub({ sourcePrice: detailed.priceKrw, currency, year: detailed.year, engineCc: detailed.engineCc, powerHp: detailed.powerHp, fuel: detailed.fuel }).catch(() => null)
       : null;
-    return applyExternalPricing(detailed, settings.rates[detailed.currencyCode], customs || {});
+    return applyExternalPricing(detailed, settings.rates[detailed.currencyCode], customs || {}, settings.commissions[country]);
   }));
 }
 
@@ -314,6 +316,24 @@ async function getDatabaseCatalog(filters: CatalogFilters) {
   return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models: modelsResult.rows.map((row) => row.model), generations: [] };
 }
 
+function adjustDatabasePriceFilters(filters: CatalogFilters, commissionRub: number): CatalogFilters {
+  const adjustment = filters.country === "kr" ? commissionRub + KOREA_BROKER_RUB : commissionRub - DEFAULT_COMMISSION_RUB;
+  return {
+    ...filters,
+    priceFrom: filters.priceFrom === undefined ? undefined : Math.max(0, filters.priceFrom - adjustment),
+    priceTo: filters.priceTo === undefined ? undefined : Math.max(0, filters.priceTo - adjustment)
+  };
+}
+
+function adjustKoreaLivePriceFilters(filters: CatalogFilters, commissionRub: number): CatalogFilters {
+  const adjustment = commissionRub + KOREA_BROKER_RUB - DEFAULT_COMMISSION_RUB - TRUST_ENCAR_BROKER_RUB;
+  return {
+    ...filters,
+    priceFrom: filters.priceFrom === undefined ? undefined : Math.max(0, filters.priceFrom - adjustment),
+    priceTo: filters.priceTo === undefined ? undefined : Math.max(0, filters.priceTo - adjustment)
+  };
+}
+
 async function hasSyncedChinaCatalog() {
   if (!hasDatabase()) return false;
   try {
@@ -345,19 +365,30 @@ export async function getCatalog(filters: CatalogFilters) {
     const databaseReady = filters.country === "jp" ? await hasSyncedJapanArchive() : await hasSyncedChinaCatalog();
     if (databaseReady) {
       try {
-        const [catalog, settings] = await Promise.all([getDatabaseCatalog(filters), getPricingSettings()]);
+        const settings = await getPricingSettings();
+        const country = filters.country === "jp" ? "jp" : "cn";
+        const catalog = await getDatabaseCatalog(adjustDatabasePriceFilters(filters, settings.commissions[country]));
         if (catalog.total > 0) return { ...catalog, cars: await applyExternalCatalogPricing(catalog.cars, settings) };
       } catch {}
     }
     return getExternalBrowseCatalog(filters);
   }
   try {
-    const [catalog, settings] = await Promise.all([isDefaultBrowse(filters) ? getBrowseCatalog(filters) : getLiveCatalog(filters), getPricingSettings()]);
-    return { ...catalog, cars: catalog.cars.map((car) => applyCommission(car, settings.commissions.kr)) };
+    const settings = await getPricingSettings();
+    const catalog = await (isDefaultBrowse(filters) ? getBrowseCatalog(filters) : getLiveCatalog(adjustKoreaLivePriceFilters(filters, settings.commissions.kr)));
+    const expected = Math.min(filters.limit, Math.max(0, catalog.total - filters.offset));
+    const live = { ...catalog, cars: catalog.cars.map((car) => applyCommission(car, settings.commissions.kr)) };
+    if (!hasDatabase() || catalog.cars.length >= expected) return live;
+    try {
+      const database = await getDatabaseCatalog(adjustDatabasePriceFilters(filters, settings.commissions.kr));
+      if (database.cars.length >= expected) return { ...database, cars: database.cars.map((car) => applyCommission(car, settings.commissions.kr, false)) };
+    } catch {}
+    return live;
   } catch (error) {
     if (!hasDatabase()) throw error;
   }
-  const [catalog, settings] = await Promise.all([getDatabaseCatalog(filters), getPricingSettings()]);
+  const settings = await getPricingSettings();
+  const catalog = await getDatabaseCatalog(adjustDatabasePriceFilters(filters, settings.commissions.kr));
   return { ...catalog, cars: catalog.cars.map((car) => applyCommission(car, settings.commissions.kr, false)) };
 }
 

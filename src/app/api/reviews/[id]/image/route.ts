@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/server/db";
+import { inferTelegramImageContentType } from "@/domain/telegram";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -15,8 +16,8 @@ export async function GET(_: Request, { params }: Props) {
   if (!payload.ok || !payload.result?.file_path) return new NextResponse(null, { status: 404 });
   const image = await fetch(`https://api.telegram.org/file/bot${token}/${payload.result.file_path}`, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(15_000) });
   if (!image.ok) return new NextResponse(null, { status: 404 });
-  const contentType = image.headers.get("content-type") || "";
+  const contentType = inferTelegramImageContentType(image.headers.get("content-type") || "", payload.result.file_path);
   const size = Number(image.headers.get("content-length") || 0);
-  if (!contentType.startsWith("image/") || size > 20_000_000) return new NextResponse(null, { status: 415 });
+  if (!contentType || size > 20_000_000) return new NextResponse(null, { status: 415 });
   return new NextResponse(image.body, { headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=3600, s-maxage=86400" } });
 }

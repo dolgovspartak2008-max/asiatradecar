@@ -9,6 +9,14 @@ export function parseCommissionCountry(action: string) {
   return country ? country as "kr" | "jp" | "cn" : null;
 }
 
+export function inferTelegramImageContentType(contentType: string, filePath: string) {
+  if (contentType.startsWith("image/")) return contentType;
+  if (contentType && contentType !== "application/octet-stream") return null;
+  const extension = filePath.toLowerCase().match(/\.(jpe?g|png|webp|gif)$/)?.[1];
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  return extension ? `image/${extension}` : null;
+}
+
 export type ReviewDraft = { title?: string; text?: string };
 
 export function parseReviewStep(action: string, text: string | undefined, photoFileId: string | undefined, draft: ReviewDraft) {
