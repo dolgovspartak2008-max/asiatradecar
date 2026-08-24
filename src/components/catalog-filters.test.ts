@@ -26,6 +26,7 @@ describe("CatalogFilters", () => {
     const source = readFileSync(new URL("./catalog-filters.tsx", import.meta.url), "utf8");
     expect(source).toContain("router.replace");
     expect(source).toContain("{ scroll: false }");
+    expect(source).toContain("useTransition");
     expect(source).toContain("sessionStorage.setItem");
     expect(source).toContain("window.scrollTo");
     expect(source).toContain("Сбросить все фильтры");

@@ -29,4 +29,17 @@ describe("Drom customs calculator", () => {
     expect(url.searchParams.get("vehicleAge")).toBe("FROM_3_TO_5");
     expect(url.searchParams.get("currency")).toBe("YEN");
   });
+
+  it("still calculates engine-based charges when the source omits horsepower", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: { details: {
+      CUSTOMS_DUTY: { major: { value: 930_000, currency: "RUB" } },
+      CUSTOMS_FEE: { major: { value: 4_924, currency: "RUB" } },
+      RECYCLING_FEE: { major: { value: 5_200, currency: "RUB" } }
+    } } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getDromCustomsCostsRub({ sourcePrice: 916_000, currency: "YEN", year: 2017, engineCc: 2_000, powerHp: null }, 2026))
+      .resolves.toMatchObject({ dutyRub: 930_000, customsFeeRub: 4_924, recyclingFeeRub: 5_200 });
+    expect(new URL(String(fetchMock.mock.calls[0][0])).searchParams.get("engineHorsePower")).toBe("1");
+  });
 });

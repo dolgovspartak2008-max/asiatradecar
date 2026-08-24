@@ -5,7 +5,7 @@ type CustomsInput = {
   currency: "YEN" | "CNY";
   year: number;
   engineCc: number;
-  powerHp: number;
+  powerHp?: number | null;
   fuel?: string | null;
 };
 
@@ -23,7 +23,7 @@ function rubValue(details: Record<string, { major?: { value?: unknown; currency?
 }
 
 export async function getDromCustomsCostsRub(input: CustomsInput, currentYear = new Date().getFullYear()): Promise<CustomsCostsRub | null> {
-  if (input.sourcePrice <= 0 || input.year < 1900 || input.engineCc <= 0 || input.powerHp <= 0) return null;
+  if (input.sourcePrice <= 0 || input.year < 1900 || input.engineCc <= 0) return null;
   const url = new URL("https://www.drom.ru/api/world/calculate/");
   const electric = /элект|electric|ev/i.test(input.fuel || "");
   const params = {
@@ -32,7 +32,7 @@ export async function getDromCustomsCostsRub(input: CustomsInput, currentYear = 
     vehicleAge: vehicleAgeGroup(input.year, currentYear),
     engineType: electric ? "ELECTRIC_MOTOR" : "DIESEL_OR_GASOLINE",
     engineVolumeInCubicCentimeters: String(Math.round(input.engineCc)),
-    engineHorsePower: String(Math.round(input.powerHp)),
+    engineHorsePower: String(Math.max(1, Math.round(input.powerHp || 1))),
     importPurpose: "USAGE"
   };
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));

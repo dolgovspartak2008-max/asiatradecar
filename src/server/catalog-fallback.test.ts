@@ -17,7 +17,7 @@ it("returns no car when both the live source and configured database are unavail
   await expect(getCarBySlug("kia-sportage-42569219")).resolves.toBeNull();
 });
 
-it("adds the current commission and broker fee to a raw Korea database price", async () => {
+it("adds the fixed commission and broker fee to a raw Korea database price", async () => {
   vi.mocked(query).mockImplementation(async (sql) => {
     const text = String(sql);
     if (text.startsWith("SELECT * FROM cars")) return { rows: [{
@@ -30,7 +30,7 @@ it("adds the current commission and broker fee to a raw Korea database price", a
     return { rows: [] } as never;
   });
 
-  await expect(getCarBySlug("db-car")).resolves.toMatchObject({ priceRub: 850_000 });
+  await expect(getCarBySlug("db-car")).resolves.toMatchObject({ priceRub: 800_000 });
 });
 
 it("returns active sitemap cars with real update dates and first images", async () => {

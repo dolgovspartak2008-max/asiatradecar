@@ -229,9 +229,9 @@ describe("live Trust Encar catalog", () => {
     expect(result.models).toEqual(["2 SERIES", "3 SERIES"]);
     expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", priceRub: 1_542_324, sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
     expect(result.cars[0].details.costBreakdown).toEqual(expect.arrayContaining([
-      { label: "Таможенная пошлина", value: "436 000 ₽" }
-      ,{ label: "Таможенный сбор", value: "4 924 ₽" }
-      ,{ label: "Утилизационный сбор", value: "5 200 ₽" }
+      { label: "Таможенная пошлина", value: "436 000 ₽" },
+      { label: "Таможенный сбор", value: "4 924 ₽" },
+      { label: "Утилизационный сбор", value: "5 200 ₽" }
     ]));
   });
 });

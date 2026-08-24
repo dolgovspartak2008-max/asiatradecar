@@ -100,10 +100,10 @@ async function applyExternalCatalogPricing(cars: Car[], settings: Awaited<Return
       const carIds = Array.isArray(car.details.carIds) ? car.details.carIds.map(String) : [];
       const carId = String(car.details.carId || carIds[0] || "");
       const specs = seriesId && carId ? await fetchDongchediVehicleSpecs(seriesId, carId).catch(() => null) : null;
-      if (specs) detailed = { ...car, engineCc: specs.engineCc, powerHp: specs.powerHp, fuel: specs.fuel, year: "year" in specs ? specs.year : car.year };
+      if (specs) detailed = { ...car, engineCc: specs.engineCc, powerHp: specs.powerHp, fuel: specs.fuel, year: specs.year || car.year };
     }
     const currency = country === "jp" ? "YEN" : "CNY";
-    const customs = detailed.engineCc && detailed.powerHp && detailed.year >= 1900
+    const customs = detailed.engineCc && detailed.year >= 1900
       ? await getDromCustomsCostsRub({ sourcePrice: detailed.priceKrw, currency, year: detailed.year, engineCc: detailed.engineCc, powerHp: detailed.powerHp, fuel: detailed.fuel }).catch(() => null)
       : null;
     return applyExternalPricing(detailed, settings.rates[detailed.currencyCode], customs || {});
