@@ -18,7 +18,7 @@ export function isSiteIndexable(env: Record<string, string | undefined> = proces
 
 export const site = {
   name: "ASIA TRADE CAR",
-  description: "Подбор, проверка, выкуп и доставка автомобилей из Азии в Россию.",
+  description: "Подбор и доставка автомобилей из зарубежных стран. Полное сопровождение сделки. Низкие цены.",
   url: resolveSiteUrl(),
   owner: process.env.SITE_OWNER_NAME || "ИП Охтий Олеся Сергеевна",
   inn: process.env.SITE_OWNER_INN || "220419337642",

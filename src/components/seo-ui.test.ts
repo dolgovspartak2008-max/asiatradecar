@@ -54,6 +54,15 @@ it("uses optimized local media and Next image optimization", () => {
   expect(gallery).not.toContain(" priority");
 });
 
+it("publishes the requested search title, description and logo", () => {
+  const layout = read("../app/layout.tsx");
+  const site = read("../config/site.ts");
+  expect(layout).toContain('default: "ASIA TRADE CAR — Автомобили из-за рубежа"');
+  expect(site).toContain('description: "Подбор и доставка автомобилей из зарубежных стран. Полное сопровождение сделки. Низкие цены."');
+  expect(existsSync(new URL("../app/icon.png", import.meta.url))).toBe(true);
+  expect(layout).not.toContain('icons: { icon: "data:image/svg+xml');
+});
+
 it("revalidates the homepage instead of forcing uncached rendering", () => {
   const source = read("../app/page.tsx");
   expect(source).toContain("export const revalidate = 3600");
