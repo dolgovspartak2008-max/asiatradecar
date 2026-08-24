@@ -127,24 +127,23 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
     let makes = [...new Set(page.cars.map((car) => car.make))].sort();
     let makeCars = filters.make ? page.cars.filter((car) => same(car.make, filters.make)) : page.cars;
     let usedTotal: number | undefined;
-    if (filters.make && !makeCars.length) {
-      try {
-        const overview = await fetchDongchediUsedBrowsePage(0, 1);
-        makes = [...new Set([...makes, ...overview.facets.map((car) => car.make)])].sort();
+    try {
+      const overview = await fetchDongchediUsedBrowsePage(filters.make ? 0 : filters.offset, filters.make ? 1 : filters.limit);
+      makes = [...new Set([...makes, ...overview.facets.map((car) => car.make)])].sort();
+      if (filters.make) {
         const makeFacet = overview.facets.find((car) => same(car.make, filters.make));
         const brandId = String(makeFacet?.details.brandId || "");
-        const isMakeOnly = !filters.q && !filters.model && filters.yearFrom === undefined && filters.yearTo === undefined
-          && filters.priceFrom === undefined && filters.priceTo === undefined && filters.mileageTo === undefined
-          && !filters.bodyType && !filters.fuel && !filters.drive && filters.engineFrom === undefined && filters.engineTo === undefined
-          && filters.powerFrom === undefined && filters.powerTo === undefined && filters.sort === "newest";
-        if (brandId && isMakeOnly) {
+        if (brandId) {
           const used = await fetchDongchediUsedPage(Math.floor(filters.offset / filters.limit) + 1, filters.limit, "全国", brandId);
           makeCars = used.cars;
           usedTotal = used.total;
         }
-      } catch {}
-    }
-    const models = filters.make && usedTotal === undefined ? [...new Set(makeCars.map((car) => car.model))].sort() : [];
+      } else {
+        makeCars = overview.cars;
+        usedTotal = overview.total;
+      }
+    } catch {}
+    const models = filters.make ? [...new Set(makeCars.map((car) => car.model))].sort() : [];
     const priced = makeCars
       .filter((car) => !filters.model || same(car.model, filters.model))
       .filter((car) => !filters.q || `${car.make} ${car.model} ${car.trim || ""}`.toLocaleLowerCase().includes(filters.q.toLocaleLowerCase()))
@@ -159,9 +158,12 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
       : filters.sort === "price-desc" ? (right.priceRub || 0) - (left.priceRub || 0)
       : filters.sort === "mileage" ? left.mileageKm - right.mileageKm
       : right.year - left.year);
+    const narrowed = Boolean(filters.q || filters.model || filters.yearFrom !== undefined || filters.yearTo !== undefined
+      || filters.priceFrom !== undefined || filters.priceTo !== undefined || filters.mileageTo !== undefined || filters.bodyType || filters.fuel
+      || filters.drive || filters.engineFrom !== undefined || filters.engineTo !== undefined || filters.powerFrom !== undefined || filters.powerTo !== undefined);
     return {
       cars: usedTotal === undefined ? priced.slice(filters.offset, filters.offset + filters.limit) : priced,
-      total: usedTotal ?? priced.length,
+      total: usedTotal !== undefined && !narrowed ? usedTotal : priced.length,
       makes, models, generations: []
     };
   }

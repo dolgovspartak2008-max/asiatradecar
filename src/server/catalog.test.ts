@@ -90,7 +90,35 @@ describe("live Trust Encar catalog", () => {
 
     const nextResult = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi", model: "YU7" }));
     expect(nextResult.cars[0]).toMatchObject({ make: "Xiaomi", model: "YU7" });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.filter(([url]) => !url.includes("/motor/pc/sh/sh_sku_list"))).toHaveLength(1);
+  });
+
+  it("filters used China listings when the make also exists in the new-model feed", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const usedItem = (city: string) => ({
+      sku_id: 88, brand_id: 535, brand_name: "小米汽车", series_name: "小米SU7", car_name: "小米SU7 Max",
+      car_year: 2024, sh_price: "21.5万", sub_title: "2024年 | 2万公里", image: "https://example.test/used-su7.webp", car_source_city_name: city
+    });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (!url.includes("/motor/pc/sh/sh_sku_list")) return Promise.resolve(Response.json({ data: { series_count: 4_687, series: [
+        { concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/new-su7.webp" }
+      ] } }));
+      const body = init?.body as URLSearchParams;
+      const city = body.get("sh_city_name") || "全国";
+      return Promise.resolve(Response.json({ data: {
+        total: body.get("brand") === "535" ? 321 : 6_000,
+        has_more: true,
+        search_sh_sku_info_list: [usedItem(city)]
+      } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi", yearFrom: "2023", mileageTo: "30000" }));
+
+    expect(result.total).toBe(1);
+    expect(result.models).toContain("SU7");
+    expect(result.cars[0]).toMatchObject({ id: "dongchedi-used-88", make: "Xiaomi", model: "SU7", year: 2024, mileageKm: 20_000 });
+    expect(fetchMock.mock.calls.some(([url, init]) => url.includes("/motor/pc/sh/sh_sku_list") && (init?.body as URLSearchParams).get("brand") === "535")).toBe(true);
   });
 
   it("keeps an expanded China make selectable when it is absent from the new-model feed", async () => {
