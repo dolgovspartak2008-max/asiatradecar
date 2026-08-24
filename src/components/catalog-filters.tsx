@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { CatalogFilters as Filters } from "@/domain/catalog";
 import type { TrustEncarGeneration } from "@/domain/sync";
@@ -9,6 +9,18 @@ export function CatalogFilters({ filters, makes, models, generations = [] }: { f
   const form = useRef<HTMLFormElement>(null);
   const pathname = usePathname();
   const router = useRouter();
+  useEffect(() => {
+    const stored = Number(sessionStorage.getItem("catalog-scroll-y"));
+    if (!Number.isFinite(stored) || stored < 0) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.scrollTo({ top: stored, behavior: "auto" });
+      sessionStorage.removeItem("catalog-scroll-y");
+    }));
+  }, []);
+  const replaceWithoutScroll = (url: string) => {
+    sessionStorage.setItem("catalog-scroll-y", String(window.scrollY));
+    router.replace(url, { scroll: false });
+  };
   const applyFilters = (selectedForm: HTMLFormElement | null = form.current) => {
     if (!selectedForm) return;
     const query = new URLSearchParams();
@@ -16,13 +28,13 @@ export function CatalogFilters({ filters, makes, models, generations = [] }: { f
       const text = String(value).trim();
       if (text && !(name === "sort" && text === "newest")) query.set(name, text);
     });
-    router.replace(query.size ? `${pathname}?${query}` : pathname, { scroll: false });
+    replaceWithoutScroll(query.size ? `${pathname}?${query}` : pathname);
   };
   const submitSelectedValue = (selectedForm: HTMLFormElement | null) => queueMicrotask(() => applyFilters(selectedForm));
   const resetFilters = () => {
     form.current?.querySelectorAll<HTMLInputElement>("input").forEach((input) => { input.value = ""; });
     form.current?.querySelectorAll<HTMLSelectElement>("select").forEach((select) => { select.selectedIndex = 0; });
-    router.replace(pathname, { scroll: false });
+    replaceWithoutScroll(pathname);
   };
   const chooseGeneration = (generation: TrustEncarGeneration) => {
     const yearFrom = form.current?.elements.namedItem("yearFrom") as HTMLInputElement | null;
