@@ -76,4 +76,13 @@ describe("sitemap", () => {
     expect(urls.some((url) => url.includes("/legal/"))).toBe(false);
     expect(entries.find((entry) => entry.url.endsWith(car.slug))?.lastModified).toEqual(new Date("2026-08-20"));
   });
+
+  it("does not exceed the 50000 URL sitemap limit", () => {
+    const cars = Array.from({ length: 50_000 }, (_, index) => ({
+      slug: `car-${index}`,
+      updatedAt: new Date("2026-08-20")
+    }));
+
+    expect(buildSitemapEntries("https://asia-trade-car.ru", cars)).toHaveLength(50_000);
+  });
 });

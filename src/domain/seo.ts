@@ -88,11 +88,12 @@ export function buildVehicleSchema(car: Car, siteUrl: string) {
 
 export type SitemapCar = { slug: string; updatedAt: Date; image?: string };
 type SitemapEntry = { url: string; lastModified?: Date; images?: string[] };
+const SITEMAP_URL_LIMIT = 50_000;
 
 export function buildSitemapEntries(siteUrl: string, cars: SitemapCar[]): SitemapEntry[] {
   const staticPaths = ["", "/catalog/korea", "/catalog/japan", "/catalog/china", "/orders", "/about"];
   return [
     ...staticPaths.map((path) => ({ url: `${siteUrl}${path}` })),
-    ...cars.map((car) => ({ url: `${siteUrl}/auto/${car.slug}`, lastModified: car.updatedAt, ...(car.image ? { images: [car.image] } : {}) }))
+    ...cars.slice(0, SITEMAP_URL_LIMIT - staticPaths.length).map((car) => ({ url: `${siteUrl}/auto/${car.slug}`, lastModified: car.updatedAt, ...(car.image ? { images: [car.image] } : {}) }))
   ];
 }
