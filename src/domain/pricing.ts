@@ -1,7 +1,7 @@
 type CostBreakdownLine = { label: string; value: string };
 
 export const DEFAULT_COMMISSION_RUB = 100_000;
-export const DEFAULT_COMMISSIONS_RUB = { kr: DEFAULT_COMMISSION_RUB, jp: DEFAULT_COMMISSION_RUB, cn: DEFAULT_COMMISSION_RUB } as const;
+export const DEFAULT_COMMISSIONS_RUB = { kr: DEFAULT_COMMISSION_RUB, jp: 50_000, cn: DEFAULT_COMMISSION_RUB } as const;
 export const KOREA_BROKER_RUB = 110_000;
 export const JAPAN_EXPENSES_JPY = 260_000;
 export const CHINA_EXPENSES_RUB = 113_000;
@@ -49,7 +49,7 @@ export function applyCatalogPricing(sourcePrice: number, rubPerUnit: number, com
   return Math.round(sourcePrice * rubPerUnit + commissionRub);
 }
 
-export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, rubPerUnit: number, customs: CustomsCostsRub | number = {}, commissionRub = DEFAULT_COMMISSION_RUB) {
+export function buildExternalPricing(country: "jp" | "cn", sourcePrice: number, rubPerUnit: number, customs: CustomsCostsRub | number = {}, commissionRub: number = DEFAULT_COMMISSIONS_RUB[country]) {
   const fees = COUNTRY_FEES[country];
   const costs = typeof customs === "number" ? { dutyRub: customs } : customs;
   const dutyRub = costs.dutyRub || 0;

@@ -1,10 +1,12 @@
 import { createCipheriv, randomBytes, randomUUID } from "node:crypto";
 import { parseBanzaiApiPage, parseBanzaiVehiclePage } from "@/domain/external-catalog";
+import type { CatalogSort } from "@/domain/catalog";
 
 const DEFAULT_TRACE_KEY = "Q0RFRkdISUpLTE1OT1BRUlNUVVZXWFla";
 const CATALOG_SOURCE = "archive";
 const BROWSER_HEADERS = { "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36" };
 let sessionCookie: string | undefined;
+let sessionPromise: Promise<string> | undefined;
 
 export type BanzaiCatalogSelection = {
   companyId?: number;
@@ -12,18 +14,23 @@ export type BanzaiCatalogSelection = {
   yearFrom?: number;
   yearTo?: number;
   mileageTo?: number;
+  sort?: CatalogSort;
 };
 
 export type BanzaiCatalogOption = { id: number; name: string; hasLots: boolean };
 
 async function getSessionCookie(force = false) {
   if (sessionCookie && !force) return sessionCookie;
-  const response = await fetch("https://banzai24.com/", { cache: "no-store", signal: AbortSignal.timeout(10_000), headers: BROWSER_HEADERS });
-  if (!response.ok) throw new Error(`Banzai24 вернул ${response.status} при создании сессии`);
-  const values = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.() || [response.headers.get("set-cookie") || ""];
-  sessionCookie = values.flatMap((value) => value.split(/,(?=\s*[^;,=]+=[^;,]+)/)).map((value) => value.trim().split(";")[0]).filter(Boolean).join("; ");
-  if (!sessionCookie) throw new Error("Banzai24 не создал cookie-сессию");
-  return sessionCookie;
+  if (force) sessionPromise = undefined;
+  sessionPromise ??= (async () => {
+    const response = await fetch("https://banzai24.com/", { cache: "no-store", signal: AbortSignal.timeout(10_000), headers: BROWSER_HEADERS });
+    if (!response.ok) throw new Error(`Banzai24 вернул ${response.status} при создании сессии`);
+    const values = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.() || [response.headers.get("set-cookie") || ""];
+    sessionCookie = values.flatMap((value) => value.split(/,(?=\s*[^;,=]+=[^;,]+)/)).map((value) => value.trim().split(";")[0]).filter(Boolean).join("; ");
+    if (!sessionCookie) throw new Error("Banzai24 не создал cookie-сессию");
+    return sessionCookie;
+  })().finally(() => { sessionPromise = undefined; });
+  return sessionPromise;
 }
 
 function createTraceHeader() {
@@ -102,10 +109,28 @@ export async function fetchBanzaiPage(page: number, perPage = 100, selection: Ba
   if (selection.yearFrom !== undefined) url.searchParams.set("yearStart", String(selection.yearFrom));
   if (selection.yearTo !== undefined) url.searchParams.set("yearEnd", String(selection.yearTo));
   if (selection.mileageTo !== undefined) url.searchParams.set("mileageEnd", String(selection.mileageTo));
+  const sort = selection.sort === "price-asc" ? ["sortPrice", "asc"]
+    : selection.sort === "price-desc" ? ["sortPrice", "desc"]
+    : selection.sort === "mileage" ? ["sortMileage", "asc"]
+    : ["sortYear", "desc"];
+  url.searchParams.set(sort[0], sort[1]);
   const parsed = parseBanzaiApiPage(await (await fetchBanzaiApi(url)).json());
   if (!parsed.cars.length) throw new Error(`Banzai24 API вернул пустую страницу ${page}`);
   if (parsed.totalPages < 1) throw new Error("Banzai24 API не передал количество страниц");
   return parsed;
+}
+
+export async function fetchBanzaiImage(token: string) {
+  const url = `https://banzai24.com/api/image-service/${encodeURIComponent(token)}`;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+      headers: { ...BROWSER_HEADERS, Cookie: await getSessionCookie(attempt > 0), Referer: "https://banzai24.com/" }
+    });
+    if (response.ok || attempt > 0) return response;
+  }
+  throw new Error("Banzai24 не вернул изображение");
 }
 
 export async function fetchBanzaiVehicle(id: string) {

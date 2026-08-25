@@ -36,4 +36,14 @@ describe("Telegram pricing settings", () => {
 
     expect(vi.mocked(query).mock.calls[0][1]).toEqual(["JPY", 0.62]);
   });
+
+  it("does not let the legacy shared commission override the Japan default", async () => {
+    vi.mocked(query).mockImplementation(async (sql) => String(sql).includes("site_settings")
+      ? { rows: [{ key: "commission_rub", value: "100000" }] } as never
+      : { rows: [] } as never);
+
+    await expect(getPricingSettings()).resolves.toMatchObject({
+      commissions: { kr: 100_000, jp: 50_000, cn: 100_000 }
+    });
+  });
 });

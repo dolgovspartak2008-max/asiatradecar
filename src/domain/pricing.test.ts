@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildExternalPricing, CHINA_EXPENSES_RUB, normalizeCostBreakdown } from "./pricing";
+import { buildExternalPricing, CHINA_EXPENSES_RUB, DEFAULT_COMMISSIONS_RUB, normalizeCostBreakdown } from "./pricing";
 
 describe("catalog pricing", () => {
   const raw = [
@@ -18,9 +18,9 @@ describe("catalog pricing", () => {
 
   it("calculates Japan with local expenses, customs, commission and broker", () => {
     expect(buildExternalPricing("jp", 1_250_000, 0.62, { dutyRub: 436_000, customsFeeRub: 4_924, recyclingFeeRub: 5_200 })).toEqual({
-      priceRub: 1_542_324,
+      priceRub: 1_492_324,
       costBreakdown: [
-        { label: "Комиссия компании", value: "100 000 ₽" },
+        { label: "Комиссия компании", value: "50 000 ₽" },
         { label: "Стоимость автомобиля в Японии", value: "1 250 000 ¥ (775 000 ₽)" },
         { label: "Расходы по Японии и фрахт во Владивосток", value: "260 000 ¥ (161 200 ₽)" },
         { label: "Таможенная пошлина", value: "436 000 ₽" },
@@ -53,10 +53,11 @@ describe("catalog pricing", () => {
     });
   });
 
-  it("uses the fixed 100000 ruble company commission for every country", () => {
+  it("uses a 50000 ruble Japan commission and 100000 for China and Korea", () => {
+    expect(DEFAULT_COMMISSIONS_RUB).toEqual({ kr: 100_000, jp: 50_000, cn: 100_000 });
     expect(buildExternalPricing("jp", 1_000_000, 0.62)).toMatchObject({
-      priceRub: 941_200,
-      costBreakdown: expect.arrayContaining([{ label: "Комиссия компании", value: "100 000 ₽" }])
+      priceRub: 891_200,
+      costBreakdown: expect.arrayContaining([{ label: "Комиссия компании", value: "50 000 ₽" }])
     });
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatCnyPriceRange, getBanzaiCursorWindow, parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, parseDongchediCatalog, parseDongchediSeriesPage, parseDongchediUsedPage, parseDongchediVehicleSpecs, parseDongchediVehicleSpecsHtml, translateChineseCarName, translateChineseTrim } from "./external-catalog";
+import * as externalCatalog from "./external-catalog";
 
 describe("external catalog parsers", () => {
   it("parses full Japanese API records with source details and photos", () => {
@@ -31,6 +32,16 @@ describe("external catalog parsers", () => {
     expect(result.cars[0].status).toBe("inactive");
   });
 
+  it("routes protected Banzai24 photos through the local image endpoint", () => {
+    const proxyPhoto = Reflect.get(externalCatalog, "proxyBanzaiPhotoUrl");
+    expect(proxyPhoto).toBeTypeOf("function");
+    if (typeof proxyPhoto !== "function") return;
+
+    expect(proxyPhoto("https://banzai24.com/api/image-service/v2_token-1"))
+      .toBe("/api/catalog/image/banzai/v2_token-1");
+    expect(proxyPhoto("https://example.test/car.webp")).toBe("https://example.test/car.webp");
+  });
+
   it("covers every Japanese API page exactly once across a 24-run cycle", () => {
     const ranges: ReturnType<typeof getBanzaiCursorWindow>[] = [];
     let nextPage = 1;
@@ -51,8 +62,9 @@ describe("external catalog parsers", () => {
     expect(translateChineseCarName("比亚迪", "海豹06DM")).toEqual({ make: "BYD", model: "Seal 06 DM" });
     expect(translateChineseCarName("蔚来", "蔚来EC6")).toEqual({ make: "NIO", model: "EC6" });
     expect(translateChineseCarName("捷豹", "捷豹XEL")).toEqual({ make: "Jaguar", model: "XEL" });
-    expect(translateChineseCarName("宝马", "宝马2系(进口)", "101")).toEqual({ make: "BMW", model: "2 Series (Import)" });
-    expect(translateChineseCarName("未知品牌", "未知车型", "99")).toEqual({ make: "China Auto", model: "Model 99" });
+    expect(translateChineseCarName("宝马", "宝马2系(进口)")).toEqual({ make: "BMW", model: "2 Series (Import)" });
+    expect(translateChineseCarName("未知品牌", "未知车型")).toEqual({ make: "China Auto", model: "China Auto" });
+    expect(translateChineseCarName("别克", "未知车型")).toEqual({ make: "Buick", model: "Buick" });
     expect(translateChineseTrim("15T 双离合互联精英型 国VI", ["双离合", "互联"])).toBe("15T Dual-Clutch Connected Elite China VI");
   });
 
@@ -91,6 +103,14 @@ describe("external catalog parsers", () => {
       carIds: ["250143", "250144", "250145"],
       optionGroups: [{ title: "Данные модели", items: ["Доступно комплектаций: 3", "Диапазон цен: 171 800 ¥"] }]
     });
+  });
+
+  it("uses the translated make when Dongchedi exposes only a numeric model fallback", () => {
+    const parsed = parseDongchediSeriesPage({ data: { series_count: 1, series: [{
+      concern_id: 2167, brand_id: 5, outter_name: "未知车型", dealer_min_price: "12.98"
+    }] } });
+
+    expect(parsed.cars[0]).toMatchObject({ make: "Toyota", model: "Toyota" });
   });
 
   it("reads genuine used Dongchedi listings with their own price, year and mileage", () => {

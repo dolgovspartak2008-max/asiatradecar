@@ -29,6 +29,13 @@ export type ExternalCatalogCar = {
 
 const numberFrom = (value?: string | null) => Number((value || "").replace(/[^\d]/g, "")) || 0;
 const slugPart = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "");
+const BANZAI_IMAGE_PREFIX = "https://banzai24.com/api/image-service/";
+
+export function proxyBanzaiPhotoUrl(url: string) {
+  return url.startsWith(BANZAI_IMAGE_PREFIX)
+    ? `/api/catalog/image/banzai/${encodeURIComponent(url.slice(BANZAI_IMAGE_PREFIX.length))}`
+    : url;
+}
 
 export function getBanzaiCursorWindow(totalPages: number, nextPage: number) {
   const total = Math.max(0, Math.floor(totalPages));
@@ -59,10 +66,10 @@ export function parseBanzaiApiPage(payload: unknown) {
     const engineLiters = Number(String(characteristics.engineCapacity || "").replace(",", "."));
     const engineText = String(characteristics.engine || "");
     const photos = (Array.isArray(item.images) ? item.images : []).flatMap((image): string[] => {
-      if (typeof image === "string") return image.startsWith("https://") ? [image] : [];
+      if (typeof image === "string") return image.startsWith("https://") ? [proxyBanzaiPhotoUrl(image)] : [];
       if (!image || typeof image !== "object") return [];
       const url = String((image as Record<string, unknown>).url || (image as Record<string, unknown>).src || "");
-      return url.startsWith("https://") ? [url] : [];
+      return url.startsWith("https://") ? [proxyBanzaiPhotoUrl(url)] : [];
     });
     const tags = (Array.isArray(item.tags) ? item.tags : []).flatMap((tag): string[] => tag && typeof tag === "object" ? [String((tag as Record<string, unknown>).title || "").trim()].filter(Boolean) : []);
     const year = Number(item.registrationYear) || numberFrom(String(car.year || characteristics.year || "").match(/(?:19|20)\d{2}/)?.[0]);
@@ -131,10 +138,10 @@ export function translateChineseTrim(value: string, sourceNames: string[] = []) 
   return cleanEnglish(translated);
 }
 
-export function translateChineseCarName(make: string, model: string, fallbackId = "") {
+export function translateChineseCarName(make: string, model: string) {
   const matchingBrand = Object.entries(chineseBrands).sort(([left], [right]) => right.length - left.length).find(([name]) => make.includes(name));
   const translatedMake = chineseBrands[make] || matchingBrand?.[1] || cleanEnglish(make) || "China Auto";
-  const translatedModel = chineseModels[model] || translateChineseTrim(model, [make]) || `Model${fallbackId ? ` ${fallbackId}` : ""}`;
+  const translatedModel = chineseModels[model] || translateChineseTrim(model, [make]) || translatedMake;
   return { make: translatedMake, model: translatedModel };
 }
 
@@ -156,11 +163,11 @@ export function formatCnyPriceRange(raw: string) {
 const modelMakes: Record<string, string> = { "凯美瑞": "Toyota", "亚洲龙": "Toyota", "RAV4荣放": "Toyota", "帕萨特": "Volkswagen", "朗逸": "Volkswagen", "速腾": "Volkswagen" };
 const chineseBrandIds: Record<string, string> = { "1": "Volkswagen", "2": "Audi", "3": "Mercedes-Benz", "4": "BMW", "5": "Toyota", "16": "BYD", "30": "Cadillac", "34": "MG", "73": "Geely", "195": "XPeng", "202": "Li Auto", "207": "Leapmotor", "535": "Xiaomi", "858": "Geely Galaxy" };
 
-function readableSeriesName(original: string, id: string) {
+function readableSeriesName(original: string, make: string) {
   if (chineseModels[original]) return chineseModels[original];
   const withoutBrand = Object.keys(chineseBrands).sort((a, b) => b.length - a.length).reduce((name, brand) => name.replace(brand, ""), original).trim();
   const latin = withoutBrand.replace(/[\u3400-\u9fff]/g, " ").replace(/\s+/g, " ").trim();
-  return latin || `Model ${id}`;
+  return latin || make;
 }
 
 function dongchediSeriesCar(value: unknown): ExternalCatalogCar[] {
@@ -172,7 +179,7 @@ function dongchediSeriesCar(value: unknown): ExternalCatalogCar[] {
   if (!id || !originalName) return [];
   const brandEntry = Object.entries(chineseBrands).sort(([a], [b]) => b.length - a.length).find(([name]) => originalName.includes(name));
   const make = modelMakes[originalName] || brandEntry?.[1] || chineseBrandIds[String(item.brand_id || "")] || "China Auto";
-  const model = readableSeriesName(originalName, id);
+  const model = readableSeriesName(originalName, make);
   const cover = String(item.cover_url || "").replace(/^http:/, "https:");
   const count = Number(item.count) || (Array.isArray(item.car_ids) ? item.car_ids.length : 0);
   const priceRange = String(item.dealer_price || item.min_price || "");
@@ -228,7 +235,7 @@ export function parseDongchediUsedPage(payload: unknown, page = 1, limit = 24, s
     const sourceMake = String(item.brand_name || "").trim();
     const sourceModel = String(item.series_name || "").trim();
     const brandId = String(item.brand_id || "").trim();
-    const baseName = translateChineseCarName(sourceMake, sourceModel, String(item.series_id || ""));
+    const baseName = translateChineseCarName(sourceMake, sourceModel);
     const translated = brandId && baseName.make === "China Auto"
       ? { make: sourceMake, model: translateChineseTrim(sourceModel, [sourceMake]) || sourceModel }
       : baseName;
@@ -313,7 +320,7 @@ export function parseDongchediCatalog(html: string): ExternalCatalogCar[] {
     if (!value || typeof value !== "object") return [];
     const item = value as Record<string, unknown>;
     const id = String(item.series_id || "");
-    const translated = translateChineseCarName(String(item.brand_name || "").trim(), String(item.series_name || "").trim(), id);
+    const translated = translateChineseCarName(String(item.brand_name || "").trim(), String(item.series_name || "").trim());
     const { make, model } = translated;
     const priceInfo = item.price_info && typeof item.price_info === "object" ? item.price_info as Record<string, unknown> : {};
     const priceWan = Number(String(priceInfo.price || "").split("-")[0]);
@@ -347,7 +354,7 @@ export function parseBanzaiCatalog(html: string) {
     const sourcePrice = numberFrom(priceText);
     if (!sourceId || !make || !model || !sourcePrice) return [];
     const engineLiters = Number(text.match(/Двигатель\s*:\s*([\d.,]+)\s*л/i)?.[1]?.replace(",", "."));
-    const photos = card.find("img[src]").toArray().map((image) => $(image).attr("src") || "").filter((url) => url.startsWith("https://banzai24.com/api/image-service/"));
+    const photos = card.find("img[src]").toArray().map((image) => $(image).attr("src") || "").filter((url) => url.startsWith(BANZAI_IMAGE_PREFIX)).map(proxyBanzaiPhotoUrl);
     return [{
       id: `banzai-${sourceId}`, slug: `jp-${slugPart(make)}-${slugPart(model)}-${sourceId}`, status: "active", source: "banzai24",
       sourceUrl: new URL(href, "https://banzai24.com").href, country: "jp", currencyCode: "JPY", make, model,
@@ -377,7 +384,7 @@ export function parseBanzaiVehiclePage(html: string, sourceId: string): External
     || numberFrom(text.match(/(?:Стартовая цена|Старт от|Start price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1]);
   if (!sourceId || !make || !model || !price) return null;
   const engineLiters = Number(engine?.[1]?.replace(",", "."));
-  const photos = $("img[src]").toArray().map((image) => $(image).attr("src") || "").filter((url) => url.startsWith("https://banzai24.com/api/image-service/"));
+  const photos = $("img[src]").toArray().map((image) => $(image).attr("src") || "").filter((url) => url.startsWith(BANZAI_IMAGE_PREFIX)).map(proxyBanzaiPhotoUrl);
   return {
     id: `banzai-${sourceId}`, slug: `jp-${slugPart(make)}-${slugPart(model)}-${sourceId}`, status: "active", source: "banzai24",
     sourceUrl: `https://banzai24.com/car/JP/${encodeURIComponent(sourceId)}`, country: "jp", currencyCode: "JPY", make, model,

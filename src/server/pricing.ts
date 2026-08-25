@@ -18,7 +18,7 @@ export async function getPricingSettings(): Promise<PricingSettings> {
   const byCode = new Map(rates?.rows.map((row) => [row.code, Number(row.rub_per_unit)]) || []);
   const byKey = new Map(commissions?.rows.map((row) => [row.key, Number(row.value)]) || []);
   const legacyCommission = byKey.get("commission_rub");
-  const commission = (country: "kr" | "jp" | "cn") => byKey.get(`commission_${country}_rub`) || legacyCommission || FALLBACK.commissions[country];
+  const commission = (country: "kr" | "jp" | "cn") => byKey.get(`commission_${country}_rub`) || (country === "jp" ? FALLBACK.commissions.jp : legacyCommission) || FALLBACK.commissions[country];
   return {
     commissions: { kr: commission("kr"), jp: commission("jp"), cn: commission("cn") },
     rates: {

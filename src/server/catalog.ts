@@ -4,8 +4,8 @@ import { buildTrustEncarSearchBody, normalizeTrustEncarRecord, parseTrustEncarBo
 import { hasDatabase, query } from "./db";
 import { getPricingSettings } from "./pricing";
 import { readCostBreakdown } from "../domain/car-details";
-import { buildExternalPricing, DEFAULT_COMMISSION_RUB, KOREA_BROKER_RUB, type CustomsCostsRub } from "../domain/pricing";
-import type { ExternalCatalogCar } from "../domain/external-catalog";
+import { buildExternalPricing, DEFAULT_COMMISSION_RUB, DEFAULT_COMMISSIONS_RUB, KOREA_BROKER_RUB, type CustomsCostsRub } from "../domain/pricing";
+import { proxyBanzaiPhotoUrl, type ExternalCatalogCar } from "../domain/external-catalog";
 import { fetchBanzaiMakes, fetchBanzaiModels, fetchBanzaiPage, fetchBanzaiVehicle, type BanzaiCatalogSelection } from "./banzai";
 import { fetchDongchediPage, fetchDongchediUsedBrowsePage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle, fetchDongchediVehicleSpecs, getDongchediCityBySlug } from "./dongchedi";
 import { getDromCustomsCostsRub } from "./drom";
@@ -47,13 +47,15 @@ type CarRow = {
   price_krw: string | number; price_rub: string | number | null; photos: unknown; details: unknown;
 };
 
+const displayModel = (country: string, make: string, model: string) => country === "cn" && /^Model\s+\d{3,}$/i.test(model.trim()) ? make : model;
+
 const toCar = (row: CarRow): Car => ({
-  id: row.id, slug: row.slug, sourceUrl: row.source_url, country: row.country, currencyCode: ["JPY", "CNY"].includes(row.currency_code || "") ? row.currency_code as "JPY" | "CNY" : "KRW", make: row.make, model: row.model, trim: row.trim, year: row.year,
+  id: row.id, slug: row.slug, sourceUrl: row.source_url, country: row.country, currencyCode: ["JPY", "CNY"].includes(row.currency_code || "") ? row.currency_code as "JPY" | "CNY" : "KRW", make: row.make, model: displayModel(row.country, row.make, row.model), trim: row.trim, year: row.year,
   mileageKm: row.mileage_km, engineCc: row.engine_cc, powerHp: row.power_hp, fuel: row.fuel,
   transmission: row.transmission, drive: row.drive, bodyType: row.body_type,
   exteriorColor: row.exterior_color, interiorColor: row.interior_color, vin: row.vin,
   priceKrw: Number(row.price_krw), priceRub: row.price_rub === null ? null : Number(row.price_rub),
-  photos: Array.isArray(row.photos) ? row.photos.filter((item): item is string => typeof item === "string") : [],
+  photos: Array.isArray(row.photos) ? row.photos.filter((item): item is string => typeof item === "string").map(proxyBanzaiPhotoUrl) : [],
   details: row.details && typeof row.details === "object" ? row.details as Record<string, unknown> : {}
 });
 
@@ -83,7 +85,7 @@ const fromExternalCar = (car: ExternalCatalogCar): Car => ({
   make: car.make, model: car.model, trim: car.trim, year: car.year, mileageKm: car.mileageKm,
   engineCc: car.engineCc, powerHp: car.powerHp, fuel: car.fuel, transmission: car.transmission,
   drive: car.drive, bodyType: car.bodyType, exteriorColor: car.exteriorColor, interiorColor: car.interiorColor,
-  vin: car.vin, priceKrw: car.sourcePrice, priceRub: null, photos: car.photos, details: car.details
+  vin: car.vin, priceKrw: car.sourcePrice, priceRub: null, photos: car.photos.map(proxyBanzaiPhotoUrl), details: car.details
 });
 
 function applyExternalPricing(car: Car, rubPerUnit: number, customs: CustomsCostsRub = {}, commissionRub = DEFAULT_COMMISSION_RUB): Car {
@@ -113,8 +115,9 @@ async function applyExternalCatalogPricing(cars: Car[], settings: Awaited<Return
 }
 
 async function getExternalBrowseCatalog(filters: CatalogFilters) {
-  const settings = await getPricingSettings();
+  const settingsPromise = getPricingSettings();
   if (filters.country === "cn") {
+    const settings = await settingsPromise;
     const same = (left: string, right: string | undefined) => left.localeCompare(right || "", undefined, { sensitivity: "base" }) === 0;
     const hasFilters = Boolean(filters.q || filters.make || filters.model || filters.yearFrom !== undefined || filters.yearTo !== undefined
       || filters.priceFrom !== undefined || filters.priceTo !== undefined || filters.mileageTo !== undefined || filters.bodyType || filters.fuel
@@ -179,7 +182,11 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
       makes, models, generations: []
     };
   }
-  const makeOptions = await fetchBanzaiMakes();
+  const sourcePage = Math.floor(filters.offset / 100) + 1;
+  const start = filters.offset % 100;
+  const baseSelection: BanzaiCatalogSelection = { yearFrom: filters.yearFrom, yearTo: filters.yearTo, mileageTo: filters.mileageTo, sort: filters.sort };
+  const directPage = !filters.make && !filters.model ? fetchBanzaiPage(sourcePage, 100, baseSelection) : null;
+  const [settings, makeOptions] = await Promise.all([settingsPromise, fetchBanzaiMakes()]);
   const makes = makeOptions.map((item) => item.name).sort();
   const selectedMake = filters.make;
   const make = selectedMake ? makeOptions.find((item) => item.name.localeCompare(selectedMake, undefined, { sensitivity: "base" }) === 0) : undefined;
@@ -189,10 +196,8 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
   const selectedModel = filters.model;
   const model = selectedModel ? modelOptions.find((item) => item.name.localeCompare(selectedModel, undefined, { sensitivity: "base" }) === 0) : undefined;
   if (filters.model && !model) return { cars: [] as Car[], total: 0, makes, models, generations: [] };
-  const selection: BanzaiCatalogSelection = { companyId: make?.id, modelId: model?.id, yearFrom: filters.yearFrom, yearTo: filters.yearTo, mileageTo: filters.mileageTo };
-  const sourcePage = Math.floor(filters.offset / 100) + 1;
-  const start = filters.offset % 100;
-  const first = await fetchBanzaiPage(sourcePage, 100, selection);
+  const selection: BanzaiCatalogSelection = { ...baseSelection, companyId: make?.id, modelId: model?.id };
+  const first = directPage ? await directPage : await fetchBanzaiPage(sourcePage, 100, selection);
   const pages = start + filters.limit > first.cars.length && sourcePage < first.totalPages ? [first, await fetchBanzaiPage(sourcePage + 1, 100, selection)] : [first];
   const sourceCars = pages.flatMap((page) => page.cars);
   const cars = (await applyExternalCatalogPricing(sourceCars.slice(start, start + filters.limit).map(fromExternalCar), settings))
@@ -303,7 +308,9 @@ async function getLiveCatalog(filters: CatalogFilters) {
 
 async function getDatabaseCatalog(filters: CatalogFilters) {
   await ensureDatabaseSchema();
-  const built = buildCatalogQuery(filters);
+  const legacyChinaModel = filters.country === "cn" && filters.make && filters.model
+    && filters.make.localeCompare(filters.model, undefined, { sensitivity: "base" }) === 0;
+  const built = buildCatalogQuery(legacyChinaModel ? { ...filters, model: undefined } : filters);
   const statusClause = catalogStatusClause(filters.country);
   const countValues = built.values.slice(0, -2);
   const where = built.text.match(/FROM cars WHERE (.+) ORDER BY/s)?.[1] ?? "status = 'active'";
@@ -313,11 +320,12 @@ async function getDatabaseCatalog(filters: CatalogFilters) {
     query<{ make: string }>(`SELECT DISTINCT make FROM cars WHERE ${statusClause} AND country = $1 ORDER BY make`, [filters.country]),
     filters.make ? query<{ model: string }>(`SELECT DISTINCT model FROM cars WHERE ${statusClause} AND country = $1 AND make = $2 ORDER BY model`, [filters.country, filters.make]) : Promise.resolve({ rows: [] as Array<{ model: string }> })
   ]);
-  return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models: modelsResult.rows.map((row) => row.model), generations: [] };
+  const models = [...new Set(modelsResult.rows.map((row) => displayModel(filters.country, filters.make || "", row.model)))].sort();
+  return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models, generations: [] };
 }
 
 function adjustDatabasePriceFilters(filters: CatalogFilters, commissionRub: number): CatalogFilters {
-  const adjustment = filters.country === "kr" ? commissionRub + KOREA_BROKER_RUB : commissionRub - DEFAULT_COMMISSION_RUB;
+  const adjustment = filters.country === "kr" ? commissionRub + KOREA_BROKER_RUB : commissionRub - DEFAULT_COMMISSIONS_RUB[filters.country === "jp" ? "jp" : "cn"];
   return {
     ...filters,
     priceFrom: filters.priceFrom === undefined ? undefined : Math.max(0, filters.priceFrom - adjustment),
@@ -339,7 +347,6 @@ async function hasSyncedChinaCatalog() {
   try {
     const result = await query<{ ready: boolean }>(`SELECT (
       count(*) FILTER (WHERE source = 'dongchedi-used' AND status = 'active') >= 50000
-      AND count(*) FILTER (WHERE source = 'dongchedi') >= 4687
     ) AS ready FROM cars WHERE country = 'cn'`, []);
     return result.rows[0]?.ready === true;
   } catch {
@@ -368,7 +375,7 @@ export async function getCatalog(filters: CatalogFilters) {
         const settings = await getPricingSettings();
         const country = filters.country === "jp" ? "jp" : "cn";
         const catalog = await getDatabaseCatalog(adjustDatabasePriceFilters(filters, settings.commissions[country]));
-        if (catalog.total > 0) return { ...catalog, cars: await applyExternalCatalogPricing(catalog.cars, settings) };
+        return { ...catalog, cars: await applyExternalCatalogPricing(catalog.cars, settings) };
       } catch {}
     }
     return getExternalBrowseCatalog(filters);

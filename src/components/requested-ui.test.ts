@@ -48,7 +48,8 @@ describe("requested mobile UI", () => {
     expect(read("../app/auto/[slug]/page.tsx")).toContain("Под ключ в РФ");
     expect(read("../app/auto/[slug]/page.tsx")).not.toContain("Предварительный расчёт для РФ");
     expect(breakdown).toContain("Под ключ в РФ");
-    expect(breakdown).toContain("DEFAULT_COMMISSION_RUB");
+    expect(breakdown).toContain("DEFAULT_COMMISSIONS_RUB");
+    expect(breakdown).toContain('country === "jp" ? "jp"');
     expect(breakdown).toContain('country === "kr" ? 110_000');
   });
 

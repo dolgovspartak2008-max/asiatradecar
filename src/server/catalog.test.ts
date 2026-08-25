@@ -242,12 +242,39 @@ describe("live Trust Encar catalog", () => {
     expect(result.total).toBe(283);
     expect(result.makes).toEqual(["BMW", "TOYOTA"]);
     expect(result.models).toEqual(["2 SERIES", "3 SERIES"]);
-    expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", priceRub: 1_542_324, sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
+    expect(result.cars[0]).toMatchObject({ country: "jp", make: "BMW", model: "3 SERIES", priceRub: 1_492_324, sourceUrl: expect.stringContaining("banzai24.com/car/JP/") });
     expect(result.cars[0].details.costBreakdown).toEqual(expect.arrayContaining([
       { label: "Таможенная пошлина", value: "436 000 ₽" },
       { label: "Таможенный сбор", value: "4 924 ₽" },
       { label: "Утилизационный сбор", value: "5 200 ₽" }
     ]));
+  });
+
+  it("starts the default Japan page request without waiting for the make list", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    let releaseMakes: (response: Response) => void = () => {};
+    const makes = new Promise<Response>((resolve) => { releaseMakes = resolve; });
+    const payload = { items: [{
+      id: "4e75d2d8-0865-4c72-9bcc-5ddc11bca111", car: { mark: "BMW", model: "3 SERIES" },
+      characteristics: { year: "2022" }, onePrice: 1_250_000
+    }], pagination: { total: 1, totalPages: 1 } };
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+      const url = String(input);
+      if (url === "https://banzai24.com/") return Promise.resolve(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }));
+      if (url.includes("/companies")) return makes;
+      if (url.includes("/lots")) return Promise.resolve(Response.json(payload));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const work = getCatalog(parseCatalogParams({ country: "jp" }));
+    await Promise.resolve();
+    await Promise.resolve();
+    const pageStartedBeforeMakesResolved = fetchMock.mock.calls.some(([url]) => String(url).includes("/lots"));
+    releaseMakes(Response.json({ data: [{ id: 2, name: "BMW", hasLots: true }] }));
+    await work;
+
+    expect(pageStartedBeforeMakesResolved).toBe(true);
   });
 });
 
