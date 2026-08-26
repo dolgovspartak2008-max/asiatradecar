@@ -28,6 +28,10 @@ export type ExternalCatalogCar = {
 };
 
 const numberFrom = (value?: string | null) => Number((value || "").replace(/[^\d]/g, "")) || 0;
+const priceFrom = (value: unknown) => {
+  const parsed = Number(String(value || "").replace(/[\s,]/g, ""));
+  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+};
 const slugPart = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9а-яё]+/gi, "-").replace(/^-|-$/g, "");
 const BANZAI_IMAGE_PREFIX = "https://banzai24.com/api/image-service/";
 
@@ -73,7 +77,7 @@ export function parseBanzaiApiPage(payload: unknown) {
     });
     const tags = (Array.isArray(item.tags) ? item.tags : []).flatMap((tag): string[] => tag && typeof tag === "object" ? [String((tag as Record<string, unknown>).title || "").trim()].filter(Boolean) : []);
     const year = Number(item.registrationYear) || numberFrom(String(car.year || characteristics.year || "").match(/(?:19|20)\d{2}/)?.[0]);
-    const sourcePrice = numberFrom(String(item.onePrice || "")) || numberFrom(String(item.endPrice || "")) || numberFrom(String(item.startPrice || ""));
+    const sourcePrice = priceFrom(item.onePrice) || priceFrom(item.endPrice) || priceFrom(item.startPrice);
     const statusName = String(status.name || "").trim();
     const active = !/(продан|продано|закрыт|снят|sold|closed)/i.test(statusName);
     const lotItems = [String(auction.name || "").trim() && `Аукцион: ${String(auction.name).trim()}`, String(lot.number || "").trim() && `Лот: ${String(lot.number).trim()}`, String(item.grade || "").trim() && `Оценка: ${String(item.grade).trim()}`, statusName && `Статус: ${statusName}`, ...tags].filter((entry): entry is string => Boolean(entry));

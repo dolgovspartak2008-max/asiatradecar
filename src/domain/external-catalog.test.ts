@@ -10,6 +10,7 @@ describe("external catalog parsers", () => {
         car: { mark: "TOYOTA", model: "COROLLA", year: "2020.03" },
         characteristics: { mileage: 34000, modification: "HYBRID S 4WD", transmission: "Автомат", drivetrain: "Полный", color: "SILVER", fuelType: "Гибрид", engineCapacity: "1.8", engine: "1.8 л / Гибрид / 98 л.с.", bodyNumber: "ZWE214W-60***99" },
         registrationYear: 2020,
+        onePrice: "1298000.00",
         startPrice: "80000",
         endPrice: "1298000",
         images: ["https://banzai24.com/api/image-service/one"],

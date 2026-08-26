@@ -100,7 +100,8 @@ export async function fetchBanzaiModels(companyId: number) {
 
 export async function fetchBanzaiPage(page: number, perPage = 100, selection: BanzaiCatalogSelection = {}) {
   const url = new URL("https://banzai24.com/api/catalog-service/lots");
-  url.searchParams.set("source", CATALOG_SOURCE);
+  const source = selection.sort === "price-asc" || selection.sort === "price-desc" ? "onePrice" : CATALOG_SOURCE;
+  url.searchParams.set("source", source);
   url.searchParams.set("countryISO", "JP");
   url.searchParams.set("page", String(page));
   url.searchParams.set("perPage", String(perPage));
@@ -109,7 +110,6 @@ export async function fetchBanzaiPage(page: number, perPage = 100, selection: Ba
   if (selection.yearFrom !== undefined) url.searchParams.set("yearStart", String(selection.yearFrom));
   if (selection.yearTo !== undefined) url.searchParams.set("yearEnd", String(selection.yearTo));
   if (selection.mileageTo !== undefined) url.searchParams.set("mileageEnd", String(selection.mileageTo));
-  if (selection.sort === "price-asc") url.searchParams.set("priceStart", "1");
   const sort = selection.sort === "price-asc" ? ["sortPrice", "asc"]
     : selection.sort === "price-desc" ? ["sortPrice", "desc"]
     : selection.sort === "mileage" ? ["sortMileage", "asc"]
