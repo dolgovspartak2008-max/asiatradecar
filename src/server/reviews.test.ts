@@ -10,9 +10,10 @@ beforeEach(() => {
   vi.mocked(query).mockResolvedValue({ rows: [] } as never);
 });
 
-it("hides the two withdrawn reviews before reading published reviews", async () => {
-  await getPublishedReviews();
+it("reads only published reviews without mutating stored reviews", async () => {
+  vi.mocked(query).mockResolvedValue({ rows: [{ id: "4", title: "Новый отзыв", text: "Текст" }] } as never);
 
-  expect(query).toHaveBeenNthCalledWith(1, "UPDATE reviews SET status='hidden' WHERE id=ANY($1::bigint[])", [[1, 3]]);
-  expect(String(vi.mocked(query).mock.calls[1][0])).toContain("WHERE status='published'");
+  await expect(getPublishedReviews()).resolves.toEqual([{ id: "4", title: "Новый отзыв", text: "Текст" }]);
+  expect(query).toHaveBeenCalledTimes(1);
+  expect(String(vi.mocked(query).mock.calls[0][0])).toMatch(/^SELECT .* WHERE status='published'/);
 });
