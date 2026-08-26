@@ -18,6 +18,8 @@
 html, body { background: var(--dark); }
 html { scroll-behavior: smooth; scroll-padding-top: 88px; }
 body { min-height: 100dvh; margin: 0; color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.55; }
+html:has(dialog[open]) { overflow: hidden; }
+body:has(dialog[open]) { overflow: hidden; }
 ::selection { color: var(--dark); background: var(--gold); }
 main, .site-footer { position: relative; z-index: 1; }
 body, input, select, textarea, button { font-size: 16px; }
@@ -158,9 +160,9 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .country-card p { margin-bottom: 0; color: var(--muted); font-size: .9rem; }
 .country-card.disabled { opacity: .6; }
 
-.catalog-choice-dialog { width: min(540px, calc(100% - 28px)); padding: 0; color: var(--ink); background: transparent; border: 0; overflow: visible; }
+.catalog-choice-dialog { width: min(540px, calc(100% - 28px)); max-height: calc(100dvh - 28px); padding: 0; color: var(--ink); background: transparent; border: 0; overflow: hidden; overscroll-behavior: contain; }
 .catalog-choice-dialog::backdrop { background: rgba(7,7,6,.66); }
-.catalog-choice-panel { position: relative; padding: 34px; background: var(--paper); border-radius: 16px; box-shadow: 0 28px 80px rgba(0,0,0,.32); }
+.catalog-choice-panel { position: relative; max-height: calc(100dvh - 28px); overflow-y: auto; overscroll-behavior: contain; padding: 34px; background: var(--paper); border-radius: 16px; box-shadow: 0 28px 80px rgba(0,0,0,.32); }
 .catalog-choice-panel h2 { max-width: 420px; padding-right: 40px; margin-bottom: 12px; font-family: inherit; font-size: 2rem; line-height: 1.05; text-transform: none; }
 .catalog-choice-panel > p { color: var(--muted); }
 .catalog-choice-list { display: grid; gap: 10px; margin-top: 24px; }
@@ -190,6 +192,8 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .responsibility ul { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0; margin: 0 0 30px; list-style: none; }
 .responsibility li { display: flex; align-items: flex-start; gap: 12px; padding: 15px; color: rgba(255,255,255,.82); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
 .responsibility li svg { flex: 0 0 auto; color: var(--gold); }
+.responsibility-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.responsibility-actions .button-ghost { color: #fff; }
 .testimonials { background: transparent; }
 .testimonial-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .testimonial-card { margin: 0; overflow: hidden; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
@@ -364,9 +368,9 @@ textarea { resize: vertical; }
 .car-options summary b { min-width: 27px; height: 27px; display: grid; place-items: center; color: var(--gold-dark); background: rgba(215,168,75,.13); border-radius: 50%; font-size: .76rem; }
 .car-options ul { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 12px; margin: 0; list-style: none; }
 .car-options li { padding: 6px 8px; color: var(--muted); background: #f0eee8; border-radius: 7px; font-size: .78rem; line-height: 1.2; }
-.site-dialog { width: min(680px, calc(100% - 24px)); max-height: calc(100dvh - 32px); padding: 0; overflow: visible; color: var(--ink); background: transparent; border: 0; }
+.site-dialog { width: min(680px, calc(100% - 24px)); max-height: calc(100dvh - 32px); padding: 0; overflow: hidden; overscroll-behavior: contain; color: var(--ink); background: transparent; border: 0; }
 .site-dialog::backdrop { background: rgba(7,7,6,.72); backdrop-filter: blur(4px); }
-.dialog-panel { position: relative; max-height: calc(100dvh - 32px); overflow-y: auto; padding: clamp(22px, 4vw, 36px); background: var(--paper); border-radius: 16px; box-shadow: 0 30px 90px rgba(0,0,0,.35); }
+.dialog-panel { position: relative; max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: clamp(22px, 4vw, 36px); background: var(--paper); border-radius: 16px; box-shadow: 0 30px 90px rgba(0,0,0,.35); }
 .dialog-panel h2 { padding-right: 42px; font-family: inherit; font-size: clamp(1.55rem, 4vw, 2.4rem); line-height: 1.05; text-transform: none; }
 .dialog-close { position: absolute; top: 14px; right: 14px; width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink); background: var(--bg); border: 0; border-radius: 50%; cursor: pointer; }
 .dialog-total { color: var(--gold-dark); font-size: clamp(2rem, 6vw, 3.4rem); font-weight: 900; line-height: 1; }
@@ -377,6 +381,20 @@ textarea { resize: vertical; }
 .dialog-note { color: var(--muted); font-size: .82rem; }
 .application-dialog .lead-form { margin-top: 22px; }
 .application-dialog .consent { color: var(--muted) !important; }
+.delivery-prices-dialog { width: min(980px, calc(100% - 24px)); }
+.delivery-prices-panel { display: grid; gap: 18px; }
+.delivery-prices-panel h2 { margin-bottom: 0; }
+.delivery-prices-image { overflow: auto; overscroll-behavior: contain; border-radius: 12px; background: #090908; }
+.delivery-prices-image img { width: 100%; height: auto; max-width: none; }
+.delivery-prices-full { width: fit-content; color: var(--gold-dark); font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
+.delivery-prices-data { border-top: 1px solid var(--line); }
+.delivery-prices-data summary { padding: 16px 0; color: var(--gold-dark); cursor: pointer; font-weight: 800; }
+.delivery-prices-table-wrap { overflow-x: auto; }
+.delivery-prices-data table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: .82rem; }
+.delivery-prices-data caption { padding: 0 0 12px; text-align: left; font-weight: 800; }
+.delivery-prices-data th, .delivery-prices-data td { padding: 8px; border: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.delivery-prices-data th:first-child { text-align: left; }
+.delivery-prices-data p { margin: 12px 0 0; color: var(--muted); font-size: .78rem; }
 
 .legal-page .container { width: min(860px, calc(100% - 40px)); }
 .legal-page h1 { font-size: clamp(2.4rem, 7vw, 4.4rem); line-height: .98; overflow-wrap: anywhere; }
@@ -505,7 +523,7 @@ textarea { resize: vertical; }
   .journey-city text { font-size: 18px; }
   .journey-route-base, .journey-route-progress { stroke-width: 10; }
   .catalog-choice-dialog { width: 100%; max-width: none; max-height: 100dvh; margin: auto auto 0; }
-  .catalog-choice-panel { padding: 24px 18px max(22px, env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; }
+  .catalog-choice-panel { max-height: 100dvh; padding: 24px 18px max(22px, env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; }
   .catalog-choice-panel h2 { font-size: 1.7rem; }
   .catalog-choice-list { margin-top: 18px; }
   .catalog-choice-list a { min-height: 74px; }
@@ -516,6 +534,11 @@ textarea { resize: vertical; }
   .stage-grid li + li { border-top: 1px solid var(--gold); }
   .stage-grid li::after { display: none; }
   .responsibility ul { grid-template-columns: 1fr; }
+  .responsibility-actions { display: grid; }
+  .responsibility-actions .button { width: 100%; }
+  .delivery-prices-dialog { width: calc(100% - 12px); max-height: calc(100dvh - 12px); }
+  .delivery-prices-panel { max-height: calc(100dvh - 12px); padding: 20px 14px; border-radius: 14px; }
+  .delivery-prices-image img { width: 760px; }
   .testimonial-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; }
   .testimonial-card, .testimonial-card:nth-child(4), .testimonial-card:nth-child(5) { min-width: min(88vw, 360px); scroll-snap-align: start; }
   .catalog-grid { grid-template-columns: 1fr; }

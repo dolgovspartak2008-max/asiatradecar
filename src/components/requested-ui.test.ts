@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -70,15 +70,19 @@ describe("requested mobile UI", () => {
     expect(read("./lead-form.tsx")).toContain("{!carName && <label>Пожелания");
   });
 
-  it("offers call, Telegram and WhatsApp for each manager without MAX", () => {
+  it("offers manager contacts plus Instagram and MAX company links", () => {
     const source = read("./footer.tsx");
+    const site = read("../config/site.ts");
     expect(source).toContain("Позвонить");
     expect(source).toContain("Telegram");
     expect(source).toContain("WhatsApp");
     expect(source).toContain("https://t.me/artur_sagitov02");
     expect(source).toContain("https://t.me/Oleg_Ohty");
     expect(source).toContain("https://t.me/pavel_platonov290989");
-    expect(source).not.toContain("MAX");
+    expect(site).toContain("https://www.instagram.com/asiatradecar");
+    expect(site).toContain("https://max.ru/channel_asiatradecar");
+    expect(source).toContain("site.instagram");
+    expect(source).toContain("site.max");
   });
 
   it("remounts catalog results after filters change", () => {
@@ -108,11 +112,33 @@ describe("requested mobile UI", () => {
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
-  it("shows complete review photos and expandable long text", () => {
-    const css = read("../app/globals.css");
+  it("shows only reviews published through the Telegram-backed database", () => {
     const testimonials = read("./testimonials.tsx");
-    expect(css).toContain(".testimonial-photo img { object-fit: contain;");
+    expect(testimonials).toContain("getPublishedReviews");
+    expect(testimonials).toContain("if (!added.length) return null");
     expect(testimonials).toContain("<ReviewText");
+    expect(testimonials).not.toContain("const reviews");
+    expect(testimonials).not.toContain("Lexus RX 300");
+  });
+
+  it("opens the supplied delivery price table beside the calculation CTA", () => {
+    const home = read("../app/page.tsx");
+    const dialog = read("./delivery-prices-dialog.tsx");
+    expect(home).toContain("<DeliveryPricesDialog />");
+    expect(dialog).toContain("Цены доставки по России");
+    expect(dialog).toContain("/media/delivery-prices.png");
+    expect(dialog).not.toContain('loading="eager"');
+    expect(dialog).toContain("<table>");
+    expect(dialog.match(/\["[^"]+", \d+_\d{3}, \d+_\d{3}, \d+_\d{3}, \d+_\d{3}\]/g)).toHaveLength(26);
+    expect(existsSync(new URL("../../public/media/delivery-prices.png", import.meta.url))).toBe(true);
+  });
+
+  it("locks the page and contains scroll inside open dialogs", () => {
+    const css = read("../app/globals.css");
+    expect(css).toContain("html:has(dialog[open])");
+    expect(css).toContain("body:has(dialog[open])");
+    expect(css).toMatch(/\.dialog-panel\s*\{[^}]*overscroll-behavior:\s*contain/);
+    expect(css).toMatch(/\.catalog-choice-panel\s*\{[^}]*overflow-y:\s*auto[^}]*overscroll-behavior:\s*contain/);
   });
 
   it("brightens the moving hero and styles car names as uppercase display type", () => {

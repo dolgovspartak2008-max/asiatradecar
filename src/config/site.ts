@@ -27,6 +27,8 @@ export const site = {
   email: process.env.SITE_OWNER_EMAIL || "",
   phone: process.env.SITE_OWNER_PHONE || "",
   telegram: process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/AsiaTradeCar",
+  instagram: "https://www.instagram.com/asiatradecar",
+  max: "https://max.ru/channel_asiatradecar",
   youtube: "https://youtube.com/@asiatradecar",
   vk: "https://vk.ru/asiatradecar",
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_URL || "",
