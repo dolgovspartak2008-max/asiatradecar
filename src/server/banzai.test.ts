@@ -39,6 +39,7 @@ describe("Banzai24 session", () => {
     expect(url.searchParams.get("yearEnd")).toBe("2026");
     expect(url.searchParams.get("mileageEnd")).toBe("80000");
     expect(url.searchParams.get("sortPrice")).toBe("asc");
+    expect(url.searchParams.get("priceStart")).toBe("1");
 
     for (const [sort, parameter, direction] of [
       ["price-desc", "sortPrice", "desc"],
@@ -48,6 +49,7 @@ describe("Banzai24 session", () => {
       await fetchBanzaiPage(1, 100, { sort });
       const sortedUrl = fetchMock.mock.calls.at(-1)?.[0] as URL;
       expect(sortedUrl.searchParams.get(parameter)).toBe(direction);
+      expect(sortedUrl.searchParams.has("priceStart")).toBe(false);
     }
   });
 
