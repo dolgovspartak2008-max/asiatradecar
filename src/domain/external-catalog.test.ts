@@ -206,4 +206,15 @@ describe("external catalog parsers", () => {
       mileageKm: 125_000, engineCc: 700, sourcePrice: 17_000
     });
   });
+
+  it("reads a fixed-price Japanese listing for its internal detail route", () => {
+    const html = `<h1>AUDI A4, 2.0TFSI</h1><main>
+      <div>Год : 2014</div><div>Пробег : 132 000 км</div><div>Двигатель : 2.0 л</div>
+      <div>Фиксированная цена</div><div>170 000 ¥</div></main>`;
+
+    expect(parseBanzaiVehiclePage(html, "01a021ee-bb99-745e-865f-db8781f20af6")).toMatchObject({
+      make: "AUDI", model: "A4", trim: "2.0TFSI", year: 2014,
+      mileageKm: 132_000, engineCc: 2_000, sourcePrice: 170_000
+    });
+  });
 });

@@ -384,7 +384,8 @@ export function parseBanzaiVehiclePage(html: string, sourceId: string): External
   const model = modelParts.join(" ");
   const text = $("body").text().replace(/\s+/g, " ").trim();
   const engine = text.match(/(?:Двигатель|Engine)\s*:\s*([\d.,]+)\s*(?:л|l)\s*(?:\/\s*([^/]+?))?(?:\s*\/\s*([\d\s]+)\s*(?:л\.с\.|hp))?/i);
-  const price = numberFrom(text.match(/(?:Конечная цена|Final price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1])
+  const price = numberFrom(text.match(/(?:Фиксированная цена|Fixed price)\s*:?\s*([\d\s]+)\s*[¥￥]/i)?.[1])
+    || numberFrom(text.match(/(?:Конечная цена|Final price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1])
     || numberFrom(text.match(/(?:Стартовая цена|Старт от|Start price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1]);
   if (!sourceId || !make || !model || !price) return null;
   const engineLiters = Number(engine?.[1]?.replace(",", "."));
