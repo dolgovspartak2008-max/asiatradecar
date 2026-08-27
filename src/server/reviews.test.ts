@@ -11,9 +11,21 @@ beforeEach(() => {
 });
 
 it("reads only published reviews without mutating stored reviews", async () => {
-  vi.mocked(query).mockResolvedValue({ rows: [{ id: "4", title: "Новый отзыв", text: "Текст" }] } as never);
+  vi.mocked(query).mockResolvedValue({ rows: [{ id: "4", title: "Новый отзыв", text: "Текст", telegram_file_id: "photo-4" }] } as never);
 
-  await expect(getPublishedReviews()).resolves.toEqual([{ id: "4", title: "Новый отзыв", text: "Текст" }]);
+  await expect(getPublishedReviews()).resolves.toEqual([{ id: "4", title: "Новый отзыв", text: "Текст", image: "/api/reviews/4/image" }]);
   expect(query).toHaveBeenCalledTimes(1);
   expect(String(vi.mocked(query).mock.calls[0][0])).toMatch(/^SELECT .* WHERE status='published'/);
+});
+
+it("keeps imported text-only Telegram reviews free from video thumbnails", async () => {
+  vi.mocked(query).mockResolvedValue({ rows: [{ id: "21", title: "Отзыв 21", text: "Текст", telegram_file_id: "telegram-import:2217" }] } as never);
+
+  await expect(getPublishedReviews()).resolves.toEqual([{ id: "21", title: "Отзыв 21", text: "Текст", image: null }]);
+});
+
+it("uses the selected optimized asset for imported photo reviews", async () => {
+  vi.mocked(query).mockResolvedValue({ rows: [{ id: "20", title: "Отзыв 20", text: "Текст", telegram_file_id: "telegram-import:2210" }] } as never);
+
+  await expect(getPublishedReviews()).resolves.toEqual([{ id: "20", title: "Отзыв 20", text: "Текст", image: "/media/reviews/telegram-2210.webp" }]);
 });

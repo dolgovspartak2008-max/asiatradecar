@@ -1,4 +1,5 @@
 import { getPool, hasDatabase } from "./db";
+import { telegramReviewSeeds } from "./telegram-reviews";
 
 let schemaPromise: Promise<void> | undefined;
 
@@ -59,8 +60,15 @@ CREATE TABLE IF NOT EXISTS reviews (
 CREATE INDEX IF NOT EXISTS reviews_published_idx ON reviews (created_at DESC) WHERE status='published';
 `;
 
+const reviewSeedValues = telegramReviewSeeds.flatMap((review) => [review.title, review.text, review.telegramFileId]);
+const reviewSeedSql = `INSERT INTO reviews (title,text,telegram_file_id) VALUES ${telegramReviewSeeds.map((_, index) => `($${index * 3 + 1},$${index * 3 + 2},$${index * 3 + 3})`).join(",")} ON CONFLICT (telegram_file_id) DO NOTHING`;
+
 export async function ensureDatabaseSchema() {
   if (!hasDatabase()) return;
-  schemaPromise ??= getPool().query(SQL).then(() => undefined).catch((error) => { schemaPromise = undefined; throw error; });
+  schemaPromise ??= (async () => {
+    const pool = getPool();
+    await pool.query(SQL);
+    await pool.query(reviewSeedSql, reviewSeedValues);
+  })().catch((error) => { schemaPromise = undefined; throw error; });
   await schemaPromise;
 }
