@@ -109,8 +109,10 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .logo { position: relative; display: block; width: 154px; height: 58px; overflow: hidden; flex: 0 0 auto; }
 .logo img { width: 154px; height: auto; max-width: none; transform: translateY(-11px); }
 .desktop-nav { display: flex; align-items: center; gap: clamp(18px, 2.3vw, 34px); font-size: .84rem; color: rgba(255,255,255,.78); }
-.desktop-nav a, .header-phone { transition: color .2s ease; }
-.desktop-nav a:hover, .header-phone:hover { color: var(--gold); }
+.desktop-nav .delivery-prices-trigger { display: inline-flex; align-items: center; padding: 0; color: inherit; background: transparent; border: 0; cursor: pointer; font: inherit; }
+.desktop-nav .delivery-prices-trigger svg { display: none; }
+.desktop-nav a, .desktop-nav .delivery-prices-trigger, .header-phone { transition: color .2s ease; }
+.desktop-nav a:hover, .desktop-nav .delivery-prices-trigger:hover, .header-phone:hover { color: var(--gold); }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .header-phone { font-size: .84rem; font-weight: 700; margin-right: 6px; }
 .header-call { color: var(--gold); }
@@ -154,6 +156,7 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .country-card:active { transform: scale(.98); }
 .country-card:hover svg { transform: translateX(5px); }
 .country-card > svg { margin-left: auto; color: var(--gold); transition: transform .2s ease; }
+.country-card-copy { position: relative; flex: 1; min-width: 0; }
 .country-code, .country-card h3 { font-family: inherit; font-size: clamp(1.22rem, 2vw, 1.48rem); font-weight: 900; line-height: 1; }
 .country-code { color: var(--gold); letter-spacing: -.02em; }
 .country-card h3 { margin: 0; color: var(--ink); white-space: nowrap; }
@@ -175,7 +178,7 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .catalog-choice-list a > svg { align-self: center; color: var(--gold-dark); }
 .catalog-choice-pending { position: absolute; left: 78px; right: 48px; bottom: 5px; color: var(--gold-dark); font-size: .72rem; font-weight: 800; line-height: 1; visibility: hidden; }
 .catalog-choice-pending.is-pending { visibility: visible; }
-.country-card-pending { display: block; min-height: 18px; margin-top: 6px; color: var(--gold-dark); font-size: .78rem; font-weight: 800; visibility: hidden; }
+.country-card-pending { position: absolute; top: calc(100% + 6px); left: 0; display: block; max-width: 100%; color: var(--gold-dark); font-size: .78rem; font-weight: 800; line-height: 1.15; white-space: nowrap; visibility: hidden; }
 .country-card-pending.is-pending { visibility: visible; }
 
 .dark-section { color: #fff; background: rgba(16,15,13,.76); backdrop-filter: blur(3px); }

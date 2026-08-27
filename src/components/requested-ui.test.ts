@@ -149,8 +149,21 @@ describe("requested mobile UI", () => {
     expect(existsSync(new URL("../../public/media/delivery-prices.png", import.meta.url))).toBe(true);
   });
 
+  it("shows every mobile menu destination in the desktop navigation", () => {
+    const header = read("./header.tsx");
+    const css = read("../app/globals.css");
+    expect(header).toContain('["Избранное", "/catalog/favorites"]');
+    expect(header).toContain("<DeliveryPricesDialog />");
+    expect(header.indexOf("<DeliveryPricesDialog />")).toBeGreaterThan(header.indexOf('className="desktop-nav"'));
+    expect(css).toMatch(/\.desktop-nav \.delivery-prices-trigger\s*\{[^}]*display:\s*inline-flex[^}]*align-items:\s*center/);
+    expect(css).toMatch(/\.desktop-nav \.delivery-prices-trigger svg\s*\{[^}]*display:\s*none/);
+  });
+
   it("aligns catalog codes and country names on one baseline", () => {
-    expect(read("../app/globals.css")).toMatch(/\.catalog-choice-list a \{[^}]*align-items: baseline/);
+    const css = read("../app/globals.css");
+    expect(css).toMatch(/\.catalog-choice-list a \{[^}]*align-items: baseline/);
+    expect(css).toMatch(/\.country-card-copy\s*\{[^}]*position:\s*relative/);
+    expect(css).toMatch(/\.country-card-pending\s*\{[^}]*position:\s*absolute/);
   });
 
   it("shows one loading message in the same place for every catalog entry point", () => {
