@@ -142,8 +142,13 @@ export function parseTrustEncarCatalogPage(html: string) {
       || href.match(/\/auto\/(\d+)/)?.[1]
       || lotText.match(/(\d{5,})/)?.[1]
       || "";
-    const make = card.find(".te-car-title__logo").first().attr("alt")?.trim() ?? "";
     const title = card.find(".te-car-title__text").first().text().replace(/\s+/g, " ").trim();
+    const logoMake = card.find(".te-car-title__logo").first().attr("alt")?.trim() ?? "";
+    const inferredMake = bootstrap.makes
+      .map((item) => item.name)
+      .sort((left, right) => right.length - left.length)
+      .find((name) => title.toLowerCase().startsWith(`${name.toLowerCase()} `)) ?? "";
+    const make = logoMake || inferredMake;
     const model = title.toLowerCase().startsWith(make.toLowerCase()) ? title.slice(make.length).trim() : title;
     if (!id || !make || !model) return [];
 

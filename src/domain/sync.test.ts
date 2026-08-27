@@ -167,6 +167,18 @@ describe("authorized catalog feed", () => {
     expect(result.cars[0].photos).toEqual(["https://trust-encar.ru/images/carpicture06/pic4256/42569219_001.jpg"]);
   });
 
+  it("infers the make from the title when the live logo alt is decorative", () => {
+    const parsePage = Reflect.get(sync, "parseTrustEncarCatalogPage");
+    const html = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>
+      <script>window.TE_CATALOG_SSR = {"total":1,"facets":{"facets":{"marks":[{"value":"116","name":"Tesla"}]}}};</script>
+      <article class="auto-item" data-href="https://trust-encar.ru/auto/42626521/">
+        <img class="te-car-title__logo" alt="" aria-hidden="true" />
+        <span class="te-car-title__text">Tesla Model X</span>
+      </article>`;
+
+    expect(parsePage(html).cars[0]).toMatchObject({ id: "42626521", make: "Tesla", model: "Model X" });
+  });
+
   it("parses a direct vehicle page without the slow search endpoint", () => {
     const parseVehicle = Reflect.get(sync, "parseTrustEncarVehiclePage");
     expect(parseVehicle).toBeTypeOf("function");
