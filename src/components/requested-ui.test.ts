@@ -125,11 +125,15 @@ describe("requested mobile UI", () => {
 
   it("shows only reviews published through the Telegram-backed database", () => {
     const testimonials = read("./testimonials.tsx");
+    const css = read("../app/globals.css");
     expect(testimonials).toContain("getPublishedReviews");
+    expect(testimonials).toContain("filter((review) => review.image)");
     expect(testimonials).toContain("if (!added.length) return null");
     expect(testimonials).toContain("<ReviewText");
+    expect(testimonials).toContain("!/^Отзыв \\d+$/u.test(review.title)");
     expect(testimonials).not.toContain("const reviews");
     expect(testimonials).not.toContain("Lexus RX 300");
+    expect(css).toMatch(/\.testimonial-grid\s*\{[^}]*align-items:\s*start/);
   });
 
   it("opens the supplied delivery price table from the mobile menu", () => {
