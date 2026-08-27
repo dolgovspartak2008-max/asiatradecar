@@ -90,22 +90,28 @@ describe("live Trust Encar catalog", () => {
 
   it("filters China by make and exposes that make models without a database", async () => {
     vi.stubEnv("DATABASE_URL", "");
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: { series_count: 4687, series: [
-      { concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/su7.webp" },
-      { concern_id: 536, outter_name: "小米YU7", dealer_min_price: 25.35, cover_url: "https://example.test/yu7.webp" },
-      { concern_id: 5, outter_name: "凯美瑞", dealer_min_price: 17.18, cover_url: "https://example.test/camry.webp" }
-    ] } }));
+    const fetchMock = vi.fn().mockImplementation((url: string | URL) => String(url).includes("/motor/pc/car/series/car_list")
+      ? Promise.resolve(Response.json({ data: { tab_list: [{ data: [
+        { type: "1115", info: { car_id: 1, year: 2024 } },
+        { type: "1115", info: { car_id: 2, year: 2025 } }
+      ] }] } }))
+      : Promise.resolve(Response.json({ data: { series_count: 4687, series: [
+        { concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/su7.webp" },
+        { concern_id: 536, outter_name: "小米YU7", dealer_min_price: 25.35, cover_url: "https://example.test/yu7.webp" },
+        { concern_id: 5, outter_name: "凯美瑞", dealer_min_price: 17.18, cover_url: "https://example.test/camry.webp" }
+      ] } })));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi", model: "SU7" }));
     expect(result.total).toBe(1);
     expect(result.models).toEqual(["SU7", "YU7"]);
+    expect(result.generations).toEqual([{ name: "Xiaomi SU7", minYear: 2024, maxYear: 2025 }]);
     expect(fetchMock.mock.calls[0][1]?.body?.toString()).toContain("limit=5000");
     expect(result.cars[0]).toMatchObject({ country: "cn", make: "Xiaomi", model: "SU7", sourceUrl: "https://www.dongchedi.com/auto/series/535" });
 
     const nextResult = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi", model: "YU7" }));
     expect(nextResult.cars[0]).toMatchObject({ make: "Xiaomi", model: "YU7" });
-    expect(fetchMock.mock.calls.filter(([url]) => !url.includes("/motor/pc/sh/sh_sku_list"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([url]) => !String(url).includes("/motor/pc/sh/sh_sku_list") && !String(url).includes("/motor/pc/car/series/car_list"))).toHaveLength(1);
   });
 
   it("filters used China listings when the make also exists in the new-model feed", async () => {
@@ -263,6 +269,8 @@ describe("live Trust Encar catalog", () => {
       .mockResolvedValueOnce(Response.json({ data: [{ id: 11519, name: "3 SERIES", hasLots: true }, { id: 11591, name: "2 SERIES", hasLots: true }] }))
       .mockResolvedValueOnce(Response.json(payload))
       .mockResolvedValueOnce(Response.json(payload))
+      .mockResolvedValueOnce(Response.json(payload))
+      .mockResolvedValueOnce(Response.json(payload))
       .mockResolvedValueOnce(Response.json({ result: { details: {
         CUSTOMS_DUTY: { major: { value: 436_000, currency: "RUB" } },
         CUSTOMS_FEE: { major: { value: 4_924, currency: "RUB" } },
@@ -282,6 +290,35 @@ describe("live Trust Encar catalog", () => {
       { label: "Таможенный сбор", value: "4 924 ₽" },
       { label: "Утилизационный сбор", value: "5 200 ₽" }
     ]));
+  });
+
+  it("keeps the full Japanese archive total when sorting by price and exposes the model year range", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const car = (id: number, year: number) => ({
+      id: `4e75d2d8-0865-4c72-9bcc-${String(id).padStart(12, "0")}`,
+      car: { mark: "AUDI", model: "A4" }, characteristics: { year: String(year) }, onePrice: 1_250_000
+    });
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+      const url = String(input);
+      if (url === "https://banzai24.com/") return Promise.resolve(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }));
+      if (url.includes("/companies")) return Promise.resolve(Response.json({ data: [{ id: 1, name: "AUDI", hasLots: true }] }));
+      if (url.includes("/models")) return Promise.resolve(Response.json({ data: [{ id: 11562, name: "A4", hasLots: true }] }));
+      if (url.includes("/lots")) {
+        const request = new URL(url);
+        const items = request.searchParams.get("perPage") === "1"
+          ? [car(request.searchParams.get("sortYear") === "asc" ? 1 : 2, request.searchParams.get("sortYear") === "asc" ? 1994 : 2026)]
+          : Array.from({ length: 24 }, (_, index) => car(index + 10, 2026 - index % 5));
+        return Promise.resolve(Response.json({ items, pagination: { total: 3_359, totalPages: 34 } }));
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getCatalog(parseCatalogParams({ country: "jp", make: "AUDI", model: "A4", sort: "price-desc" }));
+
+    expect(result.total).toBe(3_359);
+    expect(result.generations).toEqual([{ name: "AUDI A4", minYear: 1994, maxYear: 2026 }]);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/lots")).every(([url]) => new URL(String(url)).searchParams.get("source") === "archive")).toBe(true);
   });
 
   it("starts the default Japan page request without waiting for the make list", async () => {

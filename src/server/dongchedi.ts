@@ -69,6 +69,22 @@ export async function fetchDongchediVehicleSpecs(seriesId: string, carId: string
   return parseDongchediVehicleSpecsHtml(await detailResponse.text());
 }
 
+export async function fetchDongchediModelYearRange(seriesId: string) {
+  if (!/^\d+$/.test(seriesId)) return null;
+  const url = new URL(VEHICLE_LIST_ENDPOINT);
+  url.searchParams.set("series_id", seriesId);
+  url.searchParams.set("city_name", "北京");
+  const response = await fetch(url, {
+    next: { revalidate: 86_400 },
+    signal: AbortSignal.timeout(20_000),
+    headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 AsiaTradeCarCatalog/1.0" }
+  });
+  if (!response.ok) throw new Error(`Dongchedi годы модели вернули ${response.status}`);
+  const payload = await response.json() as { data?: { tab_list?: Array<{ data?: Array<{ info?: { year?: unknown } }> }> } };
+  const years = (payload.data?.tab_list || []).flatMap((tab) => tab.data || []).map((row) => Number(row.info?.year)).filter((year) => year >= 1900 && year <= 2100);
+  return years.length ? { minYear: Math.min(...years), maxYear: Math.max(...years) } : null;
+}
+
 export async function fetchDongchediUsedPage(page: number, limit = 60, city = "全国", brandId?: string) {
   const safePage = Math.max(1, Math.floor(page));
   const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));

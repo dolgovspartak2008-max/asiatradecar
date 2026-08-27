@@ -15,6 +15,7 @@ export type BanzaiCatalogSelection = {
   yearTo?: number;
   mileageTo?: number;
   sort?: CatalogSort;
+  yearSort?: "asc" | "desc";
 };
 
 export type BanzaiCatalogOption = { id: number; name: string; hasLots: boolean };
@@ -100,8 +101,7 @@ export async function fetchBanzaiModels(companyId: number) {
 
 export async function fetchBanzaiPage(page: number, perPage = 100, selection: BanzaiCatalogSelection = {}) {
   const url = new URL("https://banzai24.com/api/catalog-service/lots");
-  const source = selection.sort === "price-asc" || selection.sort === "price-desc" ? "onePrice" : CATALOG_SOURCE;
-  url.searchParams.set("source", source);
+  url.searchParams.set("source", CATALOG_SOURCE);
   url.searchParams.set("countryISO", "JP");
   url.searchParams.set("page", String(page));
   url.searchParams.set("perPage", String(perPage));
@@ -110,7 +110,8 @@ export async function fetchBanzaiPage(page: number, perPage = 100, selection: Ba
   if (selection.yearFrom !== undefined) url.searchParams.set("yearStart", String(selection.yearFrom));
   if (selection.yearTo !== undefined) url.searchParams.set("yearEnd", String(selection.yearTo));
   if (selection.mileageTo !== undefined) url.searchParams.set("mileageEnd", String(selection.mileageTo));
-  const sort = selection.sort === "price-asc" ? ["sortPrice", "asc"]
+  const sort = selection.yearSort ? ["sortYear", selection.yearSort]
+    : selection.sort === "price-asc" ? ["sortPrice", "asc"]
     : selection.sort === "price-desc" ? ["sortPrice", "desc"]
     : selection.sort === "mileage" ? ["sortMileage", "asc"]
     : ["sortYear", "desc"];

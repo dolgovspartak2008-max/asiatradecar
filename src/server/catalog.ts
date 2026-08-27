@@ -8,7 +8,7 @@ import { buildExternalPricing, DEFAULT_COMMISSION_RUB, DEFAULT_COMMISSIONS_RUB, 
 import { proxyBanzaiPhotoUrl, type ExternalCatalogCar } from "../domain/external-catalog";
 import { mergeCatalogCars } from "../domain/pagination";
 import { fetchBanzaiMakes, fetchBanzaiModels, fetchBanzaiPage, fetchBanzaiVehicle, type BanzaiCatalogSelection } from "./banzai";
-import { fetchDongchediPage, fetchDongchediUsedBrowsePage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle, fetchDongchediVehicleSpecs, getDongchediCityBySlug } from "./dongchedi";
+import { fetchDongchediModelYearRange, fetchDongchediPage, fetchDongchediUsedBrowsePage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle, fetchDongchediVehicleSpecs, getDongchediCityBySlug } from "./dongchedi";
 import { getDromCustomsCostsRub } from "./drom";
 import { ensureDatabaseSchema } from "./schema";
 
@@ -89,6 +89,20 @@ const fromExternalCar = (car: ExternalCatalogCar): Car => ({
   vin: car.vin, priceKrw: car.sourcePrice, priceRub: null, photos: car.photos.map(proxyBanzaiPhotoUrl), details: car.details
 });
 
+const generationRange = (name: string, years: number[]) => {
+  const valid = years.filter((year) => year >= 1900 && year <= 2100);
+  return valid.length ? [{ name, minYear: Math.min(...valid), maxYear: Math.max(...valid) }] : [];
+};
+
+async function getChinaGenerations(filters: CatalogFilters, cars: ExternalCatalogCar[]) {
+  if (!filters.model) return [];
+  const same = (value: string, selected: string | undefined) => value.localeCompare(selected || "", undefined, { sensitivity: "base" }) === 0;
+  const matches = cars.filter((car) => same(car.model, filters.model) && (!filters.make || same(car.make, filters.make)));
+  const seriesId = String(matches.find((car) => car.details.seriesId)?.details.seriesId || "");
+  const range = seriesId ? await fetchDongchediModelYearRange(seriesId).catch(() => null) : null;
+  return generationRange(`${filters.make || matches[0]?.make || ""} ${filters.model}`.trim(), range ? [range.minYear, range.maxYear] : matches.map((car) => car.year));
+}
+
 function applyExternalPricing(car: Car, rubPerUnit: number, customs: CustomsCostsRub = {}, commissionRub = DEFAULT_COMMISSION_RUB): Car {
   const country = car.country === "jp" ? "jp" : "cn";
   if (!car.priceKrw) return car;
@@ -145,10 +159,12 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
     const narrowed = Boolean(filters.q || filters.model || filters.yearFrom !== undefined || filters.yearTo !== undefined
       || filters.priceFrom !== undefined || filters.priceTo !== undefined || filters.mileageTo !== undefined || filters.bodyType || filters.fuel
       || filters.drive || filters.engineFrom !== undefined || filters.engineTo !== undefined || filters.powerFrom !== undefined || filters.powerTo !== undefined);
+    let generationCars = [...newMakeCars];
     let usedTotal: number | undefined;
     let usedBrandId = "";
     try {
       const overview = await fetchDongchediUsedBrowsePage(filters.make || narrowed ? 0 : filters.offset, filters.make || narrowed ? 1 : filters.limit);
+      generationCars = generationCars.concat(overview.facets);
       makes = [...new Set([...makes, ...overview.facets.map((car) => car.make)])].sort();
       if (filters.make) {
         const makeFacet = overview.facets.find((car) => same(car.make, filters.make));
@@ -190,6 +206,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
         for (let sourcePage = 1; matched.length < required && !exhausted; sourcePage += 1) {
           try {
             const used = await fetchDongchediUsedPage(sourcePage, 80, "全国", usedBrandId);
+            generationCars.push(...used.cars);
             used.cars.forEach((car) => modelNames.add(car.model));
             matched = mergeCatalogCars(matched, await priceBatch(used.cars), filters.sort);
             exhausted = !used.cars.length || sourcePage * 80 >= used.total;
@@ -199,6 +216,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
         for (let rawOffset = 0; matched.length < required && !exhausted; rawOffset += 80) {
           try {
             const used = await fetchDongchediUsedBrowsePage(rawOffset, 80);
+            generationCars.push(...used.cars);
             matched = mergeCatalogCars(matched, await priceBatch(used.cars), filters.sort);
             exhausted = !used.cars.length || rawOffset + 80 >= used.total;
           } catch { exhausted = true; }
@@ -209,7 +227,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
         total: exhausted ? matched.length : Math.max(required + 1, matched.length + 1),
         makes,
         models: filters.make ? [...modelNames].sort() : [],
-        generations: []
+        generations: await getChinaGenerations(filters, generationCars)
       };
     }
     const models = filters.make ? [...new Set(makeCars.map((car) => car.model))].sort() : [];
@@ -230,7 +248,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
     return {
       cars: usedTotal === undefined ? priced.slice(filters.offset, filters.offset + filters.limit) : priced.slice(0, filters.limit),
       total: usedTotal !== undefined && !narrowed ? usedTotal : priced.length,
-      makes, models, generations: []
+      makes, models, generations: await getChinaGenerations(filters, generationCars)
     };
   }
   const hasPriceFilter = filters.priceFrom !== undefined || filters.priceTo !== undefined;
@@ -249,7 +267,11 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
   const model = selectedModel ? modelOptions.find((item) => item.name.localeCompare(selectedModel, undefined, { sensitivity: "base" }) === 0) : undefined;
   if (filters.model && !model) return { cars: [] as Car[], total: 0, makes, models, generations: [] };
   const selection: BanzaiCatalogSelection = { ...baseSelection, companyId: make?.id, modelId: model?.id };
-  const first = directPage ? await directPage : await fetchBanzaiPage(sourcePage, 100, selection);
+  const generationPromise = model ? Promise.all([
+    fetchBanzaiPage(1, 1, { companyId: make?.id, modelId: model.id, yearSort: "asc" }),
+    fetchBanzaiPage(1, 1, { companyId: make?.id, modelId: model.id, yearSort: "desc" })
+  ]).then((results) => generationRange(`${make?.name || filters.make} ${model.name}`, results.flatMap((result) => result.cars.map((car) => car.year)))) : Promise.resolve([]);
+  const [first, generations] = await Promise.all([directPage ? directPage : fetchBanzaiPage(sourcePage, 100, selection), generationPromise]);
   const pages = start + filters.limit > first.cars.length && sourcePage < first.totalPages ? [first, await fetchBanzaiPage(sourcePage + 1, 100, selection)] : [first];
   const sourceMatches = (car: ExternalCatalogCar) => (filters.yearFrom === undefined || car.year >= filters.yearFrom)
     && (filters.yearTo === undefined || car.year <= filters.yearTo)
@@ -281,7 +303,7 @@ async function getExternalBrowseCatalog(filters: CatalogFilters) {
     pricedCars = await applyExternalCatalogPricing(candidates(sourceCars).slice(start, start + filters.limit), settings);
   }
   const cars = mergeCatalogCars([], pricedCars, filters.sort);
-  return { cars, total: first.total, makes, models, generations: [] };
+  return { cars, total: first.total, makes, models, generations };
 }
 
 const isDefaultBrowse = (filters: CatalogFilters) => filters.country === "kr" && filters.limit === 24 && filters.sort === "newest"
@@ -392,14 +414,18 @@ async function getDatabaseCatalog(filters: CatalogFilters) {
   const statusClause = catalogStatusClause(filters.country);
   const countValues = built.values.slice(0, -2);
   const where = built.where;
-  const [carsResult, countResult, makesResult, modelsResult] = await Promise.all([
+  const generationValues = legacyChinaModel ? [filters.country, filters.make] : [filters.country, filters.make, filters.model];
+  const generationWhere = legacyChinaModel ? "country = $1 AND make = $2" : "country = $1 AND make = $2 AND model = $3";
+  const [carsResult, countResult, makesResult, modelsResult, generationResult] = await Promise.all([
     query<CarRow>(built.text, built.values),
     query<{ count: string }>(`SELECT count(*)::text AS count FROM (SELECT DISTINCT ON (${built.dedupeKey}) id, ${built.dedupeKey} AS dedupe_key, updated_at FROM cars WHERE ${where} ORDER BY ${built.dedupeKey}, updated_at DESC, id DESC) AS unique_cars`, countValues),
     query<{ make: string }>(`SELECT DISTINCT make FROM cars WHERE ${statusClause} AND country = $1 ORDER BY make`, [filters.country]),
-    filters.make ? query<{ model: string }>(`SELECT DISTINCT model FROM cars WHERE ${statusClause} AND country = $1 AND make = $2 ORDER BY model`, [filters.country, filters.make]) : Promise.resolve({ rows: [] as Array<{ model: string }> })
+    filters.make ? query<{ model: string }>(`SELECT DISTINCT model FROM cars WHERE ${statusClause} AND country = $1 AND make = $2 ORDER BY model`, [filters.country, filters.make]) : Promise.resolve({ rows: [] as Array<{ model: string }> }),
+    filters.make && filters.model ? query<{ min_year: number; max_year: number }>(`SELECT min(year)::int AS min_year, max(year)::int AS max_year FROM cars WHERE ${statusClause} AND ${generationWhere}`, generationValues) : Promise.resolve({ rows: [] as Array<{ min_year: number; max_year: number }> })
   ]);
   const models = [...new Set(modelsResult.rows.map((row) => displayModel(filters.country, filters.make || "", row.model)))].sort();
-  return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models, generations: [] };
+  const generation = generationResult.rows[0];
+  return { cars: carsResult.rows.map(toCar), total: Number(countResult.rows[0]?.count ?? 0), makes: makesResult.rows.map((row) => row.make), models, generations: generationRange(`${filters.make || ""} ${filters.model || ""}`.trim(), generation ? [Number(generation.min_year), Number(generation.max_year)] : []) };
 }
 
 const matchesFinalPrice = (car: Car, filters: CatalogFilters) =>
