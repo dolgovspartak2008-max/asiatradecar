@@ -1,12 +1,15 @@
+const productionSiteUrl = "https://www.asiatradecar.ru";
+
 export function resolveSiteUrl(env: Record<string, string | undefined> = process.env) {
   if (env.SITE_URL) return env.SITE_URL;
   const vercelUrl = env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL;
-  return vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000";
+  if (vercelUrl) return `https://${vercelUrl}`;
+  return env.NODE_ENV === "production" ? productionSiteUrl : "http://localhost:3000";
 }
 
 export function isSiteIndexable(env: Record<string, string | undefined> = process.env) {
   if (env.SITE_INDEXING_DISABLED?.toLowerCase() === "true") return false;
-  const publicUrl = env.SITE_URL || env.VERCEL_PROJECT_PRODUCTION_URL || (env.VERCEL_ENV === "production" ? env.VERCEL_URL : undefined);
+  const publicUrl = env.SITE_URL || env.VERCEL_PROJECT_PRODUCTION_URL || (env.VERCEL_ENV === "production" ? env.VERCEL_URL : undefined) || (env.NODE_ENV === "production" ? productionSiteUrl : undefined);
   if (!publicUrl) return false;
   try {
     const url = new URL(publicUrl.startsWith("http") ? publicUrl : `https://${publicUrl}`);

@@ -13,15 +13,23 @@ describe("resolveSiteUrl", () => {
   it("falls back to localhost outside Vercel", () => {
     expect(resolveSiteUrl({})).toBe("http://localhost:3000");
   });
+
+  it("uses the canonical domain for a self-hosted production build", () => {
+    expect(resolveSiteUrl({ NODE_ENV: "production" })).toBe("https://www.asiatradecar.ru");
+  });
 });
 
 describe("isSiteIndexable", () => {
   it("indexes a public production URL without unrelated legal env flags", () => {
-    expect(isSiteIndexable({ SITE_URL: "https://asia-trade-car.ru" })).toBe(true);
+    expect(isSiteIndexable({ SITE_URL: "https://www.asiatradecar.ru" })).toBe(true);
+  });
+
+  it("indexes a self-hosted production build without Vercel variables", () => {
+    expect(isSiteIndexable({ NODE_ENV: "production" })).toBe(true);
   });
 
   it("keeps local and explicitly disabled deployments out of the index", () => {
     expect(isSiteIndexable({ SITE_URL: "http://localhost:3000" })).toBe(false);
-    expect(isSiteIndexable({ SITE_URL: "https://asia-trade-car.ru", SITE_INDEXING_DISABLED: "true" })).toBe(false);
+    expect(isSiteIndexable({ SITE_URL: "https://www.asiatradecar.ru", SITE_INDEXING_DISABLED: "true" })).toBe(false);
   });
 });
