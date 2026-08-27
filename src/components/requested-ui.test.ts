@@ -134,6 +134,7 @@ describe("requested mobile UI", () => {
     expect(testimonials).not.toContain("const reviews");
     expect(testimonials).not.toContain("Lexus RX 300");
     expect(css).toMatch(/\.testimonial-grid\s*\{[^}]*align-items:\s*start/);
+    expect(css).toContain(".testimonial-card:not(:has(.testimonial-photo)) { display: none; }");
   });
 
   it("opens the supplied delivery price table from the mobile menu", () => {
