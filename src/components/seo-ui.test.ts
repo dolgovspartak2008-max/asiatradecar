@@ -2,6 +2,20 @@ import { existsSync, readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const readBuffer = (path: string) => readFileSync(new URL(path, import.meta.url));
+
+const pngSize = (path: string) => {
+  const image = readBuffer(path);
+  return { width: image.readUInt32BE(16), height: image.readUInt32BE(20) };
+};
+
+const icoSizes = (path: string) => {
+  const image = readBuffer(path);
+  return Array.from({ length: image.readUInt16LE(4) }, (_, index) => {
+    const offset = 6 + index * 16;
+    return image[offset] || 256;
+  });
+};
 
 it("ships indexable country catalog routes without previous and next controls", () => {
   expect(existsSync(new URL("../app/catalog/[market]/page.tsx", import.meta.url))).toBe(true);
@@ -62,6 +76,11 @@ it("publishes the requested search title, description and logo", () => {
   expect(existsSync(new URL("../app/icon.png", import.meta.url))).toBe(true);
   expect(existsSync(new URL("../app/favicon.ico", import.meta.url))).toBe(true);
   expect(layout).not.toContain('icons: { icon: "data:image/svg+xml');
+});
+
+it("ships square, high-resolution favicon assets for search results", () => {
+  expect(pngSize("../app/icon.png")).toEqual({ width: 192, height: 192 });
+  expect(icoSizes("../app/favicon.ico")).toEqual(expect.arrayContaining([16, 32, 48, 192]));
 });
 
 it("does not let browsers or proxies reuse stale homepage asset references", () => {
