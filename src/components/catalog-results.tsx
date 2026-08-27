@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import type { Car } from "@/server/catalog";
-import { appendUniqueById } from "@/domain/pagination";
+import type { CatalogSort } from "@/domain/catalog";
+import { mergeCatalogCars } from "@/domain/pagination";
 import { CarCard } from "@/components/car-card";
 
 type PageResponse = { items?: Car[]; total?: number; page?: number; hasMore?: boolean; message?: string };
 
-export function CatalogResults({ initialCars, total, initialPage, query }: { initialCars: Car[]; total: number; initialPage: number; query: string }) {
-  const [cars, setCars] = useState(initialCars);
+export function CatalogResults({ initialCars, total, initialPage, query, sort, pageSize }: { initialCars: Car[]; total: number; initialPage: number; query: string; sort: CatalogSort; pageSize: number }) {
+  const [cars, setCars] = useState(() => mergeCatalogCars([], initialCars, sort));
   const [page, setPage] = useState(initialPage);
-  const [hasMore, setHasMore] = useState(initialPage * 24 < total);
+  const [hasMore, setHasMore] = useState(initialPage * pageSize < total);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -23,7 +24,7 @@ export function CatalogResults({ initialCars, total, initialPage, query }: { ini
       const response = await fetch(`/api/catalog/page?${params.toString()}`);
       const data = await response.json() as PageResponse;
       if (!response.ok || !Array.isArray(data.items)) throw new Error(data.message || "Не удалось загрузить следующую страницу.");
-      setCars((current) => appendUniqueById(current, data.items!));
+      setCars((current) => mergeCatalogCars(current, data.items!, sort));
       setPage(data.page ?? page + 1);
       setHasMore(Boolean(data.hasMore));
       setStatus("idle");

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useId, useRef } from "react";
+import { JapanCatalogLinkStatus } from "@/components/catalog-link-status";
 import { Icon } from "@/components/icons";
 
 const countries = [
@@ -20,7 +21,7 @@ export function CatalogChooser({ label, className = "button" }: { label: string;
         <button className="dialog-close" type="button" onClick={() => dialog.current?.close()} aria-label="Закрыть выбор каталога"><Icon name="x" /></button>
         <h2 id={titleId}>Какой каталог открыть?</h2>
         <p>Выберите страну — откроем актуальные автомобили этого рынка.</p>
-        <div className="catalog-choice-list">{countries.map((country) => <Link href={country.href} key={country.code}><span>{country.code}</span><strong>{country.name}</strong><Icon name="arrow" /></Link>)}</div>
+        <div className="catalog-choice-list">{countries.map((country) => <Link href={country.href} prefetch={country.code === "JP" ? false : undefined} key={country.code}><span>{country.code}</span><strong>{country.name}</strong><Icon name="arrow" />{country.code === "JP" && <JapanCatalogLinkStatus className="catalog-choice-pending" />}</Link>)}</div>
       </div>
     </dialog>
   </>;

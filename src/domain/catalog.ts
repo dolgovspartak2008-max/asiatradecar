@@ -37,8 +37,8 @@ export function parseCatalogParams(params: SearchParams): CatalogFilters {
   const sort: CatalogSort = ["price-asc", "price-desc", "newest", "mileage"].includes(rawSort ?? "")
     ? rawSort as CatalogSort
     : "newest";
-  const limit = Math.min(24, Math.max(1, positiveNumber(params.limit) ?? 24));
-  const page = Math.max(1, positiveNumber(params.page) ?? 1);
+  const limit = Math.floor(Math.min(24, Math.max(1, positiveNumber(params.limit) ?? 24)));
+  const page = Math.floor(Math.max(1, positiveNumber(params.page) ?? 1));
 
   return {
     q: scalar(params.q)?.trim() || undefined,
@@ -89,15 +89,20 @@ export function buildCatalogQuery(filters: CatalogFilters) {
   if (filters.powerTo !== undefined) add("power_hp <= ?", filters.powerTo);
 
   const order = {
-    "price-asc": "price_rub ASC, id DESC",
-    "price-desc": "price_rub DESC, id DESC",
+    "price-asc": "price_rub ASC NULLS LAST, id DESC",
+    "price-desc": "price_rub DESC NULLS LAST, id DESC",
     newest: "year DESC, id DESC",
     mileage: "mileage_km ASC, id DESC"
   }[filters.sort];
+  const whereSql = where.join(" AND ");
+  const dedupeKey = "COALESCE(NULLIF(regexp_replace(upper(vin), '[^A-Z0-9*]', '', 'g'), ''), id::text)";
+  const qualityOrder = "(price_rub IS NULL OR price_rub <= 0) ASC, (jsonb_array_length(photos) = 0) ASC";
   values.push(filters.limit, filters.offset);
 
   return {
-    text: `SELECT * FROM cars WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${values.length - 1} OFFSET $${values.length}`,
-    values
+    text: `SELECT * FROM cars WHERE id IN (SELECT id FROM (SELECT DISTINCT ON (${dedupeKey}) id, ${dedupeKey} AS dedupe_key, (price_rub IS NULL OR price_rub <= 0) AS missing_price, (jsonb_array_length(photos) = 0) AS missing_photo, updated_at FROM cars WHERE ${whereSql} ORDER BY ${dedupeKey}, missing_price ASC, missing_photo ASC, updated_at DESC, id DESC) AS deduplicated) ORDER BY ${qualityOrder}, ${order} LIMIT $${values.length - 1} OFFSET $${values.length}`,
+    values,
+    where: whereSql,
+    dedupeKey
   };
 }

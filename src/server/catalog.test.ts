@@ -139,6 +139,40 @@ describe("live Trust Encar catalog", () => {
     expect(new Set(makeOnly.cars.map((car) => car.details.listingType))).toEqual(new Set(["new", "used"]));
   });
 
+  it("continues through China brand pages until a narrow filter fills the result", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const usedItem = (id: number, year: number, city: string) => ({
+      sku_id: id, brand_id: 535, brand_name: "小米汽车", series_name: "小米SU7", car_name: "小米SU7 Max",
+      car_year: year, sh_price: "21.5万", sub_title: `${year}年 | 2万公里`, image: `https://example.test/${id}.webp`, car_source_city_name: city
+    });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (!url.includes("/motor/pc/sh/sh_sku_list")) return Promise.resolve(Response.json({ data: { series_count: 1, series: [
+        { concern_id: 535, outter_name: "小米SU7", dealer_min_price: 21.59, cover_url: "https://example.test/new-su7.webp" }
+      ] } }));
+      const body = init?.body as URLSearchParams;
+      const city = body.get("sh_city_name") || "全国";
+      if (!body.get("brand")) return Promise.resolve(Response.json({ data: { total: 6_000, has_more: true, search_sh_sku_info_list: [usedItem(1, 2020, city)] } }));
+      const page = Number(body.get("page"));
+      const limit = Number(body.get("limit"));
+      const year = page === 1 ? 2020 : 2024;
+      const count = page === 1 ? limit : 24;
+      return Promise.resolve(Response.json({ data: {
+        total: limit + 24,
+        has_more: page === 1,
+        search_sh_sku_info_list: Array.from({ length: count }, (_, index) => usedItem(page * 10_000 + index, year, city))
+      } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getCatalog(parseCatalogParams({ country: "cn", make: "Xiaomi", yearFrom: "2024" }));
+
+    expect(result.cars).toHaveLength(24);
+    expect(result.cars.every((car) => car.year === 2024)).toBe(true);
+    expect(fetchMock.mock.calls.some(([url, init]) => url.includes("/motor/pc/sh/sh_sku_list")
+      && (init?.body as URLSearchParams).get("brand") === "535"
+      && (init?.body as URLSearchParams).get("page") === "2")).toBe(true);
+  });
+
   it("keeps an expanded China make selectable when it is absent from the new-model feed", async () => {
     vi.stubEnv("DATABASE_URL", "");
     const usedItem = (city: string) => ({
@@ -275,6 +309,45 @@ describe("live Trust Encar catalog", () => {
     await work;
 
     expect(pageStartedBeforeMakesResolved).toBe(true);
+  });
+
+  it("enforces the selected Japanese mileage limit after loading the source page", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const payload = { items: [{
+      id: "mileage-filter", car: { mark: "JEEP", model: "COMMANDER" },
+      characteristics: { year: "2027", mileage: 15_000 }, onePrice: 1_000_000
+    }], pagination: { total: 1, totalPages: 1 } };
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL) => {
+      const url = String(input);
+      if (url === "https://banzai24.com/") return Promise.resolve(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }));
+      if (url.includes("/companies")) return Promise.resolve(Response.json({ data: [] }));
+      if (url.includes("/lots")) return Promise.resolve(Response.json(payload));
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+
+    const result = await getCatalog(parseCatalogParams({ country: "jp", mileageTo: "0" }));
+
+    expect(result.cars).toEqual([]);
+  });
+
+  it("keeps scanning a Japanese source page until the final price filter fills the result", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const payload = { items: [
+      { id: "too-expensive", car: { mark: "BMW", model: "X5" }, characteristics: { year: "2024" }, onePrice: 10_000_000 },
+      { id: "matching", car: { mark: "HONDA", model: "N-BOX" }, characteristics: { year: "2024" }, onePrice: 100_000 }
+    ], pagination: { total: 2, totalPages: 1 } };
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL) => {
+      const url = String(input);
+      if (url === "https://banzai24.com/") return Promise.resolve(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }));
+      if (url.includes("/companies")) return Promise.resolve(Response.json({ data: [] }));
+      if (url.includes("/lots")) return Promise.resolve(Response.json(payload));
+      throw new Error(`Unexpected request: ${url}`);
+    }));
+
+    const result = await getCatalog(parseCatalogParams({ country: "jp", priceTo: "1000000", limit: "1" }));
+
+    expect(result.cars.map((car) => car.id)).toEqual(["banzai-matching"]);
+    expect(result.cars[0].priceRub).toBeLessThanOrEqual(1_000_000);
   });
 });
 

@@ -1,9 +1,8 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { readCostBreakdown, type CostBreakdownLine } from "@/domain/car-details";
+import { parseCostBreakdown, reconcileCostBreakdown, type CostBreakdownLine } from "@/domain/car-details";
 import { formatRub } from "@/domain/currency";
-import { DEFAULT_COMMISSIONS_RUB } from "@/domain/pricing";
 import { Icon } from "@/components/icons";
 
 type Props = {
@@ -30,10 +29,7 @@ function fallbackLines(priceKrw: number, priceRub: number | null, details: Recor
 export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, currencyCode = "KRW", country = "kr", compact = false }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const countryKey = country === "jp" ? "jp" : country === "cn" ? "cn" : "kr";
-  const brokerRub = country === "kr" ? 110_000 : country === "jp" ? 60_000 : 80_000;
-  const readLines = (source: Record<string, unknown>) => readCostBreakdown(source, DEFAULT_COMMISSIONS_RUB[countryKey], brokerRub);
-  const initial = readLines(details);
+  const initial = parseCostBreakdown(details);
   const [lines, setLines] = useState(initial);
   const [livePriceRub, setLivePriceRub] = useState(priceRub);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -46,13 +42,13 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, cur
       const response = await fetch(`/api/catalog/details/${encodeURIComponent(slug)}`);
       const data = await response.json() as { priceRub?: number | null; details?: Record<string, unknown> };
       if (!response.ok) throw new Error();
-      setLines(readLines(data.details || {}));
+      setLines(parseCostBreakdown(data.details || {}));
       if (typeof data.priceRub === "number") setLivePriceRub(data.priceRub);
       setStatus("idle");
     } catch { setStatus("error"); }
   };
 
-  const visibleLines = lines.length ? lines : fallbackLines(priceKrw, livePriceRub, details, currencyCode, country);
+  const visibleLines = reconcileCostBreakdown(lines.length ? lines : fallbackLines(priceKrw, livePriceRub, details, currencyCode, country), livePriceRub);
   return <>
     <button className={`price-breakdown-trigger ${compact ? "compact" : ""}`} type="button" onClick={open}>Расшифровка цены</button>
     <dialog ref={dialog} className="site-dialog price-dialog" aria-labelledby={titleId} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>

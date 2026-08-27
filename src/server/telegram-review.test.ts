@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { revalidatePath } from "next/cache";
 import { query } from "@/server/db";
 import { handleTelegramUpdate } from "@/server/telegram-bot";
+import { setCatalogRate, setCommissionRub } from "@/server/pricing";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/server/db", () => ({ query: vi.fn() }));
@@ -29,4 +30,32 @@ it("revalidates the home page immediately after publishing a review", async () =
 
   expect(vi.mocked(query).mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO reviews"))).toBe(true);
   expect(revalidatePath).toHaveBeenCalledWith("/");
+});
+
+it.each([
+  ["set:commission:kr", "100000", "kr", 100_000],
+  ["set:commission:jp", "50000", "jp", 50_000],
+  ["set:commission:cn", "100000", "cn", 100_000],
+] as const)("updates %s through the Telegram admin flow", async (action, text, country, value) => {
+  vi.mocked(query).mockImplementation(async (sql) => String(sql).startsWith("SELECT action")
+    ? { rows: [{ action, state: {} }] } as never
+    : { rows: [] } as never);
+
+  await handleTelegramUpdate({ message: { chat: { id: 10 }, from: { id: 1 }, text } });
+
+  expect(setCommissionRub).toHaveBeenCalledWith(country, value, 1);
+});
+
+it.each([
+  ["set:KRW", "0,061", "KRW", 0.061],
+  ["set:JPY", "62", "JPY", 62],
+  ["set:CNY", "12,1", "CNY", 12.1],
+] as const)("updates %s through the Telegram admin flow", async (action, text, currency, value) => {
+  vi.mocked(query).mockImplementation(async (sql) => String(sql).startsWith("SELECT action")
+    ? { rows: [{ action, state: {} }] } as never
+    : { rows: [] } as never);
+
+  await handleTelegramUpdate({ message: { chat: { id: 10 }, from: { id: 1 }, text } });
+
+  expect(setCatalogRate).toHaveBeenCalledWith(currency, value);
 });

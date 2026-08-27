@@ -63,8 +63,9 @@ it("publishes the requested search title, description and logo", () => {
   expect(layout).not.toContain('icons: { icon: "data:image/svg+xml');
 });
 
-it("revalidates the homepage instead of forcing uncached rendering", () => {
+it("does not let browsers or proxies reuse stale homepage asset references", () => {
   const source = read("../app/page.tsx");
-  expect(source).toContain("export const revalidate = 3600");
+  expect(source).toContain("export const revalidate = 0");
+  expect(source).not.toContain("export const revalidate = 3600");
   expect(source).not.toContain('dynamic = "force-dynamic"');
 });

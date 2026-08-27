@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useTransition } from "react";
+import { useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { CatalogFilters as Filters } from "@/domain/catalog";
 import type { TrustEncarGeneration } from "@/domain/sync";
@@ -9,28 +9,9 @@ export function CatalogFilters({ filters, makes, models, generations = [] }: { f
   const form = useRef<HTMLFormElement>(null);
   const pathname = usePathname();
   const router = useRouter();
-  const [, startTransition] = useTransition();
-  const filterSignature = JSON.stringify(filters);
-  useEffect(() => {
-    const stored = Number(sessionStorage.getItem("catalog-scroll-y"));
-    if (!Number.isFinite(stored) || stored < 0) return;
-    const restore = () => {
-      const previous = document.documentElement.style.scrollBehavior;
-      document.documentElement.style.scrollBehavior = "auto";
-      window.scrollTo(0, stored);
-      document.documentElement.style.scrollBehavior = previous;
-    };
-    const frame = requestAnimationFrame(restore);
-    const finalRestore = window.setTimeout(() => {
-      restore();
-      sessionStorage.removeItem("catalog-scroll-y");
-    }, 750);
-    return () => { cancelAnimationFrame(frame); clearTimeout(finalRestore); };
-  }, [filterSignature, pathname]);
   const replaceWithoutScroll = (url: string) => {
-    sessionStorage.setItem("catalog-scroll-y", String(window.scrollY));
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    startTransition(() => router.replace(url, { scroll: false }));
+    if (`${window.location.pathname}${window.location.search}` === url) return;
+    router.replace(url, { scroll: false });
   };
   const applyFilters = (selectedForm: HTMLFormElement | null = form.current) => {
     if (!selectedForm) return;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseCatalogParams } from "@/domain/catalog";
 import { getCatalog } from "@/server/catalog";
+import { rememberCatalogPrices } from "@/server/catalog-price-cache";
 
 export async function GET(request: NextRequest) {
   const params = Object.fromEntries(request.nextUrl.searchParams);
@@ -8,6 +9,7 @@ export async function GET(request: NextRequest) {
   const page = Math.floor(filters.offset / filters.limit) + 1;
   try {
     const result = await getCatalog(filters);
+    rememberCatalogPrices(result.cars);
     return NextResponse.json({
       items: result.cars,
       total: result.total,

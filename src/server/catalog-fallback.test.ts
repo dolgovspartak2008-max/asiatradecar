@@ -102,25 +102,30 @@ it("filters Korea database prices by the final price with current fees", async (
   expect(catalogCall?.[1]).toEqual(["kr", 740_000, 24, 0]);
 });
 
-it("filters external database prices by the current commission delta", async () => {
+it("filters external database rows only after recalculating the final price", async () => {
   vi.mocked(query).mockImplementation(async (sql) => {
     const text = String(sql);
     if (text.includes("catalog_banzai_archive_last_completed_epoch")) return { rows: [{ ready: true }] } as never;
     if (text.includes("site_settings")) return { rows: [{ key: "commission_jp_rub", value: "150000" }] } as never;
     if (text.includes("exchange_rates")) return { rows: [] } as never;
     if (text.startsWith("SELECT * FROM cars")) return { rows: [{
+      id: "jp-expensive", slug: "jp-expensive", source_url: null, country: "jp", currency_code: "JPY", make: "BMW", model: "X5", trim: null, year: 2024,
+      mileage_km: 10_000, engine_cc: null, power_hp: null, fuel: null, transmission: null, drive: null, body_type: null,
+      exterior_color: null, interior_color: null, vin: null, price_krw: 10_000_000, price_rub: 500_000, photos: [], details: {}
+    }, {
       id: "jp-1", slug: "jp-car-1", source_url: null, country: "jp", currency_code: "JPY", make: "BMW", model: "M5", trim: null, year: 2022,
       mileage_km: 20_000, engine_cc: null, power_hp: null, fuel: null, transmission: null, drive: null, body_type: null,
       exterior_color: null, interior_color: null, vin: null, price_krw: 0, price_rub: 900_000, photos: [], details: {}
     }] } as never;
-    if (text.startsWith("SELECT count(*)")) return { rows: [{ count: "1" }] } as never;
+    if (text.startsWith("SELECT count(*)")) return { rows: [{ count: "2" }] } as never;
     return { rows: [] } as never;
   });
 
-  await getCatalog(parseCatalogParams({ country: "jp", priceTo: "1000000" }));
+  const result = await getCatalog(parseCatalogParams({ country: "jp", priceTo: "1000000" }));
 
   const catalogCall = vi.mocked(query).mock.calls.find(([sql]) => String(sql).startsWith("SELECT * FROM cars"));
-  expect(catalogCall?.[1]).toEqual(["jp", 900_000, 24, 0]);
+  expect(catalogCall?.[1]).toEqual(["jp", 24, 0]);
+  expect(result.cars.map((car) => car.id)).toEqual(["jp-1"]);
 });
 
 it("uses the complete China used-car archive even when the new-model feed is below its old threshold", async () => {

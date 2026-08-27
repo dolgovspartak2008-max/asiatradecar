@@ -54,6 +54,16 @@ describe("Banzai24 session", () => {
     }
   });
 
+  it("returns an empty catalog for a valid zero-result filter", async () => {
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL) => String(input) === "https://banzai24.com/"
+      ? Promise.resolve(new Response("ok", { status: 200, headers: { "set-cookie": "session=jp; Path=/" } }))
+      : Promise.resolve(Response.json({ items: [], pagination: { total: 0, totalPages: 0 } }))));
+    const fresh = await import("./banzai");
+
+    await expect(fresh.fetchBanzaiPage(1, 100, { mileageTo: 0 })).resolves.toMatchObject({ cars: [], total: 0 });
+  });
+
   it("shares one session bootstrap across concurrent catalog requests", async () => {
     vi.resetModules();
     let homeCalls = 0;

@@ -77,7 +77,7 @@ export function parseBanzaiApiPage(payload: unknown) {
     });
     const tags = (Array.isArray(item.tags) ? item.tags : []).flatMap((tag): string[] => tag && typeof tag === "object" ? [String((tag as Record<string, unknown>).title || "").trim()].filter(Boolean) : []);
     const year = Number(item.registrationYear) || numberFrom(String(car.year || characteristics.year || "").match(/(?:19|20)\d{2}/)?.[0]);
-    const sourcePrice = priceFrom(item.onePrice) || priceFrom(item.endPrice) || priceFrom(item.startPrice);
+    const sourcePrice = priceFrom(item.endPrice) || priceFrom(item.onePrice) || priceFrom(item.startPrice);
     const statusName = String(status.name || "").trim();
     const active = !/(продан|продано|закрыт|снят|sold|closed)/i.test(statusName);
     const lotItems = [String(auction.name || "").trim() && `Аукцион: ${String(auction.name).trim()}`, String(lot.number || "").trim() && `Лот: ${String(lot.number).trim()}`, String(item.grade || "").trim() && `Оценка: ${String(item.grade).trim()}`, statusName && `Статус: ${statusName}`, ...tags].filter((entry): entry is string => Boolean(entry));
@@ -386,6 +386,7 @@ export function parseBanzaiVehiclePage(html: string, sourceId: string): External
   const engine = text.match(/(?:Двигатель|Engine)\s*:\s*([\d.,]+)\s*(?:л|l)\s*(?:\/\s*([^/]+?))?(?:\s*\/\s*([\d\s]+)\s*(?:л\.с\.|hp))?/i);
   const price = numberFrom(text.match(/(?:Фиксированная цена|Fixed price)\s*:?\s*([\d\s]+)\s*[¥￥]/i)?.[1])
     || numberFrom(text.match(/(?:Конечная цена|Final price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1])
+    || numberFrom(text.match(/(?:Последняя ставка|Latest bid)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1])
     || numberFrom(text.match(/(?:Стартовая цена|Старт от|Start price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1]);
   if (!sourceId || !make || !model || !price) return null;
   const engineLiters = Number(engine?.[1]?.replace(",", "."));

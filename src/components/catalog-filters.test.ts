@@ -26,10 +26,19 @@ describe("CatalogFilters", () => {
     const source = readFileSync(new URL("./catalog-filters.tsx", import.meta.url), "utf8");
     expect(source).toContain("router.replace");
     expect(source).toContain("{ scroll: false }");
-    expect(source).toContain("useTransition");
-    expect(source).toContain("sessionStorage.setItem");
-    expect(source).toContain("window.scrollTo");
+    expect(source).not.toContain("sessionStorage");
+    expect(source).not.toContain("window.scrollTo");
+    expect(source).toContain("window.location.pathname");
+    expect(source).toContain("window.location.search");
     expect(source).toContain("Сбросить все фильтры");
+    expect(source).not.toContain("useTransition");
+    expect(source).not.toContain("document.activeElement");
     expect(source).not.toContain("requestSubmit()");
+  });
+
+  it("does not remount the filter panel during query updates", () => {
+    const source = readFileSync(new URL("./catalog-page.tsx", import.meta.url), "utf8");
+    expect(source).toContain("<CatalogFilters filters={filters}");
+    expect(source).not.toContain("<CatalogFilters key=");
   });
 });

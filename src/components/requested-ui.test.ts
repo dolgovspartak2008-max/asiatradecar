@@ -48,9 +48,8 @@ describe("requested mobile UI", () => {
     expect(read("../app/auto/[slug]/page.tsx")).toContain("Под ключ в РФ");
     expect(read("../app/auto/[slug]/page.tsx")).not.toContain("Предварительный расчёт для РФ");
     expect(breakdown).toContain("Под ключ в РФ");
-    expect(breakdown).toContain("DEFAULT_COMMISSIONS_RUB");
-    expect(breakdown).toContain('country === "jp" ? "jp"');
-    expect(breakdown).toContain('country === "kr" ? 110_000');
+    expect(breakdown).toContain("parseCostBreakdown");
+    expect(breakdown).not.toContain("DEFAULT_COMMISSIONS_RUB");
   });
 
   it("uses native request anchors for reliable desktop and mobile scrolling", () => {
@@ -79,10 +78,22 @@ describe("requested mobile UI", () => {
     expect(source).toContain("https://t.me/artur_sagitov02");
     expect(source).toContain("https://t.me/Oleg_Ohty");
     expect(source).toContain("https://t.me/pavel_platonov290989");
+    expect(source).toContain("https://max.ru/u/f9LHodD0cOItMxlXXoEhaybALvGJ3YHEVRIOiPMzHsHN-P59s2x9ukGHEBU");
+    expect(source).toContain("https://max.ru/u/f9LHodD0cOJiC9iSnfthYjRc63mxfjhHS-qPgrtfGO_u8Mvj2R981pbNip8");
+    expect(source).toContain("https://max.ru/u/f9LHodD0cOJ3oEukbK_sITK0UPK7Ubgv_FnXYP4WsAg0bUr0mJFtePlS4J0");
+    expect(source).toContain("href={manager.max}");
     expect(site).toContain("https://www.instagram.com/asiatradecar");
     expect(site).toContain("https://max.ru/channel_asiatradecar");
     expect(source).toContain("site.instagram");
     expect(source).toContain("site.max");
+  });
+
+  it("orders company social links as Telegram, MAX, VK, YouTube, Instagram", () => {
+    const source = read("./footer.tsx");
+    expect(source.indexOf("site.telegram")).toBeLessThan(source.indexOf("site.max"));
+    expect(source.indexOf("site.max")).toBeLessThan(source.indexOf("site.vk"));
+    expect(source.indexOf("site.vk")).toBeLessThan(source.indexOf("site.youtube"));
+    expect(source.indexOf("site.youtube")).toBeLessThan(source.indexOf("site.instagram"));
   });
 
   it("remounts catalog results after filters change", () => {
@@ -129,8 +140,59 @@ describe("requested mobile UI", () => {
     expect(dialog).toContain("/media/delivery-prices.png");
     expect(dialog).not.toContain('loading="eager"');
     expect(dialog).toContain("<table>");
+    expect(dialog).toContain('className="delivery-prices-mobile"');
     expect(dialog.match(/\["[^"]+", \d+_\d{3}, \d+_\d{3}, \d+_\d{3}, \d+_\d{3}\]/g)).toHaveLength(26);
     expect(existsSync(new URL("../../public/media/delivery-prices.png", import.meta.url))).toBe(true);
+  });
+
+  it("shows the Japan loading message below every Japan entry point", () => {
+    const page = read("../app/catalog/[market]/page.tsx");
+    const chooser = read("./catalog-chooser.tsx");
+    const home = read("../app/page.tsx");
+    const status = read("./catalog-link-status.tsx");
+    expect(status).toContain("useLinkStatus");
+    expect(status).toContain("Пожалуйста, подождите");
+    expect(chooser).toContain("<JapanCatalogLinkStatus");
+    expect(chooser).toContain('country.code === "JP"');
+    expect(home).toContain('<JapanCatalogLinkStatus className="country-card-pending" />');
+    expect(page).not.toContain("Пожалуйста, подождите");
+    expect(page).not.toContain("<Suspense");
+  });
+
+  it("keeps all catalog chooser rows the same height", () => {
+    const css = read("../app/globals.css");
+    expect(css).toMatch(/\.catalog-choice-list a\s*\{[^}]*position:\s*relative/);
+    expect(css).toMatch(/\.catalog-choice-pending\s*\{[^}]*position:\s*absolute/);
+    expect(css).not.toMatch(/\.catalog-choice-pending\s*\{[^}]*grid-column/);
+  });
+
+  it("replaces a failed catalog photo with the local placeholder", () => {
+    const card = read("./car-card.tsx");
+    expect(card).toContain("onError");
+    expect(card).toContain("setImageFailed(true)");
+    expect(card).toContain("Фото обновляется");
+  });
+
+  it("removes failed photos from the detail gallery", () => {
+    const gallery = read("./car-gallery.tsx");
+    expect(gallery).toContain("onError");
+    expect(gallery).toContain("removePhoto");
+    expect(gallery).toContain("Фотографии обновляются из источника");
+  });
+
+  it("uses a readable stacked delivery list on phones", () => {
+    const css = read("../app/globals.css");
+    expect(css).toContain(".delivery-prices-mobile { display: none;");
+    expect(css).toMatch(/@media \(max-width: 540px\)[\s\S]*\.delivery-prices-mobile \{ display: grid;/);
+    expect(css).toMatch(/\.delivery-prices-panel\s*\{[^}]*overflow-x:\s*hidden/);
+    expect(css).toMatch(/\.delivery-prices-mobile li\s*\{[^}]*display:\s*block/);
+    expect(css).toMatch(/\.delivery-prices-mobile dl > div\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/);
+    expect(css).toMatch(/\.delivery-prices-mobile h3\s*\{[^}]*color:\s*var\(--ink\)/);
+    expect(css).toMatch(/\.delivery-prices-mobile dd\s*\{[^}]*color:\s*var\(--ink\)/);
+    expect(css).toContain(".responsibility .delivery-prices-mobile { display: none;");
+    expect(css).toContain(".responsibility .delivery-prices-mobile h3");
+    expect(css).toContain(".responsibility .delivery-prices-mobile dd");
+    expect(css).not.toContain(".delivery-prices-image img { width: 760px;");
   });
 
   it("locks the page and contains scroll inside open dialogs", () => {

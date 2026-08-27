@@ -116,8 +116,8 @@ export async function fetchBanzaiPage(page: number, perPage = 100, selection: Ba
     : ["sortYear", "desc"];
   url.searchParams.set(sort[0], sort[1]);
   const parsed = parseBanzaiApiPage(await (await fetchBanzaiApi(url)).json());
-  if (!parsed.cars.length) throw new Error(`Banzai24 API вернул пустую страницу ${page}`);
-  if (parsed.totalPages < 1) throw new Error("Banzai24 API не передал количество страниц");
+  if (!parsed.cars.length && parsed.total > 0) throw new Error(`Banzai24 API вернул пустую страницу ${page}`);
+  if (parsed.total > 0 && parsed.totalPages < 1) throw new Error("Banzai24 API не передал количество страниц");
   return parsed;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatVehicleSpec, readCostBreakdown, readInsuranceHistory } from "./car-details";
+import { formatVehicleSpec, parseCostBreakdown, readCostBreakdown, readInsuranceHistory, reconcileCostBreakdown } from "./car-details";
 
 describe("readCostBreakdown", () => {
   it("keeps only complete source expense rows", () => {
@@ -8,6 +8,29 @@ describe("readCostBreakdown", () => {
       { label: "", value: "100 ₽" },
       null
     ] })).toEqual([{ label: "Комиссия компании", value: "100 000 ₽" }]);
+  });
+
+  it("can preserve a server-calculated breakdown without replacing its commission", () => {
+    expect(parseCostBreakdown({ costBreakdown: [
+      { label: "Комиссия компании", value: "125 000 ₽" },
+      { label: "Брокер", value: "60 000 ₽" }
+    ] })).toEqual([
+      { label: "Комиссия компании", value: "125 000 ₽" },
+      { label: "Брокер", value: "60 000 ₽" }
+    ]);
+  });
+
+  it("adds the source adjustment needed for the rows to equal the displayed total", () => {
+    expect(reconcileCostBreakdown([
+      { label: "Комиссия компании", value: "100 000 ₽" },
+      { label: "Стоимость автомобиля", value: "1 000 000 ₽" },
+      { label: "Логистика", value: "Рассчитывается отдельно" }
+    ], 1_125_000)).toEqual([
+      { label: "Комиссия компании", value: "100 000 ₽" },
+      { label: "Стоимость автомобиля", value: "1 000 000 ₽" },
+      { label: "Логистика", value: "Рассчитывается отдельно" },
+      { label: "Корректировка расчёта источника", value: "25 000 ₽" }
+    ]);
   });
 });
 

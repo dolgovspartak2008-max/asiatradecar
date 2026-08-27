@@ -32,6 +32,7 @@ const deliveryRates = [
   ["Волгоград", 200_000, 205_000, 210_000, 215_000],
   ["Краснодар", 200_000, 205_000, 210_000, 215_000]
 ] as const;
+const deliveryLabels = ["Мини", "Седан", "Кроссовер", "Минивэн, джип"] as const;
 
 export function DeliveryPricesDialog() {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -44,6 +45,7 @@ export function DeliveryPricesDialog() {
         <p className="eyebrow">Доставка автовозом</p><h2 id={titleId}>Цены доставки по России</h2>
         <div className="delivery-prices-image"><Image src="/media/delivery-prices.png" width={480} height={536} alt="Таблица цен доставки автомобилей из Владивостока и Уссурийска по городам России" /></div>
         <a className="delivery-prices-full" href="/media/delivery-prices.png" target="_blank" rel="noreferrer">Открыть таблицу в полном размере</a>
+        <ul className="delivery-prices-mobile">{deliveryRates.map(([city, ...prices]) => <li key={city}><h3>{city}</h3><dl>{prices.map((price, index) => <div key={deliveryLabels[index]}><dt>{deliveryLabels[index]}</dt><dd>{price.toLocaleString("ru-RU")} ₽</dd></div>)}</dl></li>)}</ul>
         <details className="delivery-prices-data"><summary>Цены в текстовом виде</summary><div className="delivery-prices-table-wrap"><table>
           <caption>Доставка автомобилей автовозами из Владивостока и Уссурийска</caption>
           <thead><tr><th scope="col">Город</th><th scope="col">Мини</th><th scope="col">Седан</th><th scope="col">Кроссовер</th><th scope="col">Минивэн, джип</th></tr></thead>

@@ -13,16 +13,31 @@ export function formatVehicleSpec(kind: "transmission" | "drive" | "body", value
   return specLabels[kind][value.trim().toUpperCase()] || value;
 }
 
-export function readCostBreakdown(details: Record<string, unknown>, commissionRub?: number, brokerRub?: number): CostBreakdownLine[] {
+export function parseCostBreakdown(details: Record<string, unknown>): CostBreakdownLine[] {
   if (!Array.isArray(details.costBreakdown)) return [];
-  const lines = details.costBreakdown.flatMap((item) => {
+  return details.costBreakdown.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const line = item as { label?: unknown; value?: unknown };
     const label = typeof line.label === "string" ? line.label.trim() : "";
     const value = typeof line.value === "string" ? line.value.trim() : "";
     return label && value ? [{ label, value }] : [];
   });
-  return normalizeCostBreakdown(lines, commissionRub, brokerRub);
+}
+
+export function readCostBreakdown(details: Record<string, unknown>, commissionRub?: number, brokerRub?: number): CostBreakdownLine[] {
+  return normalizeCostBreakdown(parseCostBreakdown(details), commissionRub, brokerRub);
+}
+
+export function reconcileCostBreakdown(lines: CostBreakdownLine[], totalRub: number | null): CostBreakdownLine[] {
+  if (!totalRub || totalRub <= 0) return lines;
+  const rowsTotal = lines.reduce((sum, line) => {
+    const rubles = line.value.match(/([\d\s\u00a0]+)\s*₽/g)?.at(-1);
+    return sum + (rubles ? Number(rubles.replace(/[^\d]/g, "")) : 0);
+  }, 0);
+  if (!rowsTotal) return lines;
+  const difference = Math.round(totalRub) - rowsTotal;
+  if (!difference) return lines;
+  return [...lines, { label: "Корректировка расчёта источника", value: `${difference.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ₽` }];
 }
 
 export function readInsuranceHistory(details: Record<string, unknown>) {

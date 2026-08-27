@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { formatRub } from "@/domain/currency";
 import { formatVehicleSpec, readInsuranceHistory } from "@/domain/car-details";
 import { getCarBySlug } from "@/server/catalog";
+import { catalogPriceFor } from "@/server/catalog-price-cache";
 import { Icon } from "@/components/icons";
 import { CarGallery } from "@/components/car-gallery";
 import { PriceBreakdown } from "@/components/price-breakdown";
@@ -19,7 +20,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function CarPage({ params }: Props) {
-  const car = await getCarBySlug((await params).slug); if (!car) notFound(); const name = `${car.make} ${car.model}${car.trim ? ` ${car.trim}` : ""}`;
+  const sourceCar = await getCarBySlug((await params).slug); if (!sourceCar) notFound();
+  const rememberedPrice = catalogPriceFor(sourceCar.slug, sourceCar.priceRub);
+  const car = rememberedPrice === sourceCar.priceRub ? sourceCar : { ...sourceCar, priceRub: rememberedPrice };
+  const name = `${car.make} ${car.model}${car.trim ? ` ${car.trim}` : ""}`;
   const specs = [["Год", car.year > 0 ? car.year : null], ["Пробег", car.mileageKm > 0 ? `${car.mileageKm.toLocaleString("ru-RU")} км` : null], ["Двигатель", car.engineCc ? `${(car.engineCc / 1000).toFixed(1)} л` : null], ["Мощность", car.powerHp ? `${car.powerHp} л.с.` : null], ["Топливо", car.fuel], ["Коробка", formatVehicleSpec("transmission", car.transmission)], ["Привод", formatVehicleSpec("drive", car.drive)], ["Кузов", formatVehicleSpec("body", car.bodyType)], ["Цвет", car.exteriorColor], ["Страховые случаи", car.country === "kr" ? readInsuranceHistory(car.details) : null]].filter((item) => item[1]);
   const encarUrl = car.country === "kr" && /^\d+$/.test(car.id) ? `https://www.encar.com/dc/dc_cardetailview.do?carid=${encodeURIComponent(car.id)}` : null;
   const sourceLink = encarUrl ? { href: encarUrl, label: "Авто на Encar" } : car.sourceUrl ? { href: car.sourceUrl, label: car.country === "jp" ? "Авто на Banzai24" : car.country === "cn" ? "Авто на Dongchedi" : "Открыть источник" } : null;
