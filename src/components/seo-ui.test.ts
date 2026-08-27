@@ -60,6 +60,7 @@ it("publishes the requested search title, description and logo", () => {
   expect(layout).toContain('default: "ASIA TRADE CAR — Автомобили из-за рубежа"');
   expect(site).toContain('description: "Подбор и доставка автомобилей из зарубежных стран. Полное сопровождение сделки. Низкие цены."');
   expect(existsSync(new URL("../app/icon.png", import.meta.url))).toBe(true);
+  expect(existsSync(new URL("../app/favicon.ico", import.meta.url))).toBe(true);
   expect(layout).not.toContain('icons: { icon: "data:image/svg+xml');
 });
 

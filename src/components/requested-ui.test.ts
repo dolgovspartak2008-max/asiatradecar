@@ -145,16 +145,17 @@ describe("requested mobile UI", () => {
     expect(existsSync(new URL("../../public/media/delivery-prices.png", import.meta.url))).toBe(true);
   });
 
-  it("shows the Japan loading message below every Japan entry point", () => {
+  it("shows one loading message in the same place for every catalog entry point", () => {
     const page = read("../app/catalog/[market]/page.tsx");
     const chooser = read("./catalog-chooser.tsx");
     const home = read("../app/page.tsx");
     const status = read("./catalog-link-status.tsx");
     expect(status).toContain("useLinkStatus");
     expect(status).toContain("Пожалуйста, подождите");
-    expect(chooser).toContain("<JapanCatalogLinkStatus");
-    expect(chooser).toContain('country.code === "JP"');
-    expect(home).toContain('<JapanCatalogLinkStatus className="country-card-pending" />');
+    expect(status).toContain("function CatalogLinkStatus");
+    expect(chooser).toContain("<CatalogLinkStatus");
+    expect(chooser).not.toContain('country.code === "JP" &&');
+    expect(home.match(/<CatalogLinkStatus className="country-card-pending" \/>/g)).toHaveLength(3);
     expect(page).not.toContain("Пожалуйста, подождите");
     expect(page).not.toContain("<Suspense");
   });
