@@ -38,7 +38,7 @@ export function DeliveryPricesDialog() {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   return <>
-    <button className="button button-ghost delivery-prices-trigger" type="button" onClick={() => dialog.current?.showModal()}>Цены доставки по России</button>
+    <button className="delivery-prices-trigger" type="button" onClick={() => dialog.current?.showModal()}><span>Цена доставки по России</span><Icon name="arrow" size={18} /></button>
     <dialog ref={dialog} className="site-dialog delivery-prices-dialog" aria-labelledby={titleId} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>
       <div className="dialog-panel delivery-prices-panel">
         <button className="dialog-close" type="button" onClick={() => dialog.current?.close()} aria-label="Закрыть цены доставки"><Icon name="x" /></button>

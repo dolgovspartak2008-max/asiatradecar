@@ -132,10 +132,14 @@ describe("requested mobile UI", () => {
     expect(testimonials).not.toContain("Lexus RX 300");
   });
 
-  it("opens the supplied delivery price table beside the calculation CTA", () => {
+  it("opens the supplied delivery price table from the mobile menu", () => {
     const home = read("../app/page.tsx");
+    const menu = read("./mobile-menu.tsx");
     const dialog = read("./delivery-prices-dialog.tsx");
-    expect(home).toContain("<DeliveryPricesDialog />");
+    expect(home).not.toContain("DeliveryPricesDialog");
+    expect(menu).toContain("<DeliveryPricesDialog />");
+    expect(menu.indexOf("<DeliveryPricesDialog />")).toBeGreaterThan(menu.indexOf("Мобильная навигация"));
+    expect(dialog).toContain("Цена доставки по России");
     expect(dialog).toContain("Цены доставки по России");
     expect(dialog).toContain("/media/delivery-prices.png");
     expect(dialog).not.toContain('loading="eager"');
@@ -143,6 +147,10 @@ describe("requested mobile UI", () => {
     expect(dialog).toContain('className="delivery-prices-mobile"');
     expect(dialog.match(/\["[^"]+", \d+_\d{3}, \d+_\d{3}, \d+_\d{3}, \d+_\d{3}\]/g)).toHaveLength(26);
     expect(existsSync(new URL("../../public/media/delivery-prices.png", import.meta.url))).toBe(true);
+  });
+
+  it("aligns catalog codes and country names on one baseline", () => {
+    expect(read("../app/globals.css")).toMatch(/\.catalog-choice-list a \{[^}]*align-items: baseline/);
   });
 
   it("shows one loading message in the same place for every catalog entry point", () => {
@@ -190,9 +198,7 @@ describe("requested mobile UI", () => {
     expect(css).toMatch(/\.delivery-prices-mobile dl > div\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/);
     expect(css).toMatch(/\.delivery-prices-mobile h3\s*\{[^}]*color:\s*var\(--ink\)/);
     expect(css).toMatch(/\.delivery-prices-mobile dd\s*\{[^}]*color:\s*var\(--ink\)/);
-    expect(css).toContain(".responsibility .delivery-prices-mobile { display: none;");
-    expect(css).toContain(".responsibility .delivery-prices-mobile h3");
-    expect(css).toContain(".responsibility .delivery-prices-mobile dd");
+    expect(css).not.toContain(".responsibility .delivery-prices-mobile");
     expect(css).not.toContain(".delivery-prices-image img { width: 760px;");
   });
 

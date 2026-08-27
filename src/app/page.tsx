@@ -5,7 +5,6 @@ import { VideoHero } from "@/components/video-hero";
 import { Testimonials } from "@/components/testimonials";
 import { CatalogChooser } from "@/components/catalog-chooser";
 import { CatalogLinkStatus } from "@/components/catalog-link-status";
-import { DeliveryPricesDialog } from "@/components/delivery-prices-dialog";
 import { site } from "@/config/site";
 import { buildOrganizationSchema } from "@/domain/seo";
 
@@ -47,7 +46,7 @@ export default async function Home() {
       </div>
     </section>
 
-    <section className="section dark-section" id="process"><div className="container"><div className="section-heading"><div><p className="eyebrow">Процесс</p><h2>От запроса до ключей</h2></div><p>На каждом этапе вы знаете, что происходит с автомобилем и за что платите.</p></div><ol className="stage-grid">{stages.map(([number, title, text]) => <li key={number}><span>{number}</span><h3>{title}</h3><p>{text}</p></li>)}</ol><details className="responsibility"><summary>За что мы отвечаем <Icon name="arrow" /></summary><div><p className="eyebrow">Полное сопровождение</p><h3>Вам не нужно разбираться во всём самому</h3><ul>{responsibilities.map((item) => <li key={item}><Icon name="check"/><span>{item}</span></li>)}</ul><div className="responsibility-actions"><a className="button" href="#request">Получить расчёт</a><DeliveryPricesDialog /></div></div></details></div></section>
+    <section className="section dark-section" id="process"><div className="container"><div className="section-heading"><div><p className="eyebrow">Процесс</p><h2>От запроса до ключей</h2></div><p>На каждом этапе вы знаете, что происходит с автомобилем и за что платите.</p></div><ol className="stage-grid">{stages.map(([number, title, text]) => <li key={number}><span>{number}</span><h3>{title}</h3><p>{text}</p></li>)}</ol><details className="responsibility"><summary>За что мы отвечаем <Icon name="arrow" /></summary><div><p className="eyebrow">Полное сопровождение</p><h3>Вам не нужно разбираться во всём самому</h3><ul>{responsibilities.map((item) => <li key={item}><Icon name="check"/><span>{item}</span></li>)}</ul><div className="responsibility-actions"><a className="button" href="#request">Получить расчёт</a></div></div></details></div></section>
 
     <section className="section countries" id="catalogs"><div className="container content-sheet"><div className="section-heading"><div><p className="eyebrow">Направления</p><h2>Выберите рынок</h2></div></div><div className="country-grid"><Link className="country-card" href="/catalog/korea"><span className="country-code">KR</span><div><h3>Южная Корея</h3><CatalogLinkStatus className="country-card-pending" /></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog/japan" prefetch={false}><span className="country-code">JP</span><div><h3>Япония</h3><CatalogLinkStatus className="country-card-pending" /></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog/china"><span className="country-code">CN</span><div><h3>Китай</h3><CatalogLinkStatus className="country-card-pending" /></div><Icon name="arrow" /></Link></div></div></section>
 

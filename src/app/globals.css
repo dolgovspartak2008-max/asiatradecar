@@ -118,10 +118,10 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .mobile-menu summary { list-style: none; }
 .mobile-menu summary::-webkit-details-marker { display: none; }
 .mobile-menu nav { position: absolute; right: 0; top: 52px; width: min(310px, calc(100vw - 28px)); padding: 8px; display: grid; overflow: hidden; background: rgba(20,20,17,.98); border: 1px solid rgba(215,168,75,.34); border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,.38); }
-.mobile-menu nav a { min-height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid rgba(255,255,255,.08); border-radius: 9px; font-size: 1rem; transition: color .2s ease, background-color .2s ease; }
-.mobile-menu nav a:last-child { border-bottom: 0; }
-.mobile-menu nav a:hover, .mobile-menu nav a[aria-current="page"] { color: var(--gold); background: rgba(215,168,75,.08); }
-.mobile-menu nav a svg { color: var(--gold); opacity: .62; }
+.mobile-menu nav > a, .mobile-menu .delivery-prices-trigger { width: 100%; min-height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; color: inherit; background: transparent; border: 0; border-bottom: 1px solid rgba(255,255,255,.08); border-radius: 9px; cursor: pointer; font-size: 1rem; text-align: left; transition: color .2s ease, background-color .2s ease; }
+.mobile-menu .delivery-prices-trigger { border-bottom: 0; }
+.mobile-menu nav > a:hover, .mobile-menu nav > a[aria-current="page"], .mobile-menu .delivery-prices-trigger:hover { color: var(--gold); background: rgba(215,168,75,.08); }
+.mobile-menu nav > a svg, .mobile-menu .delivery-prices-trigger svg { color: var(--gold); opacity: .62; }
 
 .hero { position: relative; min-height: 720px; height: min(900px, 100svh); color: #fff; background: var(--dark); overflow: hidden; }
 .hero-image { object-fit: cover; object-position: center; }
@@ -166,13 +166,13 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .catalog-choice-panel h2 { max-width: 420px; padding-right: 40px; margin-bottom: 12px; font-family: inherit; font-size: 2rem; line-height: 1.05; text-transform: none; }
 .catalog-choice-panel > p { color: var(--muted); }
 .catalog-choice-list { display: grid; gap: 10px; margin-top: 24px; }
-.catalog-choice-list a { position: relative; min-height: 64px; display: grid; grid-template-columns: 48px 1fr 24px; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 12px; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
+.catalog-choice-list a { position: relative; min-height: 64px; display: grid; grid-template-columns: 48px 1fr 24px; align-items: baseline; gap: 14px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 12px; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
 .catalog-choice-list a:hover { background: rgba(215,168,75,.12); border-color: var(--gold-dark); transform: translateY(-1px); }
 .catalog-choice-list a:active { transform: scale(.98); }
 .catalog-choice-list a > span, .catalog-choice-list a > strong { font-size: 1.12rem; font-weight: 900; line-height: 1; }
 .catalog-choice-list a > span { color: var(--gold-dark); letter-spacing: .06em; }
 .catalog-choice-list a > strong { color: var(--ink); white-space: nowrap; }
-.catalog-choice-list a > svg { color: var(--gold-dark); }
+.catalog-choice-list a > svg { align-self: center; color: var(--gold-dark); }
 .catalog-choice-pending { position: absolute; left: 78px; right: 48px; bottom: 5px; color: var(--gold-dark); font-size: .72rem; font-weight: 800; line-height: 1; visibility: hidden; }
 .catalog-choice-pending.is-pending { visibility: visible; }
 .country-card-pending { display: block; min-height: 18px; margin-top: 6px; color: var(--gold-dark); font-size: .78rem; font-weight: 800; visibility: hidden; }
@@ -392,7 +392,7 @@ textarea { resize: vertical; }
 .delivery-prices-image { overflow: auto; overscroll-behavior: contain; border-radius: 12px; background: #090908; }
 .delivery-prices-image img { width: 100%; height: auto; max-width: none; }
 .delivery-prices-full { width: fit-content; max-width: 100%; overflow-wrap: anywhere; color: var(--gold-dark); font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
-.responsibility .delivery-prices-mobile { display: none; }
+.delivery-prices-mobile { display: none; }
 .delivery-prices-data { border-top: 1px solid var(--line); }
 .delivery-prices-data summary { padding: 16px 0; color: var(--gold-dark); cursor: pointer; font-weight: 800; }
 .delivery-prices-table-wrap { overflow-x: auto; }
@@ -545,13 +545,13 @@ textarea { resize: vertical; }
   .delivery-prices-dialog { width: calc(100% - 12px); max-height: calc(100dvh - 12px); }
   .delivery-prices-panel { max-height: calc(100dvh - 12px); padding: 20px 14px; border-radius: 14px; }
   .delivery-prices-image, .delivery-prices-data { display: none; }
-  .responsibility .delivery-prices-mobile { display: grid; width: 100%; min-width: 0; gap: 10px; padding: 0; margin: 0; list-style: none; }
+  .delivery-prices-mobile { display: grid; width: 100%; min-width: 0; gap: 10px; padding: 0; margin: 0; list-style: none; }
   .delivery-prices-mobile li { min-width: 0; display: block; padding: 15px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
-  .responsibility .delivery-prices-mobile h3 { margin-bottom: 10px; color: var(--ink); font-size: 1.08rem; }
+  .delivery-prices-mobile h3 { margin-bottom: 10px; color: var(--ink); font-size: 1.08rem; }
   .delivery-prices-mobile dl { display: grid; gap: 6px; margin: 0; }
   .delivery-prices-mobile dl > div { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; }
   .delivery-prices-mobile dt { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
-  .responsibility .delivery-prices-mobile dd { min-width: 0; margin: 0; color: var(--ink); text-align: right; font-weight: 800; white-space: nowrap; }
+  .delivery-prices-mobile dd { min-width: 0; margin: 0; color: var(--ink); text-align: right; font-weight: 800; white-space: nowrap; }
   .testimonial-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; }
   .testimonial-card, .testimonial-card:nth-child(4), .testimonial-card:nth-child(5) { min-width: min(88vw, 360px); scroll-snap-align: start; }
   .catalog-grid { grid-template-columns: 1fr; }
