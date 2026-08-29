@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatVehicleSpec, parseCostBreakdown, readCostBreakdown, readInsuranceHistory, reconcileCostBreakdown } from "./car-details";
+import { formatVehicleSpec, parseCostBreakdown, readCostBreakdown, readInsuranceHistory, readInsuranceSummary } from "./car-details";
 
 describe("readCostBreakdown", () => {
   it("keeps only complete source expense rows", () => {
@@ -20,18 +20,6 @@ describe("readCostBreakdown", () => {
     ]);
   });
 
-  it("adds the source adjustment needed for the rows to equal the displayed total", () => {
-    expect(reconcileCostBreakdown([
-      { label: "Комиссия компании", value: "100 000 ₽" },
-      { label: "Стоимость автомобиля", value: "1 000 000 ₽" },
-      { label: "Логистика", value: "Рассчитывается отдельно" }
-    ], 1_125_000)).toEqual([
-      { label: "Комиссия компании", value: "100 000 ₽" },
-      { label: "Стоимость автомобиля", value: "1 000 000 ₽" },
-      { label: "Логистика", value: "Рассчитывается отдельно" },
-      { label: "Корректировка расчёта источника", value: "25 000 ₽" }
-    ]);
-  });
 });
 
 describe("readInsuranceHistory", () => {
@@ -43,6 +31,19 @@ describe("readInsuranceHistory", () => {
   it("falls back to the catalog accident summary", () => {
     expect(readInsuranceHistory({ accident: "Без зарегистрированных ДТП" })).toBe("Без зарегистрированных ДТП");
     expect(readInsuranceHistory({})).toBe("Нет данных в источнике");
+  });
+});
+
+describe("readInsuranceSummary", () => {
+  it("returns only the case count and payout in rubles", () => {
+    expect(readInsuranceSummary({ insuranceOwn: "1 / 1 227 805 ₩ (77 781 ₽)" })).toBe("1 / 77 781 ₽");
+    expect(readInsuranceSummary({ accident: "Страховая история ДТП: 4 / 412 270 ₽" })).toBe("4 / 412 270 ₽");
+  });
+
+  it("reports zero claims and hides incomplete or unavailable data", () => {
+    expect(readInsuranceSummary({ accident: "Без зарегистрированных ДТП" })).toBe("0 / 0 ₽");
+    expect(readInsuranceSummary({ accidentCount: 2 })).toBeNull();
+    expect(readInsuranceSummary({})).toBeNull();
   });
 });
 

@@ -106,8 +106,8 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 
 .site-header { position: absolute; inset: 0 0 auto; height: 76px; z-index: 100; background: rgba(16, 15, 13, .9); color: #fff; border-bottom: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(14px); }
 .header-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.logo { position: relative; display: block; width: 154px; height: 58px; overflow: hidden; flex: 0 0 auto; }
-.logo img { width: 154px; height: auto; max-width: none; transform: translateY(-11px); }
+.logo { position: relative; display: block; width: 154px; height: 68px; overflow: hidden; flex: 0 0 auto; }
+.logo img { width: 154px; height: auto; max-width: none; }
 .desktop-nav { display: flex; align-items: center; gap: clamp(18px, 2.3vw, 34px); font-size: .84rem; color: rgba(255,255,255,.78); }
 .desktop-nav .delivery-prices-trigger { display: inline-flex; align-items: center; padding: 0; color: inherit; background: transparent; border: 0; cursor: pointer; font: inherit; }
 .desktop-nav .delivery-prices-trigger svg { display: none; }
@@ -169,7 +169,7 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .catalog-choice-panel h2 { max-width: 420px; padding-right: 40px; margin-bottom: 12px; font-family: inherit; font-size: 2rem; line-height: 1.05; text-transform: none; }
 .catalog-choice-panel > p { color: var(--muted); }
 .catalog-choice-list { display: grid; gap: 10px; margin-top: 24px; }
-.catalog-choice-list a { position: relative; min-height: 64px; display: grid; grid-template-columns: 48px 1fr 24px; align-items: baseline; gap: 14px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 12px; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
+.catalog-choice-list a { position: relative; min-height: 64px; display: grid; grid-template-columns: 48px 1fr 24px; align-items: center; gap: 14px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 12px; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
 .catalog-choice-list a:hover { background: rgba(215,168,75,.12); border-color: var(--gold-dark); transform: translateY(-1px); }
 .catalog-choice-list a:active { transform: scale(.98); }
 .catalog-choice-list a > span, .catalog-choice-list a > strong { font-size: 1.12rem; font-weight: 900; line-height: 1; }
@@ -226,8 +226,10 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .favorite-button { position: absolute; right: 12px; top: 12px; width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink); background: rgba(251,250,247,.9); border: 0; border-radius: 50%; cursor: pointer; z-index: 3; }
 .favorite-button.active { color: var(--gold-dark); }
 .car-card-body { padding: 20px; }
-.car-card-body .eyebrow { margin-bottom: 9px; letter-spacing: .08em; }
+.car-card-meta { min-height: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; margin-bottom: 9px; }
+.car-card-body .eyebrow { margin-bottom: 0; letter-spacing: .08em; }
 .car-card-body .eyebrow::before { display: none; }
+.car-insurance-summary { padding: 4px 8px; color: var(--dark); background: var(--gold); border-radius: 6px; font-size: .72rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .car-card h2 { font-family: var(--font-car), sans-serif; font-size: 1.42rem; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; line-height: 1.04; margin-bottom: 14px; }
 .car-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
 .car-chips span { padding: 5px 9px; color: var(--muted); background: var(--bg); border-radius: 99px; font-size: .78rem; }
@@ -512,8 +514,8 @@ textarea { resize: vertical; }
   .container { width: calc(100% - 24px); }
   .page-section > .container { padding: 22px 16px; border-radius: 20px; }
   h2 { font-size: 2.65rem; }
-  .logo { width: 118px; height: 44px; }
-  .logo img { width: 118px; transform: translateY(-8px); }
+  .logo { width: 118px; height: 54px; }
+  .logo img { width: 118px; }
   .hero { min-height: 660px; }
   .hero-image { object-position: 64% center; }
   .hero-media video { object-position: 70% 58%; }

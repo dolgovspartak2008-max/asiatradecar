@@ -164,11 +164,29 @@ describe("requested mobile UI", () => {
     expect(css).toMatch(/\.desktop-nav \.delivery-prices-trigger svg\s*\{[^}]*display:\s*none/);
   });
 
-  it("aligns catalog codes and country names on one baseline", () => {
+  it("centers catalog codes and country names vertically", () => {
     const css = read("../app/globals.css");
-    expect(css).toMatch(/\.catalog-choice-list a \{[^}]*align-items: baseline/);
+    expect(css).toMatch(/\.catalog-choice-list a \{[^}]*align-items: center/);
     expect(css).toMatch(/\.country-card-copy\s*\{[^}]*position:\s*relative/);
     expect(css).toMatch(/\.country-card-pending\s*\{[^}]*position:\s*absolute/);
+  });
+
+  it("shows the complete header logo without vertical cropping", () => {
+    const css = read("../app/globals.css");
+    expect(css).toMatch(/\.logo \{[^}]*height:\s*68px/);
+    expect(css).not.toMatch(/\.logo img \{[^}]*translateY/);
+  });
+
+  it("shows a compact ruble insurance summary beside catalog metadata", () => {
+    const card = read("./car-card.tsx");
+    expect(card).toContain("readInsuranceSummary");
+    expect(card).toContain("car-insurance-summary");
+    expect(card).not.toContain("страховой случай");
+  });
+
+  it("does not add a source calculation adjustment to price breakdowns", () => {
+    expect(read("./price-breakdown.tsx")).not.toContain("reconcileCostBreakdown");
+    expect(read("../domain/car-details.ts")).not.toContain("Корректировка расчёта источника");
   });
 
   it("shows one loading message in the same place for every catalog entry point", () => {

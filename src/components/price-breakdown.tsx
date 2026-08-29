@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { parseCostBreakdown, reconcileCostBreakdown, type CostBreakdownLine } from "@/domain/car-details";
+import { parseCostBreakdown, type CostBreakdownLine } from "@/domain/car-details";
 import { formatRub } from "@/domain/currency";
 import { Icon } from "@/components/icons";
 
@@ -48,7 +48,7 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, cur
     } catch { setStatus("error"); }
   };
 
-  const visibleLines = reconcileCostBreakdown(lines.length ? lines : fallbackLines(priceKrw, livePriceRub, details, currencyCode, country), livePriceRub);
+  const visibleLines = lines.length ? lines : fallbackLines(priceKrw, livePriceRub, details, currencyCode, country);
   return <>
     <button className={`price-breakdown-trigger ${compact ? "compact" : ""}`} type="button" onClick={open}>Расшифровка цены</button>
     <dialog ref={dialog} className="site-dialog price-dialog" aria-labelledby={titleId} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>

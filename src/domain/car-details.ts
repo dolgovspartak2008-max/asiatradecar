@@ -28,18 +28,6 @@ export function readCostBreakdown(details: Record<string, unknown>, commissionRu
   return normalizeCostBreakdown(parseCostBreakdown(details), commissionRub, brokerRub);
 }
 
-export function reconcileCostBreakdown(lines: CostBreakdownLine[], totalRub: number | null): CostBreakdownLine[] {
-  if (!totalRub || totalRub <= 0) return lines;
-  const rowsTotal = lines.reduce((sum, line) => {
-    const rubles = line.value.match(/([\d\s\u00a0]+)\s*₽/g)?.at(-1);
-    return sum + (rubles ? Number(rubles.replace(/[^\d]/g, "")) : 0);
-  }, 0);
-  if (!rowsTotal) return lines;
-  const difference = Math.round(totalRub) - rowsTotal;
-  if (!difference) return lines;
-  return [...lines, { label: "Корректировка расчёта источника", value: `${difference.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ₽` }];
-}
-
 export function readInsuranceHistory(details: Record<string, unknown>) {
   for (const key of ["insuranceOwn", "accident"] as const) {
     const value = details[key];
@@ -56,4 +44,17 @@ export function readInsuranceHistory(details: Record<string, unknown>) {
     }
   }
   return "Нет данных в источнике";
+}
+
+export function readInsuranceSummary(details: Record<string, unknown>) {
+  for (const key of ["insuranceOwn", "accident"] as const) {
+    const value = details[key];
+    if (typeof value !== "string") continue;
+    if (/без зарегистрированных ДТП/i.test(value)) return "0 / 0 ₽";
+    const match = value.match(/(?:^|:\s*)(\d+)\s*\/[\s\S]*?([\d\s\u00a0]+)\s*₽/);
+    if (!match) continue;
+    const payoutRub = Number(match[2].replace(/[^\d]/g, ""));
+    return `${Number(match[1])} / ${payoutRub.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ₽`;
+  }
+  return null;
 }
