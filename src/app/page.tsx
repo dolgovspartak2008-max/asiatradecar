@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Icon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
 import { VideoHero } from "@/components/video-hero";
@@ -50,7 +51,7 @@ export default async function Home() {
 
     <section className="section countries" id="catalogs"><div className="container content-sheet"><div className="section-heading"><div><p className="eyebrow">Направления</p><h2>Выберите рынок</h2></div></div><div className="country-grid"><Link className="country-card" href="/catalog/korea"><span className="country-code">KR</span><div className="country-card-copy"><h3>Южная Корея</h3><CatalogLinkStatus className="country-card-pending" /></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog/japan" prefetch={false}><span className="country-code">JP</span><div className="country-card-copy"><h3>Япония</h3><CatalogLinkStatus className="country-card-pending" /></div><Icon name="arrow" /></Link><Link className="country-card" href="/catalog/china"><span className="country-code">CN</span><div className="country-card-copy"><h3>Китай</h3><CatalogLinkStatus className="country-card-pending" /></div><Icon name="arrow" /></Link></div></div></section>
 
-    <Testimonials />
+    <Suspense fallback={null}><Testimonials /></Suspense>
 
     <section className="section request-section" id="request"><div className="container request-grid"><div><p className="eyebrow">Персональный подбор</p><h2>Опишите задачу</h2><p>Укажите бюджет, предпочтения и город получения — менеджер предложит подходящие варианты.</p></div><LeadForm formId="home-selection" /></div></section>
   </>;

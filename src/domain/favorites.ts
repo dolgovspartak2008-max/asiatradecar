@@ -1,6 +1,6 @@
 import type { Car } from "@/server/catalog";
 
-export type FavoriteCar = Omit<Pick<Car, "id" | "slug" | "country" | "make" | "model" | "trim" | "year" | "mileageKm" | "engineCc" | "powerHp" | "drive" | "priceRub" | "photos">, "photos"> & { photos: readonly string[]; details?: Record<string, unknown> };
+export type FavoriteCar = Omit<Pick<Car, "id" | "slug" | "country" | "make" | "model" | "trim" | "year" | "mileageKm" | "engineCc" | "powerHp" | "drive" | "priceRub" | "photos">, "photos"> & { fuel?: string | null; photos: readonly string[]; details?: Record<string, unknown> };
 export type FavoriteEntry = string | FavoriteCar;
 type FavoriteCandidate = Omit<FavoriteCar, "photos"> & { photos: readonly string[] };
 
@@ -10,7 +10,7 @@ const validCar = (value: unknown): value is FavoriteCar => {
   const car = value as FavoriteCar;
   return [car.id, car.slug, car.country, car.make, car.model].every((item) => typeof item === "string")
     && nullable(car.trim, "string") && typeof car.year === "number" && typeof car.mileageKm === "number"
-    && nullable(car.engineCc, "number") && nullable(car.powerHp, "number") && nullable(car.drive, "string")
+    && nullable(car.engineCc, "number") && nullable(car.powerHp, "number") && (car.fuel === undefined || nullable(car.fuel, "string")) && nullable(car.drive, "string")
     && nullable(car.priceRub, "number") && Array.isArray(car.photos) && car.photos.every((photo) => typeof photo === "string")
     && (car.details === undefined || Boolean(car.details) && typeof car.details === "object" && !Array.isArray(car.details));
 };

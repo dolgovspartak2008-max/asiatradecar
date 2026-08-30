@@ -123,18 +123,18 @@ describe("requested mobile UI", () => {
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
-  it("shows only reviews published through the Telegram-backed database", () => {
+  it("shows every published review including text-only Telegram reviews", () => {
     const testimonials = read("./testimonials.tsx");
     const css = read("../app/globals.css");
     expect(testimonials).toContain("getPublishedReviews");
-    expect(testimonials).toContain("filter((review) => review.image)");
+    expect(testimonials).not.toContain("filter((review) => review.image)");
     expect(testimonials).toContain("if (!added.length) return null");
     expect(testimonials).toContain("<ReviewText");
     expect(testimonials).toContain("!/^Отзыв \\d+$/u.test(review.title)");
     expect(testimonials).not.toContain("const reviews");
     expect(testimonials).not.toContain("Lexus RX 300");
     expect(css).toMatch(/\.testimonial-grid\s*\{[^}]*align-items:\s*start/);
-    expect(css).toContain(".testimonial-card:not(:has(.testimonial-photo)) { display: none; }");
+    expect(css).not.toContain(".testimonial-card:not(:has(.testimonial-photo)) { display: none; }");
   });
 
   it("opens the supplied delivery price table from the mobile menu", () => {
@@ -182,6 +182,29 @@ describe("requested mobile UI", () => {
     expect(card).toContain("readInsuranceSummary");
     expect(card).toContain("car-insurance-summary");
     expect(card).not.toContain("страховой случай");
+  });
+
+  it("matches Encar insurance styling and shows fuel only for Korean cars", () => {
+    const card = read("./car-card.tsx");
+    const icons = read("./icons.tsx");
+    const css = read("../app/globals.css");
+    expect(card).toContain('<Icon name="collision" size={14} />');
+    expect(card).toContain('car.country === "kr" && car.fuel');
+    expect(card).toContain("<span>{car.fuel}</span>");
+    expect(icons).toContain('"collision"');
+    expect(css).toMatch(/\.car-insurance-summary\s*\{[^}]*color:\s*#fff[^}]*background:\s*#d90a3d/);
+  });
+
+  it("restores the loaded catalog and exact scroll position after viewing a car", () => {
+    const results = read("./catalog-results.tsx");
+    const card = read("./car-card.tsx");
+    expect(results).toContain("sessionStorage");
+    expect(results).toContain("scrollY");
+    expect(results).toContain("saved.cars");
+    expect(results).toContain("onOpen={rememberPosition}");
+    expect(card).toContain("onOpen?: () => void");
+    expect(card.match(/onClick=\{onOpen\}/g)).toHaveLength(2);
+    expect(results).toContain('const stateFrame = requestAnimationFrame(() => {\n        sessionStorage.removeItem(CATALOG_RETURN_KEY);');
   });
 
   it("does not add a source calculation adjustment to price breakdowns", () => {

@@ -69,7 +69,8 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .journey-city circle { fill: var(--gold); stroke: var(--dark); stroke-width: 4; }
 .journey-city text { fill: var(--ink); font-size: 17px; font-weight: 900; text-anchor: middle; paint-order: stroke; stroke: rgba(243,241,235,.98); stroke-width: 7px; }
 .map-small-labels text { font-size: 11px; font-weight: 700; opacity: .68; }
-.journey-car { will-change: transform; transform-box: fill-box; }
+.journey-car { transform-box: fill-box; transition: transform .16s ease-out; }
+.global-journey.journey-started .journey-car { will-change: transform; }
 .journey-car .car-body { fill: #11120f; stroke: #f2b321; stroke-width: 3; }
 .journey-car .car-hood { fill: #23251f; stroke: #56584c; stroke-width: 1; }
 .journey-car .car-windshield, .journey-car .car-rear-glass { fill: #667981; stroke: #aeb9b8; stroke-width: 1; }
@@ -204,7 +205,6 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .testimonials { background: transparent; }
 .testimonial-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 20px; }
 .testimonial-card { margin: 0; overflow: hidden; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
-.testimonial-card:not(:has(.testimonial-photo)) { display: none; }
 .testimonial-photo { position: relative; aspect-ratio: 4 / 3; background: #e5e1d8; }
 .testimonial-photo img { object-fit: contain; padding: 8px; }
 .testimonial-card figcaption { padding: 24px; }
@@ -229,7 +229,8 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .car-card-meta { min-height: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; margin-bottom: 9px; }
 .car-card-body .eyebrow { margin-bottom: 0; letter-spacing: .08em; }
 .car-card-body .eyebrow::before { display: none; }
-.car-insurance-summary { padding: 4px 8px; color: var(--dark); background: var(--gold); border-radius: 6px; font-size: .72rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.car-insurance-summary { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; color: #fff; background: #d90a3d; border-radius: 6px; font-size: .72rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.car-insurance-summary svg { flex: 0 0 auto; }
 .car-card h2 { font-family: var(--font-car), sans-serif; font-size: 1.42rem; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; line-height: 1.04; margin-bottom: 14px; }
 .car-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
 .car-chips span { padding: 5px 9px; color: var(--muted); background: var(--bg); border-radius: 99px; font-size: .78rem; }
