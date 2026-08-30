@@ -16,7 +16,7 @@ vi.mock("@/server/leads", () => ({ consumeLeadRateLimit: mocks.consumeLeadRateLi
 import { POST } from "./route";
 
 const lead = { name: "Иван", phone: "+7 900 000-00-00", city: "Москва", wishes: "Kia", consent: true, website: "", pageUrl: "https://asia-trade.test/orders" };
-const request = () => new NextRequest("https://asia-trade.test/api/leads", { method: "POST", body: JSON.stringify(lead), headers: { "content-type": "application/json" } });
+const request = (url = "https://asia-trade.test/api/leads") => new NextRequest(url, { method: "POST", body: JSON.stringify(lead), headers: { "content-type": "application/json" } });
 
 describe("lead delivery", () => {
   beforeEach(() => { vi.clearAllMocks(); mocks.consumeLeadRateLimit.mockResolvedValue(true); mocks.query.mockResolvedValue({ rows: [] }); });
@@ -27,6 +27,19 @@ describe("lead delivery", () => {
     const response = await POST(request());
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toMatchObject({ saved: false, contactUrl: "https://t.me/asia_trade" });
+  });
+
+  it("sends a configured local request directly to Telegram without a database", async () => {
+    vi.stubEnv("TELEGRAM_BOT_TOKEN", "token"); vi.stubEnv("TELEGRAM_CHAT_ID", "chat");
+    mocks.hasDatabase.mockReturnValue(false);
+    const telegram = vi.fn().mockResolvedValue(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", telegram);
+
+    const response = await POST(request("http://localhost:3000/api/leads"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ saved: true });
+    expect(telegram).toHaveBeenCalledOnce();
   });
 
   it("turns a database failure into a controlled unsaved response", async () => {

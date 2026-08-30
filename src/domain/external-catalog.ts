@@ -50,7 +50,9 @@ export function getBanzaiCursorWindow(totalPages: number, nextPage: number) {
   return { start, end, nextPage: completed ? 1 : end + 1, completed };
 }
 
-export function parseBanzaiApiPage(payload: unknown) {
+export type BanzaiCatalogSection = "auctions" | "onePrice" | "archive";
+
+export function parseBanzaiApiPage(payload: unknown, catalogSection: BanzaiCatalogSection = "archive") {
   if (!payload || typeof payload !== "object") return { cars: [] as ExternalCatalogCar[], total: 0, totalPages: 0 };
   const record = payload as { items?: unknown; pagination?: unknown };
   const pagination = record.pagination && typeof record.pagination === "object" ? record.pagination as Record<string, unknown> : {};
@@ -97,7 +99,7 @@ export function parseBanzaiApiPage(payload: unknown) {
       sourcePrice, photos: [...new Set(photos)], details: {
         auction: String(auction.name || "").trim(), lot: String(lot.number || "").trim(),
         tradeDate: String(lot.tradeDate || "").trim(), tradeTime: String(lot.tradeTime || "").trim(),
-        grade: String(item.grade || "").trim(), status: statusName, tags, source: "Banzai24", catalogSection: "archive",
+        grade: String(item.grade || "").trim(), status: statusName, tags, source: "Banzai24", catalogSection,
         optionGroups: lotItems.length ? [{ title: "Данные лота", items: lotItems }] : []
       }
     }];
@@ -352,10 +354,11 @@ export function parseBanzaiCatalog(html: string) {
     const [make, ...modelParts] = (name || "").split(/\s+/);
     const model = modelParts.join(" ");
     const text = card.text().replace(/\s+/g, " ").trim();
-    const priceText = text.match(/Конечная цена:\s*([\d\s]+)\s*¥/i)?.[1]
-      || text.match(/Последняя ставка:\s*([\d\s]+)\s*¥/i)?.[1]
-      || text.match(/Старт от:\s*([\d\s]+)\s*¥/i)?.[1];
-    const sourcePrice = numberFrom(priceText);
+    const sourcePrice = [
+      text.match(/Конечная цена:\s*([\d\s]+)\s*¥/i)?.[1],
+      text.match(/Последняя ставка:\s*([\d\s]+)\s*¥/i)?.[1],
+      text.match(/Старт от:\s*([\d\s]+)\s*¥/i)?.[1]
+    ].map(numberFrom).find((price) => price > 0) || 0;
     if (!sourceId || !make || !model || !sourcePrice) return [];
     const engineLiters = Number(text.match(/Двигатель\s*:\s*([\d.,]+)\s*л/i)?.[1]?.replace(",", "."));
     const photos = card.find("img[src]").toArray().map((image) => $(image).attr("src") || "").filter((url) => url.startsWith(BANZAI_IMAGE_PREFIX)).map(proxyBanzaiPhotoUrl);
@@ -388,7 +391,7 @@ export function parseBanzaiVehiclePage(html: string, sourceId: string): External
     || numberFrom(text.match(/(?:Конечная цена|Final price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1])
     || numberFrom(text.match(/(?:Последняя ставка|Latest bid)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1])
     || numberFrom(text.match(/(?:Стартовая цена|Старт от|Start price)\s*:\s*([\d\s]+)\s*[¥￥]/i)?.[1]);
-  if (!sourceId || !make || !model || !price) return null;
+  if (!sourceId || !make || !model) return null;
   const engineLiters = Number(engine?.[1]?.replace(",", "."));
   const photos = $("img[src]").toArray().map((image) => $(image).attr("src") || "").filter((url) => url.startsWith(BANZAI_IMAGE_PREFIX)).map(proxyBanzaiPhotoUrl);
   return {

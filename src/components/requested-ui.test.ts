@@ -123,18 +123,17 @@ describe("requested mobile UI", () => {
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
-  it("shows every published review including text-only Telegram reviews", () => {
+  it("shows only photo reviews in equal-height cards", () => {
     const testimonials = read("./testimonials.tsx");
     const css = read("../app/globals.css");
     expect(testimonials).toContain("getPublishedReviews");
-    expect(testimonials).not.toContain("filter((review) => review.image)");
-    expect(testimonials).toContain("if (!added.length) return null");
+    expect(testimonials).toContain("filter((review) => review.image)");
+    expect(testimonials).toContain("if (!reviews.length) return null");
     expect(testimonials).toContain("<ReviewText");
     expect(testimonials).toContain("!/^Отзыв \\d+$/u.test(review.title)");
-    expect(testimonials).not.toContain("const reviews");
     expect(testimonials).not.toContain("Lexus RX 300");
-    expect(css).toMatch(/\.testimonial-grid\s*\{[^}]*align-items:\s*start/);
-    expect(css).not.toContain(".testimonial-card:not(:has(.testimonial-photo)) { display: none; }");
+    expect(css).toMatch(/\.testimonial-grid\s*\{[^}]*align-items:\s*stretch/);
+    expect(css).toMatch(/\.testimonial-card\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
   });
 
   it("opens the supplied delivery price table from the mobile menu", () => {
@@ -248,6 +247,16 @@ describe("requested mobile UI", () => {
     expect(gallery).toContain("Фотографии обновляются из источника");
   });
 
+  it("opens the active car photo in a full-screen dialog", () => {
+    const gallery = read("./car-gallery.tsx");
+    const css = read("../app/globals.css");
+    expect(gallery).toContain("showModal()");
+    expect(gallery).toContain('className="car-photo-dialog"');
+    expect(gallery).toContain("Закрыть полноэкранное фото");
+    expect(gallery).toContain('sizes="100vw" loading="eager"');
+    expect(css).toContain(".car-photo-dialog");
+  });
+
   it("uses a readable stacked delivery list on phones", () => {
     const css = read("../app/globals.css");
     expect(css).toContain(".delivery-prices-mobile { display: none;");
@@ -298,5 +307,13 @@ describe("requested mobile UI", () => {
   it("keeps the catalog sync workflow valid without a secrets expression at job level", () => {
     const workflow = read("../../.github/workflows/catalog-sync.yml");
     expect(workflow).not.toContain("if: ${{ secrets.");
+  });
+
+  it("returns missing Japanese and Chinese cars to their own catalogs", () => {
+    const source = read("../app/auto/[slug]/not-found.tsx");
+    expect(source).toContain("usePathname");
+    expect(source).toContain('slug.startsWith("jp-") ? "japan"');
+    expect(source).toContain('slug.startsWith("cn-") ? "china"');
+    expect(source).toContain('href={`/catalog/${market}`}');
   });
 });

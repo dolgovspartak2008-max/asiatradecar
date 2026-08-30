@@ -33,8 +33,6 @@ export function GlobalJourney() {
     if (!layer || !routeSets.length) return;
     const reducedQuery = matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
-    let previousScroll = scrollY;
-    let reversing = false;
 
     const render = () => {
       frame = 0;
@@ -43,21 +41,18 @@ export function GlobalJourney() {
       const start = hero?.offsetHeight ?? 0;
       const atEnd = maxScroll - scrollY <= 1;
       const progress = reducedQuery.matches ? 0 : atEnd ? 1 : Math.min(1, Math.max(0, (scrollY - start) / Math.max(1, maxScroll - start)));
-      if (scrollY !== previousScroll) reversing = scrollY < previousScroll;
-      previousScroll = scrollY;
-
       routeSets.forEach(({ path, progressPath, movingCar, length }) => {
         const distance = length * progress;
         const point = path.getPointAtLength(distance);
         const before = path.getPointAtLength(Math.max(0, distance - 3));
         const after = path.getPointAtLength(Math.min(length, distance + 3));
-        const angle = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI + 90 + (reversing ? 180 : 0);
+        const heading = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI + 90;
+        const angle = ((heading + 180) % 360 + 360) % 360 - 180;
         movingCar.setAttribute("transform", `translate(${point.x} ${point.y}) rotate(${angle})`);
         progressPath.style.strokeDasharray = String(length);
         progressPath.style.strokeDashoffset = String(length - distance);
       });
       layer.classList.toggle("journey-started", progress > 0);
-      layer.classList.toggle("journey-finished", progress >= .9999);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(render); };
     render();
@@ -83,7 +78,6 @@ export function GlobalJourney() {
         <linearGradient id="journey-land" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e9e2d2"/><stop offset="1" stopColor="#c9bea8"/></linearGradient>
         <pattern id="map-grid" width="46" height="46" patternUnits="userSpaceOnUse"><path d="M46 0H0V46" fill="none" stroke="#fff" strokeOpacity=".22" strokeWidth="1"/></pattern>
         <pattern id="map-dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r=".8" fill="#685f4e" fillOpacity=".18"/></pattern>
-        <filter id="car-shadow"><feDropShadow dx="0" dy="6" stdDeviation="5" floodOpacity=".42"/></filter>
       </defs>
       <rect className="journey-sea" width="1200" height="760" fill="url(#journey-sea)"/>
       <rect className="map-grid" width="1200" height="760" fill="url(#map-grid)"/>
@@ -113,7 +107,7 @@ export function GlobalJourney() {
         <path className="journey-route-road" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281"/>
         <path className="journey-route-base" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281"/>
         <path className="journey-route-progress" d="M930 477C868 414 831 406 779 405S672 443 600 407 495 333 407 347 307 326 238 281"/>
-        <g className="journey-car" transform="translate(930 477)" filter="url(#car-shadow)">{car}</g>
+        <g className="journey-car" transform="translate(930 477)">{car}</g>
         <g className="journey-city"><circle cx="930" cy="477" r="8"/><text x="930" y="453">Владивосток</text></g>
         <g className="journey-city"><circle cx="779" cy="405" r="8"/><text x="779" y="381">Иркутск</text></g>
         <g className="journey-city"><circle cx="600" cy="407" r="8"/><text x="600" y="383">Новосибирск</text></g>
@@ -125,7 +119,7 @@ export function GlobalJourney() {
         <path className="journey-route-road" d="M720 548C692 490 662 447 650 416S680 350 625 302 570 260 555 224 518 185 470 154"/>
         <path className="journey-route-base" d="M720 548C692 490 662 447 650 416S680 350 625 302 570 260 555 224 518 185 470 154"/>
         <path className="journey-route-progress" d="M720 548C692 490 662 447 650 416S680 350 625 302 570 260 555 224 518 185 470 154"/>
-        <g className="journey-car" transform="translate(720 548)" filter="url(#car-shadow)">{car}</g>
+        <g className="journey-car" transform="translate(720 548)">{car}</g>
         <g className="journey-city"><circle cx="720" cy="548" r="9"/><text x="690" y="578">Владивосток</text></g>
         <g className="journey-city"><circle cx="650" cy="416" r="9"/><text x="650" y="392">Иркутск</text></g>
         <g className="journey-city"><circle cx="625" cy="302" r="9"/><text x="625" y="278">Новосибирск</text></g>
@@ -133,6 +127,5 @@ export function GlobalJourney() {
         <g className="journey-city"><circle cx="470" cy="154" r="9"/><text x="492" y="130">Москва</text></g>
       </g>
     </svg>
-    <div className="journey-label"><span>Маршрут по России</span><b>Доставка до вашего города</b></div>
   </div>;
 }

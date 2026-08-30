@@ -105,7 +105,7 @@ it("filters Korea database prices by the final price with current fees", async (
 it("filters external database rows only after recalculating the final price", async () => {
   vi.mocked(query).mockImplementation(async (sql) => {
     const text = String(sql);
-    if (text.includes("catalog_banzai_archive_last_completed_epoch")) return { rows: [{ ready: true }] } as never;
+    if (text.includes("catalog_banzai_current_last_completed_epoch")) return { rows: [{ ready: true }] } as never;
     if (text.includes("site_settings")) return { rows: [{ key: "commission_jp_rub", value: "150000" }] } as never;
     if (text.includes("exchange_rates")) return { rows: [] } as never;
     if (text.startsWith("SELECT * FROM cars")) return { rows: [{
@@ -204,7 +204,7 @@ it("returns active sitemap cars with real update dates and first images", async 
   expect(vi.mocked(query).mock.calls[0][0]).toContain("status = 'active'");
 });
 
-it("keeps Japan on the live archive until the first archive sync cycle is complete", async () => {
+it("combines the current Japan sources until the first sync cycle is complete", async () => {
   vi.mocked(query).mockResolvedValue({ rows: [{ ready: false }] } as never);
   const payload = {
     items: [{ id: "4e75d2d8-0865-4c72-9bcc-5ddc11bca111", car: { mark: "BMW", model: "3 SERIES" }, characteristics: { year: "2022", engineCapacity: "1.8" }, onePrice: 1_250_000 }],
@@ -220,7 +220,31 @@ it("keeps Japan on the live archive until the first archive sync cycle is comple
 
   const result = await getCatalog(parseCatalogParams({ country: "jp" }));
 
-  expect(result.total).toBe(2_733_154);
-  expect(vi.mocked(query).mock.calls.some(([sql]) => String(sql).includes("catalog_banzai_archive_last_completed_epoch"))).toBe(true);
+  expect(result.total).toBe(5_466_308);
+  const lotUrls = vi.mocked(fetch).mock.calls.map(([input]) => String(input)).filter((url) => url.includes("/lots"));
+  expect(lotUrls.some((url) => url.includes("source=onePrice"))).toBe(true);
+  expect(lotUrls.some((url) => url.includes("source=auctions"))).toBe(true);
+  expect(vi.mocked(query).mock.calls.some(([sql]) => String(sql).includes("catalog_banzai_current_last_completed_epoch"))).toBe(true);
   expect(vi.mocked(query).mock.calls.some(([sql]) => String(sql).startsWith("SELECT * FROM cars"))).toBe(false);
+});
+
+it("falls back to a partial Japan archive when Banzai is rate limited", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Banzai rate limit")));
+  vi.mocked(query).mockImplementation(async (sql) => {
+    const text = String(sql);
+    if (text.includes("catalog_banzai_current_last_completed_epoch")) return { rows: [{ ready: false }] } as never;
+    if (text.includes("site_settings") || text.includes("exchange_rates")) return { rows: [] } as never;
+    if (text.startsWith("SELECT * FROM cars")) return { rows: [{
+      id: "jp-partial-1", slug: "jp-partial-1", source_url: null, country: "jp", currency_code: "JPY", make: "Toyota", model: "Prius", trim: null, year: 2023,
+      mileage_km: 12_000, engine_cc: 1800, power_hp: null, fuel: "Hybrid", transmission: null, drive: "FWD", body_type: null,
+      exterior_color: null, interior_color: null, vin: null, price_krw: 1_500_000, price_rub: null, photos: [], details: { catalogSection: "archive" }
+    }] } as never;
+    if (text.startsWith("SELECT count(*)")) return { rows: [{ count: "1" }] } as never;
+    if (text.startsWith("SELECT DISTINCT make")) return { rows: [{ make: "Toyota" }] } as never;
+    return { rows: [] } as never;
+  });
+
+  const result = await getCatalog(parseCatalogParams({ country: "jp" }));
+
+  expect(result).toMatchObject({ total: 1, cars: [expect.objectContaining({ make: "Toyota", model: "Prius" })] });
 });

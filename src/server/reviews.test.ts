@@ -30,24 +30,18 @@ it("uses the selected optimized asset for imported photo reviews", async () => {
   await expect(getPublishedReviews()).resolves.toEqual([{ id: "20", title: "Отзыв 20", text: "Текст", image: "/media/reviews/telegram-2210.webp" }]);
 });
 
-it("shows the original reviews when the local database is not configured", async () => {
+it("shows all 29 imported reviews when the local database is not configured", async () => {
   vi.mocked(hasDatabase).mockReturnValue(false);
 
   const reviews = await getPublishedReviews();
 
-  expect(reviews).toHaveLength(5);
-  expect(reviews.map(({ title, image }) => ({ title, image }))).toEqual([
-    { title: "Lexus RX 300", image: "/media/reviews/lexus-rx300.webp" },
-    { title: "Toyota Corolla", image: "/media/reviews/toyota-corolla.webp" },
-    { title: "Changan", image: "/media/reviews/changan.webp" },
-    { title: "Hyundai Tucson", image: "/media/reviews/hyundai-tucson.webp" },
-    { title: "Volkswagen Sagitar", image: "/media/reviews/volkswagen-sagitar.webp" }
-  ]);
+  expect(reviews).toHaveLength(29);
+  expect(new Set(reviews.map((review) => review.id)).size).toBe(29);
   expect(query).not.toHaveBeenCalled();
 });
 
 it("keeps reviews visible during a temporary database failure", async () => {
   vi.mocked(query).mockRejectedValue(new Error("database unavailable"));
 
-  await expect(getPublishedReviews()).resolves.toHaveLength(5);
+  await expect(getPublishedReviews()).resolves.toHaveLength(29);
 });

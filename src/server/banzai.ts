@@ -1,14 +1,18 @@
 import { createCipheriv, randomBytes, randomUUID } from "node:crypto";
-import { parseBanzaiApiPage, parseBanzaiVehiclePage } from "@/domain/external-catalog";
+import { parseBanzaiApiPage, parseBanzaiCatalog, parseBanzaiVehiclePage, type BanzaiCatalogSection } from "@/domain/external-catalog";
 import type { CatalogSort } from "@/domain/catalog";
 
 const DEFAULT_TRACE_KEY = "Q0RFRkdISUpLTE1OT1BRUlNUVVZXWFla";
 const CATALOG_SOURCE = "archive";
 const BROWSER_HEADERS = { "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36" };
+const API_CACHE_TTL_MS = 5 * 60 * 1000;
+const API_CACHE_LIMIT = 200;
 let sessionCookie: string | undefined;
 let sessionPromise: Promise<string> | undefined;
+const apiCaches = new WeakMap<typeof fetch, Map<string, { expiresAt: number; value: Promise<unknown> }>>();
 
 export type BanzaiCatalogSelection = {
+  source?: BanzaiCatalogSection;
   companyId?: number;
   modelId?: number;
   yearFrom?: number;
@@ -45,19 +49,26 @@ function createTraceHeader() {
 }
 
 async function fetchBanzaiApi(url: URL) {
+  let refreshSession = false;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let response: Response;
     try {
       response = await fetch(url, {
         cache: "no-store",
-        signal: AbortSignal.timeout(10_000),
-        headers: { Accept: "application/json", ...BROWSER_HEADERS, Cookie: await getSessionCookie(attempt > 0), Origin: "https://banzai24.com", Referer: "https://banzai24.com/", "x-ym-trace": createTraceHeader() }
+        signal: AbortSignal.timeout(30_000),
+        headers: { Accept: "application/json", ...BROWSER_HEADERS, Cookie: await getSessionCookie(refreshSession), Origin: "https://banzai24.com", Referer: "https://banzai24.com/", "x-ym-trace": createTraceHeader() }
       });
     } catch (error) {
-      if (attempt === 0) { await new Promise((resolve) => setTimeout(resolve, 1_000)); continue; }
+      const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+      if (attempt === 0) {
+        refreshSession = !timedOut;
+        if (!timedOut) await new Promise((resolve) => setTimeout(resolve, 1_000));
+        continue;
+      }
       throw error;
     }
     if ((response.status === 429 || response.status >= 500) && attempt === 0) {
+      refreshSession = true;
       const retryAfter = Number(response.headers.get("retry-after"));
       const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(2_000, retryAfter * 1000) : 1_000;
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -67,6 +78,40 @@ async function fetchBanzaiApi(url: URL) {
     return response;
   }
   throw new Error("Banzai24 API не ответил");
+}
+
+function cachedApiValue<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  let apiCache = apiCaches.get(fetch);
+  if (!apiCache) {
+    apiCache = new Map();
+    apiCaches.set(fetch, apiCache);
+  }
+  for (const [cachedKey, entry] of apiCache) if (entry.expiresAt <= now) apiCache.delete(cachedKey);
+  const cached = apiCache.get(key);
+  if (cached) return cached.value as Promise<T>;
+  if (apiCache.size >= API_CACHE_LIMIT) {
+    const oldestKey = apiCache.keys().next().value;
+    if (oldestKey) apiCache.delete(oldestKey);
+  }
+  const value = load().catch((error) => {
+    if (apiCache.get(key)?.value === value) apiCache.delete(key);
+    throw error;
+  });
+  apiCache.set(key, { expiresAt: now + API_CACHE_TTL_MS, value });
+  return value;
+}
+
+export async function fetchBanzaiHomepage() {
+  const response = await fetch("https://banzai24.com/", {
+    next: { revalidate: 60 },
+    signal: AbortSignal.timeout(18_000),
+    headers: BROWSER_HEADERS
+  });
+  if (!response.ok) throw new Error(`Banzai24 вернул ${response.status} для каталога`);
+  const catalog = parseBanzaiCatalog(await response.text());
+  if (!catalog.cars.length) throw new Error("Banzai24 не вернул автомобили на главной странице");
+  return catalog;
 }
 
 function parseOptions(payload: unknown): BanzaiCatalogOption[] {
@@ -80,28 +125,29 @@ function parseOptions(payload: unknown): BanzaiCatalogOption[] {
   });
 }
 
-export async function fetchBanzaiMakes() {
+export async function fetchBanzaiMakes(source: BanzaiCatalogSection = CATALOG_SOURCE) {
   const url = new URL("https://banzai24.com/api/catalog-service/companies");
   url.searchParams.set("sort_column", "click_counter");
   url.searchParams.set("sort_direction", "desc");
   url.searchParams.set("countryISO", "JP");
-  url.searchParams.set("source", CATALOG_SOURCE);
-  return parseOptions(await (await fetchBanzaiApi(url)).json()).filter((item) => item.hasLots);
+  url.searchParams.set("source", source);
+  return cachedApiValue(url.href, async () => parseOptions(await (await fetchBanzaiApi(url)).json()).filter((item) => item.hasLots));
 }
 
-export async function fetchBanzaiModels(companyId: number) {
+export async function fetchBanzaiModels(companyId: number, source: BanzaiCatalogSection = CATALOG_SOURCE) {
   const url = new URL("https://banzai24.com/api/catalog-service/models");
   url.searchParams.set("company", String(companyId));
-  url.searchParams.set("source", CATALOG_SOURCE);
+  url.searchParams.set("source", source);
   url.searchParams.set("sort_column", "name");
   url.searchParams.set("sort_direction", "asc");
   url.searchParams.set("per_page", "9999");
-  return parseOptions(await (await fetchBanzaiApi(url)).json()).filter((item) => item.hasLots);
+  return cachedApiValue(url.href, async () => parseOptions(await (await fetchBanzaiApi(url)).json()).filter((item) => item.hasLots));
 }
 
 export async function fetchBanzaiPage(page: number, perPage = 100, selection: BanzaiCatalogSelection = {}) {
   const url = new URL("https://banzai24.com/api/catalog-service/lots");
-  url.searchParams.set("source", CATALOG_SOURCE);
+  const source = selection.source || CATALOG_SOURCE;
+  url.searchParams.set("source", source);
   url.searchParams.set("countryISO", "JP");
   url.searchParams.set("page", String(page));
   url.searchParams.set("perPage", String(perPage));
@@ -116,10 +162,12 @@ export async function fetchBanzaiPage(page: number, perPage = 100, selection: Ba
     : selection.sort === "mileage" ? ["sortMileage", "asc"]
     : ["sortYear", "desc"];
   url.searchParams.set(sort[0], sort[1]);
-  const parsed = parseBanzaiApiPage(await (await fetchBanzaiApi(url)).json());
-  if (!parsed.cars.length && parsed.total > 0) throw new Error(`Banzai24 API вернул пустую страницу ${page}`);
-  if (parsed.total > 0 && parsed.totalPages < 1) throw new Error("Banzai24 API не передал количество страниц");
-  return parsed;
+  return cachedApiValue(url.href, async () => {
+    const parsed = parseBanzaiApiPage(await (await fetchBanzaiApi(url)).json(), source);
+    if (!parsed.cars.length && parsed.total > 0) throw new Error(`Banzai24 API вернул пустую страницу ${page}`);
+    if (parsed.total > 0 && parsed.totalPages < 1) throw new Error("Banzai24 API не передал количество страниц");
+    return parsed;
+  });
 }
 
 export async function fetchBanzaiImage(token: string) {

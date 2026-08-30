@@ -64,7 +64,7 @@ export function parseCatalogParams(params: SearchParams): CatalogFilters {
 }
 
 export const catalogStatusClause = (country: string) => country === "jp"
-  ? "status IN ('active', 'inactive') AND details->>'catalogSection' = 'archive'"
+  ? "status = 'active' AND details->>'catalogSection' IN ('auctions', 'onePrice')"
   : "status = 'active'";
 
 export function buildCatalogQuery(filters: CatalogFilters) {

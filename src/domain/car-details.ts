@@ -47,12 +47,18 @@ export function readInsuranceHistory(details: Record<string, unknown>) {
 }
 
 export function readInsuranceSummary(details: Record<string, unknown>) {
+  const count = Number(details.accidentCount);
+  const payoutRub = Number(details.accidentPayoutRub);
+  if (Number.isFinite(count) && count > 0 && Number.isFinite(payoutRub) && payoutRub > 0) {
+    return `${count} / ${payoutRub.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ₽`;
+  }
   for (const key of ["insuranceOwn", "accident"] as const) {
     const value = details[key];
     if (typeof value !== "string") continue;
-    if (/без зарегистрированных ДТП/i.test(value)) return "0 / 0 ₽";
+    if (/без зарегистрированных ДТП/i.test(value)) return null;
     const match = value.match(/(?:^|:\s*)(\d+)\s*\/[\s\S]*?([\d\s\u00a0]+)\s*₽/);
     if (!match) continue;
+    if (Number(match[1]) === 0) return null;
     const payoutRub = Number(match[2].replace(/[^\d]/g, ""));
     return `${Number(match[1])} / ${payoutRub.toLocaleString("ru-RU").replace(/\u00a0/g, " ")} ₽`;
   }

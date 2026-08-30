@@ -33,6 +33,15 @@ describe("external catalog parsers", () => {
     expect(result.cars[0].status).toBe("inactive");
   });
 
+  it("marks current Japanese listings with their live catalog section", () => {
+    const result = parseBanzaiApiPage({
+      items: [{ id: "live-1", car: { mark: "SUZUKI", model: "EVERY" }, registrationYear: 2024, startPrice: 450_000 }],
+      pagination: { total: 1, totalPages: 1 }
+    }, "auctions");
+
+    expect(result.cars[0]).toMatchObject({ status: "active", details: { catalogSection: "auctions" } });
+  });
+
   it("routes protected Banzai24 photos through the local image endpoint", () => {
     const proxyPhoto = Reflect.get(externalCatalog, "proxyBanzaiPhotoUrl");
     expect(proxyPhoto).toBeTypeOf("function");
@@ -166,7 +175,7 @@ describe("external catalog parsers", () => {
       <p class="card__lot-info">Лот 101, JU Tokyo</p>
       <span>Год :</span><span>2022</span><span>Пробег :</span><span>31 000 км</span>
       <span>Коробка :</span><span>Автомат</span><span>Двигатель :</span><span>1.8 л / 122 л.с.</span>
-      <span>Конечная цена:</span><span>1 250 000 ¥</span>
+      <span>Старт от:</span><span>1 250 000 ¥</span><span>Конечная цена:</span><span>0 ¥</span>
       <img src="https://banzai24.com/api/image-service/test" />
     </div>`;
 
@@ -225,6 +234,18 @@ describe("external catalog parsers", () => {
     expect(parseBanzaiVehiclePage(html, "01a021ee-bb99-745e-865f-db8781f20af6")).toMatchObject({
       make: "AUDI", model: "A4", trim: "2.0TFSI", year: 2014,
       mileageKm: 132_000, engineCc: 2_000, sourcePrice: 170_000
+    });
+  });
+
+  it("keeps a closed Japanese lot available when its price is missing", () => {
+    const html = `<h1>SUZUKI EVERY, PZ TURBO SPECIAL</h1><main>
+      <div>Год : 2026</div><div>Пробег : 0 км</div><div>Двигатель : 0.7 л</div>
+      <div>Старт от: -</div><div>Конечная цена: -</div>
+      <img src="https://banzai24.com/api/image-service/every" /></main>`;
+
+    expect(parseBanzaiVehiclePage(html, "019dc2e0-3cbb-7c54-8f4f-975899a95919")).toMatchObject({
+      make: "SUZUKI", model: "EVERY", trim: "PZ TURBO SPECIAL", sourcePrice: 0,
+      photos: ["/api/catalog/image/banzai/every"]
     });
   });
 });

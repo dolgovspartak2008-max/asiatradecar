@@ -38,10 +38,13 @@ describe("readInsuranceSummary", () => {
   it("returns only the case count and payout in rubles", () => {
     expect(readInsuranceSummary({ insuranceOwn: "1 / 1 227 805 ₩ (77 781 ₽)" })).toBe("1 / 77 781 ₽");
     expect(readInsuranceSummary({ accident: "Страховая история ДТП: 4 / 412 270 ₽" })).toBe("4 / 412 270 ₽");
+    expect(readInsuranceSummary({ accidentCount: 2, accidentPayoutRub: 98_633 })).toBe("2 / 98 633 ₽");
   });
 
-  it("reports zero claims and hides incomplete or unavailable data", () => {
-    expect(readInsuranceSummary({ accident: "Без зарегистрированных ДТП" })).toBe("0 / 0 ₽");
+  it("hides zero claims, incomplete and unavailable data", () => {
+    expect(readInsuranceSummary({ accident: "Без зарегистрированных ДТП" })).toBeNull();
+    expect(readInsuranceSummary({ accident: "Страховая история ДТП: 0 / 0 ₽" })).toBeNull();
+    expect(readInsuranceSummary({ insuranceOwn: "0 / 0 ₩ (0 ₽)" })).toBeNull();
     expect(readInsuranceSummary({ accidentCount: 2 })).toBeNull();
     expect(readInsuranceSummary({})).toBeNull();
   });

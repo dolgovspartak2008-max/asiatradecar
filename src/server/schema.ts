@@ -23,6 +23,8 @@ CREATE INDEX IF NOT EXISTS cars_active_country_idx ON cars (country,status,year 
 CREATE INDEX IF NOT EXISTS cars_price_idx ON cars (price_rub) WHERE status='active';
 CREATE INDEX IF NOT EXISTS cars_search_idx ON cars USING gin (search_vector);
 CREATE INDEX IF NOT EXISTS cars_make_model_idx ON cars (make,model);
+CREATE INDEX IF NOT EXISTS cars_japan_current_year_idx ON cars (year DESC,updated_at DESC) WHERE country='jp' AND status='active' AND details->>'catalogSection' IN ('auctions','onePrice');
+CREATE INDEX IF NOT EXISTS cars_japan_current_make_model_idx ON cars (make,model,year DESC) WHERE country='jp' AND status='active' AND details->>'catalogSection' IN ('auctions','onePrice');
 CREATE TABLE IF NOT EXISTS leads (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, name text NOT NULL, phone text NOT NULL, city text NOT NULL,
   wishes text NOT NULL DEFAULT '', page_url text, car_name text, calculation_rub bigint,

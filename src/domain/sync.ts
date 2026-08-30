@@ -364,7 +364,8 @@ export function normalizeTrustEncarRecord(input: Record<string, unknown>): FeedC
       registration: input.REGISTRATION_LABEL ?? input.MONTH ?? null,
       generation: input.GENERATION_SHOW ?? input.GENERATION_EN ?? null,
       seats: numberFrom(input.SEATS) || null,
-      accidentCount: numberFrom(input.ACCIDENT_COUNT_SUM) || 0
+      accidentCount: numberFrom(input.ACCIDENT_COUNT_SUM) || 0,
+      accidentPayoutRub: numberFrom(input.ACCIDENT_COST_RUB_SUM) || 0
     }
   });
 }

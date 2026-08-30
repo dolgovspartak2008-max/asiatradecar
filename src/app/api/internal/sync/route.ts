@@ -3,7 +3,7 @@ import { syncAuthorizedCatalog } from "@/server/sync";
 import { syncCbrKrwRate } from "@/server/rates";
 import { purgeExpiredLeadData } from "@/server/leads";
 import { ensureTelegramWebhook } from "@/server/telegram-bot";
-import { syncExternalCatalogs } from "@/server/external-sync";
+import { syncExternalCatalogs, syncJapanCatalog } from "@/server/external-sync";
 import { ensureDatabaseSchema } from "@/server/schema";
 
 function authorized(request: NextRequest) { return Boolean(process.env.CRON_SECRET) && request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`; }
@@ -15,6 +15,10 @@ async function run(request: NextRequest) {
       try { return { ok: true as const, value: await work() }; }
       catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Sync failed" }; }
     };
+    if (request.nextUrl.searchParams.get("scope") === "japan") {
+      const japan = await safe(syncJapanCatalog);
+      return NextResponse.json({ ok: japan.ok, japan });
+    }
     const [retention, rates, catalog, externalCatalogs, telegram] = await Promise.all([
       safe(purgeExpiredLeadData), safe(syncCbrKrwRate), safe(syncAuthorizedCatalog), safe(syncExternalCatalogs), safe(ensureTelegramWebhook)
     ]);

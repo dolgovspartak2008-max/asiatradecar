@@ -22,6 +22,14 @@ describe("site loading reliability", () => {
     expect(journey).toContain("requestAnimationFrame");
     expect(journey).toContain('addEventListener("scroll"');
     expect(journey).toContain("getPointAtLength");
+    expect(journey).not.toContain("reversing");
+    expect(journey).toContain("Math.atan2");
+    expect(journey).toContain("+ 90");
+    expect(journey).toContain("rotate(${angle})");
+    expect(journey).not.toContain("rotate(360");
+    expect(journey).not.toContain("car-shadow");
+    expect(journey).not.toContain("journey-label");
+    expect(css).not.toContain(".journey-label");
     expect(layout).toContain("<GlobalJourney />");
     expect(home).not.toContain("<GlobalJourney />");
     expect(orders).not.toContain("<GlobalJourney />");

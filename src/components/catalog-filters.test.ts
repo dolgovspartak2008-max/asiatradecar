@@ -7,12 +7,10 @@ describe("CatalogFilters", () => {
     expect(source).not.toContain('name="country"');
   });
 
-  it("renders model generations as inline year-range buttons", () => {
+  it("does not render model generations", () => {
     const source = readFileSync(new URL("./catalog-filters.tsx", import.meta.url), "utf8");
-    expect(source).toContain("generation-buttons");
-    expect(source).toContain("generation.minYear");
-    expect(source).toContain("generation.maxYear");
-    expect(source).toContain("applyFilters(");
+    expect(source).not.toContain("generation");
+    expect(source).not.toContain("Поколение");
   });
 
   it("shows separate year-from and year-to controls", () => {
@@ -20,6 +18,25 @@ describe("CatalogFilters", () => {
     expect(source).toContain('<label>Год от<input name="yearFrom" type="number"');
     expect(source).toContain('<label>Год до<input name="yearTo" type="number"');
     expect(source).not.toContain('<input name="yearTo" type="hidden"');
+  });
+
+  it("lets users type or choose a make and shows brand marks in the list", () => {
+    const source = readFileSync(new URL("./catalog-filters.tsx", import.meta.url), "utf8");
+    expect(source).toContain('type="search"');
+    expect(source).toContain('aria-label="Поиск марки"');
+    expect(source).toContain('className="brand-select-options"');
+    expect(source).toContain('role="listbox"');
+    expect(source).toContain("BrandMark");
+    expect(source).not.toContain("<label>Марка<select");
+  });
+
+  it("shows make marks on every Japanese and Chinese catalog card", () => {
+    const card = readFileSync(new URL("./car-card.tsx", import.meta.url), "utf8");
+    const mark = readFileSync(new URL("./brand-mark.tsx", import.meta.url), "utf8");
+    expect(card).toContain("<BrandMark make={car.make} country={car.country}");
+    expect(card).toContain('["jp", "cn"].includes(car.country)');
+    expect(mark).toContain("brandLogoSource");
+    expect(mark).toContain("trust-encar.ru/wp-content/uploads");
   });
 
   it("updates and resets filters without scrolling the catalog to the top", () => {
@@ -31,7 +48,9 @@ describe("CatalogFilters", () => {
     expect(source).toContain("window.location.pathname");
     expect(source).toContain("window.location.search");
     expect(source).toContain("Сбросить все фильтры");
-    expect(source).not.toContain("useTransition");
+    expect(source).toContain("useTransition");
+    expect(source).toContain("Секунду, загружаем автомобили");
+    expect(source).toContain('aria-live="polite"');
     expect(source).not.toContain("document.activeElement");
     expect(source).not.toContain("requestSubmit()");
   });

@@ -42,6 +42,8 @@ describe("authorized catalog feed", () => {
       SEAT_COLOR: "Black series",
       VEHICLENO: "230오5656",
       FINISH: "30300000",
+      ACCIDENT_COUNT_SUM: "2",
+      ACCIDENT_COST_RUB_SUM: "98633",
       IMAGES: "[\"https://ci.encar.com/carpicture06/pic4256/42569219_001.jpg\"]"
     });
 
@@ -55,7 +57,8 @@ describe("authorized catalog feed", () => {
       powerHp: 180,
       fuel: "Бензин",
       drive: "2WD",
-      priceKrw: 30300000
+      priceKrw: 30300000,
+      details: { accidentCount: 2, accidentPayoutRub: 98633 }
     });
     expect(car.photos).toHaveLength(1);
     expect(car.photos[0]).toBe("https://trust-encar.ru/images/carpicture06/pic4256/42569219_001.jpg");
