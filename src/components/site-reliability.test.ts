@@ -4,6 +4,12 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 describe("site loading reliability", () => {
+  it("lets browsers reuse unchanged public media", () => {
+    const config = read("../../next.config.ts");
+    expect(config).toContain('source: "/media/:path*"');
+    expect(config).toContain('value: "public, max-age=86400, stale-while-revalidate=604800"');
+  });
+
   it("streams database-backed reviews without blocking the first screen", () => {
     const home = read("../app/page.tsx");
     expect(home).toContain('import { Suspense } from "react"');

@@ -9,7 +9,7 @@ import { CatalogLinkStatus } from "@/components/catalog-link-status";
 import { site } from "@/config/site";
 import { buildOrganizationSchema } from "@/domain/seo";
 
-export const revalidate = 0;
+export const revalidate = 3600;
 
 const stages = [
   ["01", "Заявка", "Уточняем страну, бюджет, модель, комплектацию, пробег и город получения."],

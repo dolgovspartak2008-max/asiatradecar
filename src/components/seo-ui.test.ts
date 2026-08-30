@@ -83,9 +83,11 @@ it("ships square, high-resolution favicon assets for search results", () => {
   expect(icoSizes("../app/favicon.ico")).toEqual(expect.arrayContaining([16, 32, 48, 192]));
 });
 
-it("does not let browsers or proxies reuse stale homepage asset references", () => {
+it("serves the homepage from ISR and refreshes it after review updates", () => {
   const source = read("../app/page.tsx");
-  expect(source).toContain("export const revalidate = 0");
-  expect(source).not.toContain("export const revalidate = 3600");
+  const telegramBot = read("../server/telegram-bot.ts");
+  expect(source).toContain("export const revalidate = 3600");
+  expect(source).not.toContain("export const revalidate = 0");
   expect(source).not.toContain('dynamic = "force-dynamic"');
+  expect(telegramBot).toContain('revalidatePath("/")');
 });
