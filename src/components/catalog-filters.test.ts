@@ -30,6 +30,11 @@ describe("CatalogFilters", () => {
     expect(source).not.toContain("<label>Марка<select");
   });
 
+  it("keeps the make picker open when mobile blur has no related target", () => {
+    const source = readFileSync(new URL("./catalog-filters.tsx", import.meta.url), "utf8");
+    expect(source).toContain("event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)");
+  });
+
   it("shows make marks on every Japanese and Chinese catalog card", () => {
     const card = readFileSync(new URL("./car-card.tsx", import.meta.url), "utf8");
     const mark = readFileSync(new URL("./brand-mark.tsx", import.meta.url), "utf8");
