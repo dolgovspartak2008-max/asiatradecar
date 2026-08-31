@@ -170,6 +170,13 @@ describe("requested mobile UI", () => {
     expect(css).toMatch(/\.country-card-pending\s*\{[^}]*position:\s*absolute/);
   });
 
+  it("opens the catalog chooser from empty favorites without changing the button", () => {
+    const favorites = read("./favorites-grid.tsx");
+    expect(favorites).toContain('import { CatalogChooser } from "@/components/catalog-chooser"');
+    expect(favorites).toContain('<CatalogChooser label="Перейти в каталог" showIcon={false} />');
+    expect(favorites).not.toContain('href="/catalog/korea"');
+  });
+
   it("shows the complete header logo without vertical cropping", () => {
     const css = read("../app/globals.css");
     expect(css).toMatch(/\.logo \{[^}]*height:\s*68px/);

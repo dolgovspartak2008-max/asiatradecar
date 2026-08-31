@@ -11,11 +11,11 @@ const countries = [
   { code: "CN", name: "Китай", href: "/catalog/china" }
 ] as const;
 
-export function CatalogChooser({ label, className = "button" }: { label: string; className?: string }) {
+export function CatalogChooser({ label, className = "button", showIcon = true }: { label: string; className?: string; showIcon?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   return <>
-    <button className={className} type="button" onClick={() => dialog.current?.showModal()}>{label} <Icon name="arrow" /></button>
+    <button className={className} type="button" onClick={() => dialog.current?.showModal()}>{label}{showIcon && <> <Icon name="arrow" /></>}</button>
     <dialog className="catalog-choice-dialog" ref={dialog} aria-labelledby={titleId} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
       <div className="catalog-choice-panel">
         <button className="dialog-close" type="button" onClick={() => dialog.current?.close()} aria-label="Закрыть выбор каталога"><Icon name="x" /></button>
