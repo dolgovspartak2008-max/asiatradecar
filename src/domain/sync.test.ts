@@ -238,6 +238,14 @@ describe("authorized catalog feed", () => {
     expect(parseVehicle(html)).toMatchObject({ id: "42592487", make: "BMW", model: "X3", year: 2011, mileageKm: 171000, engineCc: 1995, priceRub: 2450000 });
   });
 
+  it("reads the turnkey price from visible detail text when JSON-LD omits offers", () => {
+    const parseVehicle = Reflect.get(sync, "parseTrustEncarVehiclePage");
+    const vehicle = { "@type": "Vehicle", sku: "42463638", brand: { name: "Mercedes-Benz" }, model: "CLE-Class", productionDate: 2024 };
+    const html = `<script type="application/ld+json">${JSON.stringify(vehicle)}</script><div>Стоимость до Владивостока: ~ 6 892 604 ₽</div>`;
+
+    expect(parseVehicle(html)).toMatchObject({ id: "42463638", priceRub: 6_892_604 });
+  });
+
   it("does not label the Korea-only price as a turnkey price", () => {
     const parsePage = Reflect.get(sync, "parseTrustEncarCatalogPage");
     const html = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>

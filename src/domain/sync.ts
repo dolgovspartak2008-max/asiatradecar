@@ -281,7 +281,8 @@ export function parseTrustEncarVehiclePage(html: string): TrustEncarCatalogCar |
       costBreakdown
     }
   });
-  return { ...normalized, priceRub: numberFrom(offers.price) || null };
+  const visiblePriceRub = numberFrom(pageText.match(/Стоимость до (?:города )?Владивостока:\s*~?\s*([\d\s]+)\s*₽/i)?.[1]);
+  return { ...normalized, priceRub: numberFrom(offers.price) || visiblePriceRub || null };
 }
 
 export function buildTrustEncarSearchBody(
