@@ -35,6 +35,17 @@ describe("CatalogFilters", () => {
     expect(source).toContain("event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)");
   });
 
+  it("lets users search and choose a model in the same picker style", () => {
+    const source = readFileSync(new URL("./catalog-filters.tsx", import.meta.url), "utf8");
+    const styles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+    expect(source).toContain('aria-label="Поиск модели"');
+    expect(source).toContain('aria-label="Модели автомобилей"');
+    expect(source).toContain('className="brand-select-options model-select-options"');
+    expect(source).toContain("Модель не найдена");
+    expect(source).not.toContain("<label>Модель<select");
+    expect(styles).toContain(".model-select-options button");
+  });
+
   it("shows make marks on every Japanese and Chinese catalog card", () => {
     const card = readFileSync(new URL("./car-card.tsx", import.meta.url), "utf8");
     const mark = readFileSync(new URL("./brand-mark.tsx", import.meta.url), "utf8");
