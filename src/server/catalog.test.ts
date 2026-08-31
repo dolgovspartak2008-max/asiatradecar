@@ -32,6 +32,29 @@ describe("live Trust Encar catalog", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://trust-encar.ru/catalog/?page=1", expect.any(Object));
   });
 
+  it("loads the turnkey price from the vehicle page when a leasing card omits it", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const catalog = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>
+      <script>window.TE_CATALOG_SSR = {"total":1,"facets":{"facets":{"marks":[{"value":"9","name":"Mercedes-Benz","count":1}]}}};</script>
+      <article class="auto-item" data-href="https://trust-encar.ru/auto/42463638/">
+        <img class="te-car-title__logo" alt="Mercedes-Benz" /><span class="te-car-title__text">Mercedes-Benz CLE-Class</span>
+        <div class="catalog-item-options"><p class="price">Дата регистрации в Корее: 12.2024</p>
+          <p class="price">1999 см³ / Бензин / 2WD</p><p class="price">29 112 км</p>
+          <p class="price auto-price">Стоимость авто в Корее: 3 823 857 ₽ (59 860 000 ₩)</p><p class="price">Лот: 42463638</p>
+        </div>
+      </article>`;
+    const vehicle = { "@type": "Vehicle", sku: "42463638", brand: { name: "Mercedes-Benz" }, model: "CLE-Class", productionDate: 2024, offers: { price: 6_892_604 } };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(catalog, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<script type="application/ld+json">${JSON.stringify(vehicle)}</script>`, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getCatalog(parseCatalogParams({ country: "kr" }));
+
+    expect(result.cars[0].priceRub).toBe(6_942_604);
+    expect(fetchMock).toHaveBeenCalledWith("https://trust-encar.ru/auto/42463638/", expect.any(Object));
+  });
+
   it("keeps the static home page buildable when the live source is unavailable", async () => {
     vi.stubEnv("DATABASE_URL", "");
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));

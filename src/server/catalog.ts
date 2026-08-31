@@ -89,6 +89,23 @@ const fromExternalCar = (car: ExternalCatalogCar): Car => ({
   vin: car.vin, priceKrw: car.sourcePrice, priceRub: null, photos: car.photos.map(proxyBanzaiPhotoUrl), details: car.details
 });
 
+async function completeKoreaPrices(cars: Car[]) {
+  return Promise.all(cars.map(async (car) => {
+    if (car.priceRub || !car.id) return car;
+    try {
+      const response = await fetch(`https://trust-encar.ru/auto/${car.id}/`, {
+        next: { revalidate: 300, tags: [`trust-encar-car-${car.id}`] },
+        signal: AbortSignal.timeout(6_000)
+      });
+      if (!response.ok) return car;
+      const detail = parseTrustEncarVehiclePage(await response.text());
+      return detail?.priceRub ? { ...car, priceRub: detail.priceRub, details: { ...car.details, ...detail.details } } : car;
+    } catch {
+      return car;
+    }
+  }));
+}
+
 function applyExternalPricing(car: Car, rubPerUnit: number, customs: CustomsCostsRub = {}, commissionRub = DEFAULT_COMMISSION_RUB): Car {
   const country = car.country === "jp" ? "jp" : "cn";
   if (!car.priceKrw) return car;
@@ -344,7 +361,7 @@ async function getBrowseCatalog(filters: CatalogFilters) {
   if (!response.ok) throw new Error(`Trust Encar вернул ${response.status}`);
   const parsed = parseTrustEncarCatalogPage(await response.text());
   if (!parsed.cars.length && page <= Math.ceil(parsed.total / filters.limit)) throw new Error("Trust Encar вернул пустую страницу каталога");
-  return { cars: parsed.cars.map(fromFeedCar), total: parsed.total, makes: parsed.makes, models: [] as string[] };
+  return { cars: await completeKoreaPrices(parsed.cars.map(fromFeedCar)), total: parsed.total, makes: parsed.makes, models: [] as string[] };
 }
 
 async function getLiveCatalog(filters: CatalogFilters) {
@@ -425,7 +442,7 @@ async function getLiveCatalog(filters: CatalogFilters) {
   const total = count.status === "success" && Number.isFinite(Number(count.total)) ? Number(count.total) : bootstrap.total;
   const facets = modelsResponse?.ok ? await modelsResponse.json() : null;
   const models = parseTrustEncarModelsFacet(facets).map((model) => model.name);
-  return { cars, total, makes: bootstrap.makes.map((make) => make.name), models };
+  return { cars: await completeKoreaPrices(cars), total, makes: bootstrap.makes.map((make) => make.name), models };
 }
 
 async function getDatabaseCatalog(filters: CatalogFilters) {
