@@ -33,38 +33,61 @@ export function GlobalJourney() {
     if (!layer || !routeSets.length) return;
     const reducedQuery = matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
+    let maxScroll = 1;
+    let start = 0;
+    let mobile = innerWidth <= 540;
+    let lastProgress = -1;
+    let lastRoute = -1;
+
+    routeSets.forEach(({ progressPath, length }) => {
+      progressPath.style.strokeDasharray = String(length);
+      progressPath.style.strokeDashoffset = String(length);
+    });
+
+    const measure = () => {
+      maxScroll = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+      const hero = pathname === "/" ? document.querySelector<HTMLElement>(".hero") : null;
+      start = hero?.offsetHeight ?? 0;
+      mobile = innerWidth <= 540;
+    };
 
     const render = () => {
       frame = 0;
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - innerHeight);
-      const hero = pathname === "/" ? document.querySelector<HTMLElement>(".hero") : null;
-      const start = hero?.offsetHeight ?? 0;
       const atEnd = maxScroll - scrollY <= 1;
       const progress = reducedQuery.matches ? 0 : atEnd ? 1 : Math.min(1, Math.max(0, (scrollY - start) / Math.max(1, maxScroll - start)));
-      routeSets.forEach(({ path, progressPath, movingCar, length }) => {
-        const distance = length * progress;
-        const point = path.getPointAtLength(distance);
-        const before = path.getPointAtLength(Math.max(0, distance - 3));
-        const after = path.getPointAtLength(Math.min(length, distance + 3));
-        const heading = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI + 90;
-        const angle = ((heading + 180) % 360 + 360) % 360 - 180;
-        movingCar.setAttribute("transform", `translate(${point.x} ${point.y}) rotate(${angle})`);
-        progressPath.style.strokeDasharray = String(length);
-        progressPath.style.strokeDashoffset = String(length - distance);
-      });
+      const route = routeSets[mobile ? 1 : 0] ?? routeSets[0];
+      const routeIndex = routeSets.indexOf(route);
+      if (routeIndex === lastRoute && progress === lastProgress) return;
+      const { path, progressPath, movingCar, length } = route;
+      const distance = length * progress;
+      const point = path.getPointAtLength(distance);
+      const before = path.getPointAtLength(Math.max(0, distance - 3));
+      const after = path.getPointAtLength(Math.min(length, distance + 3));
+      const heading = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI + 90;
+      const angle = ((heading + 180) % 360 + 360) % 360 - 180;
+      movingCar.setAttribute("transform", `translate(${point.x} ${point.y}) rotate(${angle})`);
+      progressPath.style.strokeDashoffset = String(length - distance);
+      lastProgress = progress;
+      lastRoute = routeIndex;
       layer.classList.toggle("journey-started", progress > 0);
     };
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(render); };
+    const schedule = () => { if (!frame && !reducedQuery.matches) frame = requestAnimationFrame(render); };
+    const refresh = () => {
+      measure();
+      lastProgress = -1;
+      if (!frame) frame = requestAnimationFrame(render);
+    };
+    measure();
     render();
     addEventListener("scroll", schedule, { passive: true });
-    addEventListener("resize", schedule, { passive: true });
-    reducedQuery.addEventListener("change", schedule);
-    const observer = new ResizeObserver(schedule);
+    addEventListener("resize", refresh, { passive: true });
+    reducedQuery.addEventListener("change", refresh);
+    const observer = new ResizeObserver(refresh);
     observer.observe(document.documentElement);
     return () => {
       removeEventListener("scroll", schedule);
-      removeEventListener("resize", schedule);
-      reducedQuery.removeEventListener("change", schedule);
+      removeEventListener("resize", refresh);
+      reducedQuery.removeEventListener("change", refresh);
       observer.disconnect();
       if (frame) cancelAnimationFrame(frame);
     };

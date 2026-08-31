@@ -5,18 +5,14 @@ import { useEffect, useRef } from "react";
 export function VideoHero() {
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    const media = matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => {
       if (!video.current) return;
-      if (media.matches || document.hidden) video.current.pause();
-      else void video.current.play().catch(() => undefined);
+      void video.current.play().catch(() => undefined);
     };
     sync();
-    media.addEventListener("change", sync);
     document.addEventListener("visibilitychange", sync);
     document.addEventListener("pointerdown", sync, { passive: true });
     return () => {
-      media.removeEventListener("change", sync);
       document.removeEventListener("visibilitychange", sync);
       document.removeEventListener("pointerdown", sync);
     };

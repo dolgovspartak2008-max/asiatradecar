@@ -39,8 +39,10 @@ describe("site loading reliability", () => {
     expect(layout).toContain("<GlobalJourney />");
     expect(home).not.toContain("<GlobalJourney />");
     expect(orders).not.toContain("<GlobalJourney />");
-    expect(css).toMatch(/\.journey-car\s*\{[^}]*transition:\s*transform/);
-    expect(css).toMatch(/\.global-journey\.journey-started \.journey-car\s*\{[^}]*will-change:\s*transform/);
+    expect(css).not.toMatch(/\.journey-car\s*\{[^}]*transition:\s*transform/);
+    expect(css).not.toMatch(/\.global-journey\.journey-started \.journey-car\s*\{[^}]*will-change:\s*transform/);
+    expect(journey).toContain("const measure = () =>");
+    expect(journey).toContain("const route = routeSets[mobile ? 1 : 0] ?? routeSets[0]");
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.journey-car\s*\{[^}]*will-change:\s*auto/);
   });
 });

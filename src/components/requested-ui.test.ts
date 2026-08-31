@@ -245,6 +245,7 @@ describe("requested mobile UI", () => {
     expect(card).toContain("onError");
     expect(card).toContain("setImageFailed(true)");
     expect(card).toContain("Фото обновляется");
+    expect(card).toContain("/api/catalog/image/banzai/");
   });
 
   it("removes failed photos from the detail gallery", () => {
@@ -309,6 +310,33 @@ describe("requested mobile UI", () => {
     const mobile = read("./global-journey.tsx").split('<g className="journey-mobile"')[1];
     expect(mobile).toContain('<text x="570" y="198">Екатеринбург</text>');
     expect(mobile).toContain('<text x="625" y="278">Новосибирск</text>');
+  });
+
+  it("keeps narrow vehicle pages inside the mobile viewport", () => {
+    const css = read("../app/globals.css");
+    expect(css).toMatch(/@media \(max-width: 800px\)[\s\S]*\.car-detail-grid \{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+    expect(css).toMatch(/\.car-page\s*\{[^}]*overflow-x:\s*clip/);
+  });
+
+  it("uses accessible gold text and 44px touch targets", () => {
+    const css = read("../app/globals.css");
+    expect(css).toContain("--gold-dark: #865f1d;");
+    expect(css).toMatch(/\.global-back-button\s*\{[^}]*min-height:\s*44px/);
+    expect(css).toMatch(/@media \(max-width: 800px\)[\s\S]*\.global-back-button\s*\{[^}]*top:\s*72px/);
+    expect(css).toMatch(/\.price-breakdown-trigger\s*\{[^}]*min-height:\s*44px/);
+  });
+
+  it("keeps useful reduced-motion feedback instead of disabling every transition", () => {
+    const css = read("../app/globals.css");
+    expect(css).not.toContain("*, *::before, *::after { animation-duration: .01ms");
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transition-duration:\s*\.15s/);
+  });
+
+  it("updates only the visible route during scroll and caches layout measurements", () => {
+    const journey = read("./global-journey.tsx");
+    expect(journey).toContain("const measure = () =>");
+    expect(journey).toContain("const route = routeSets[mobile ? 1 : 0] ?? routeSets[0]");
+    expect(journey).not.toContain("routeSets.forEach(({ path, progressPath, movingCar, length }) =>");
   });
 
   it("keeps the catalog sync workflow valid without a secrets expression at job level", () => {

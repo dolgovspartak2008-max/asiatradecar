@@ -11,6 +11,8 @@ it("starts one hero video natively with a visible poster fallback", () => {
   expect(source).not.toContain('addEventListener("load"');
   expect(source).toContain('addEventListener("pointerdown"');
   expect(source).toContain('addEventListener("visibilitychange"');
+  expect(source).not.toContain("prefers-reduced-motion");
+  expect(source).not.toContain(".pause()");
   expect(source).not.toContain("requestAnimationFrame");
   expect(source).not.toContain("<button");
   expect(css).toContain('url("/media/hero-import.webp")');
