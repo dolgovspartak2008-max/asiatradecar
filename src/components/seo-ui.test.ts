@@ -57,15 +57,18 @@ it("backs customs and vehicle-document guidance with primary sources", () => {
   expect(source).toContain("https://elpts.ru/");
 });
 
-it("uses optimized local media and Next image optimization", () => {
+it("uses optimized local media", () => {
   expect(existsSync(new URL("../../public/media/hero-import.webp", import.meta.url))).toBe(true);
   expect(existsSync(new URL("../../public/media/reviews/volkswagen-sagitar.webp", import.meta.url))).toBe(true);
   expect(read("./logo.tsx")).toContain("asia-trade-car-logo-transparent.webp");
-  expect(read("./car-card.tsx")).not.toContain("unoptimized");
   const gallery = read("./car-gallery.tsx");
-  expect(gallery).not.toContain("unoptimized");
   expect(gallery).toContain('loading="eager"');
   expect(gallery).not.toContain(" priority");
+});
+
+it("serves catalog images directly without hosted image optimization", () => {
+  expect(read("./car-card.tsx")).toContain("unoptimized");
+  expect(read("./car-gallery.tsx").match(/unoptimized/g)).toHaveLength(3);
 });
 
 it("publishes the requested search title, description and logo", () => {
