@@ -75,7 +75,7 @@ it("publishes the requested search title, description and logo", () => {
   const layout = read("../app/layout.tsx");
   const site = read("../config/site.ts");
   expect(layout).toContain('default: "ASIA TRADE CAR — Автомобили из-за рубежа"');
-  expect(site).toContain('description: "Авто из Южной Кореи, Китая, Японии, ОАЭ, США, Канады и Киргизии под ключ в РФ. Низкие цены. Прямые поставки. Эксклюзивные предложения. Проверка авто перед покупкой. Полное сопровождение сделки."');
+  expect(site).toContain('description: "Авто из Южной Кореи, Китая, Японии, ОАЭ, США, Канады и Киргизии под ключ в РФ. Низкие цены. Прямые поставки. Эксклюзивные предложения.",');
   expect(existsSync(new URL("../app/icon.png", import.meta.url))).toBe(true);
   expect(existsSync(new URL("../app/favicon.ico", import.meta.url))).toBe(true);
   expect(layout).not.toContain('icons: { icon: "data:image/svg+xml');
