@@ -33,22 +33,25 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, cur
   const [lines, setLines] = useState(initial);
   const [livePriceRub, setLivePriceRub] = useState(priceRub);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const hasSourceLines = lines.some((line) => !/комисси|брокер/i.test(line.label));
 
   const open = async () => {
     dialog.current?.showModal();
-    if (lines.length || status === "loading") return;
+    if (hasSourceLines || status === "loading") return;
     setStatus("loading");
     try {
       const response = await fetch(`/api/catalog/details/${encodeURIComponent(slug)}`);
       const data = await response.json() as { priceRub?: number | null; details?: Record<string, unknown> };
       if (!response.ok) throw new Error();
-      setLines(parseCostBreakdown(data.details || {}));
-      if (typeof data.priceRub === "number") setLivePriceRub(data.priceRub);
+      const loadedLines = parseCostBreakdown(data.details || {});
+      setLines(loadedLines);
+      if (typeof data.priceRub === "number" || data.priceRub === null) setLivePriceRub(data.priceRub);
+      if (!loadedLines.some((line) => !/комисси|брокер/i.test(line.label))) throw new Error();
       setStatus("idle");
     } catch { setStatus("error"); }
   };
 
-  const visibleLines = lines.length ? lines : fallbackLines(priceKrw, livePriceRub, details, currencyCode, country);
+  const visibleLines = hasSourceLines ? lines : fallbackLines(priceKrw, livePriceRub, details, currencyCode, country);
   return <>
     <button className={`price-breakdown-trigger ${compact ? "compact" : ""}`} type="button" onClick={open}>Расшифровка цены</button>
     <dialog ref={dialog} className="site-dialog price-dialog" aria-labelledby={titleId} onClick={(event) => { if (event.target === dialog.current) dialog.current.close(); }}>
@@ -58,7 +61,7 @@ export function PriceBreakdown({ slug, carName, priceKrw, priceRub, details, cur
         <p className="dialog-total">{livePriceRub ? formatRub(livePriceRub) : "Итоговая цена уточняется"}</p>
         <dl className="price-lines">{visibleLines.map((line) => <div key={`${line.label}-${line.value}`}><dt>{line.label}</dt><dd>{line.value}</dd></div>)}</dl>
         {status === "loading" && <p className="dialog-note" role="status">Загружаем точные статьи расходов из источника…</p>}
-        {status === "error" && <p className="dialog-note" role="status">Подробные статьи временно недоступны. Итоговая цена остаётся синхронизированной с источником.</p>}
+        {status === "error" && <p className="dialog-note" role="status">Полная расшифровка недоступна в источнике. Стоимость уточните у менеджера.</p>}
         <p className="dialog-note">Логистика и доставка по России рассчитываются отдельно после выбора автомобиля и города.</p>
       </div>
     </dialog>

@@ -216,6 +216,7 @@ export function parseTrustEncarVehiclePage(html: string): TrustEncarCatalogCar |
     } catch {}
   });
   if (!vehicle) return null;
+  $(".auto-item").remove();
   const data = vehicle as Record<string, unknown>;
   const brand = data.brand && typeof data.brand === "object" ? data.brand as Record<string, unknown> : {};
   const mileage = data.mileageFromOdometer && typeof data.mileageFromOdometer === "object" ? data.mileageFromOdometer as Record<string, unknown> : {};

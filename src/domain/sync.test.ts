@@ -254,4 +254,13 @@ describe("authorized catalog feed", () => {
 
     expect(parsePage(html).cars[0].priceRub).toBeNull();
   });
+
+  it("does not take a related car price when the current vehicle has no quote", () => {
+    const vehicle = { "@type": "Vehicle", sku: "42410475", brand: { name: "Kia" }, model: "Seltos", productionDate: 2026 };
+    const html = `<script type="application/ld+json">${JSON.stringify(vehicle)}</script>
+      <h1>Kia Seltos HEV 1.6 2WD Prestige</h1>
+      <article class="auto-item"><div class="catalog-item-city">Стоимость до Владивостока: ~ 2 381 481 ₽</div></article>`;
+
+    expect(sync.parseTrustEncarVehiclePage(html)).toMatchObject({ id: "42410475", priceRub: null });
+  });
 });
