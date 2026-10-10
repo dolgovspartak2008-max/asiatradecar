@@ -2,8 +2,17 @@ import { createHash } from "node:crypto";
 import { query } from "@/server/db";
 import { retentionDays } from "@/config/site";
 
-export async function consumeLeadRateLimit(phone: string) {
-  const key = createHash("sha256").update(phone.replace(/\D/g, "")).digest("hex");
+const PHONE_LIMIT = 5;
+const IP_LIMIT = 20;
+
+export async function consumeLeadRateLimit(phone: string, ip?: string) {
+  const phoneAttempts = await consumeAttempt(createHash("sha256").update(phone.replace(/\D/g, "")).digest("hex"));
+  if (phoneAttempts > PHONE_LIMIT) return false;
+  if (!ip) return true;
+  return await consumeAttempt(createHash("sha256").update(`ip:${ip}`).digest("hex")) <= IP_LIMIT;
+}
+
+async function consumeAttempt(key: string) {
   const result = await query<{ attempts: number }>(
     `INSERT INTO lead_rate_limits (key_hash, attempts, window_started_at) VALUES ($1, 1, now())
      ON CONFLICT (key_hash) DO UPDATE SET
@@ -11,7 +20,7 @@ export async function consumeLeadRateLimit(phone: string) {
        window_started_at = CASE WHEN lead_rate_limits.window_started_at < now() - interval '10 minutes' THEN now() ELSE lead_rate_limits.window_started_at END
      RETURNING attempts`, [key]
   );
-  return result.rows[0].attempts <= 5;
+  return result.rows[0].attempts;
 }
 
 export async function purgeExpiredLeadData() {

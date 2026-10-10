@@ -43,8 +43,8 @@ export function DeliveryPricesDialog() {
       <div className="dialog-panel delivery-prices-panel">
         <button className="dialog-close" type="button" onClick={() => dialog.current?.close()} aria-label="Закрыть цены доставки"><Icon name="x" /></button>
         <p className="eyebrow">Доставка автовозом</p><h2 id={titleId}>Цены доставки по России</h2>
-        <div className="delivery-prices-image"><Image src="/media/delivery-prices.png" width={480} height={536} alt="Таблица цен доставки автомобилей из Владивостока и Уссурийска по городам России" /></div>
-        <a className="delivery-prices-full" href="/media/delivery-prices.png" target="_blank" rel="noreferrer">Открыть таблицу в полном размере</a>
+        <div className="delivery-prices-image"><Image src="/media/delivery-prices.webp" width={480} height={536} alt="Таблица цен доставки автомобилей из Владивостока и Уссурийска по городам России" /></div>
+        <a className="delivery-prices-full" href="/media/delivery-prices.webp" target="_blank" rel="noreferrer">Открыть таблицу в полном размере</a>
         <ul className="delivery-prices-mobile">{deliveryRates.map(([city, ...prices]) => <li key={city}><h3>{city}</h3><dl>{prices.map((price, index) => <div key={deliveryLabels[index]}><dt>{deliveryLabels[index]}</dt><dd>{price.toLocaleString("ru-RU")} ₽</dd></div>)}</dl></li>)}</ul>
         <details className="delivery-prices-data"><summary>Цены в текстовом виде</summary><div className="delivery-prices-table-wrap"><table>
           <caption>Доставка автомобилей автовозами из Владивостока и Уссурийска</caption>

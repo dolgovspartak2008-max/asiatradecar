@@ -19,6 +19,10 @@ describe("catalog URL state", () => {
     expect(parseCatalogParams({ page: "2.8", limit: "5.9" })).toMatchObject({ limit: 5, offset: 5 });
   });
 
+  it("caps absurdly deep pages so one request cannot walk the whole source", () => {
+    expect(parseCatalogParams({ page: "999999999" }).offset).toBe((5_000 - 1) * 24);
+  });
+
   it("keeps untrusted text in SQL parameters", () => {
     const query = buildCatalogQuery(parseCatalogParams({ q: "%' OR 1=1 --", make: "Kia" }));
     expect(query.text).not.toContain("OR 1=1");

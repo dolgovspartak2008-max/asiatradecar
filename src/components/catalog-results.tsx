@@ -19,7 +19,8 @@ export function CatalogResults({ initialCars, total, initialPage, query, sort, p
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const raw = sessionStorage.getItem(CATALOG_RETURN_KEY);
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem(CATALOG_RETURN_KEY); } catch {}
     if (!raw) return;
     try {
       const saved = JSON.parse(raw) as Partial<CatalogSnapshot>;
@@ -44,7 +45,7 @@ export function CatalogResults({ initialCars, total, initialPage, query, sort, p
       });
       return () => { cancelAnimationFrame(stateFrame); cancelAnimationFrame(scrollFrame); };
     } catch {
-      sessionStorage.removeItem(CATALOG_RETURN_KEY);
+      try { sessionStorage.removeItem(CATALOG_RETURN_KEY); } catch {}
     }
   }, [query, sort]);
 

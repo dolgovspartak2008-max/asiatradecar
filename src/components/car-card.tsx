@@ -10,7 +10,7 @@ import { Icon } from "@/components/icons";
 import { BrandMark } from "@/components/brand-mark";
 
 const FAVORITES_KEY = "asia-trade-car-favorites";
-const getStored = () => parseFavoriteEntries(localStorage.getItem(FAVORITES_KEY) || "[]");
+const getStored = () => { try { return parseFavoriteEntries(localStorage.getItem(FAVORITES_KEY) || "[]"); } catch { return []; } };
 
 export function CarCard({ car, onOpen }: { car: FavoriteCar; onOpen?: () => void }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -20,7 +20,7 @@ export function CarCard({ car, onOpen }: { car: FavoriteCar; onOpen?: () => void
     () => false
   );
   const toggle = () => {
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(toggleFavorite(getStored(), car)));
+    try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(toggleFavorite(getStored(), car))); } catch { return; }
     window.dispatchEvent(new Event("favorites-change"));
   };
   const name = `${car.make} ${car.model}${car.trim ? ` ${car.trim}` : ""}`;

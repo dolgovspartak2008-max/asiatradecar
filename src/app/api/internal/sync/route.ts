@@ -22,7 +22,8 @@ async function run(request: NextRequest) {
     const [retention, rates, catalog, externalCatalogs, telegram] = await Promise.all([
       safe(purgeExpiredLeadData), safe(syncCbrKrwRate), safe(syncAuthorizedCatalog), safe(syncExternalCatalogs), safe(ensureTelegramWebhook)
     ]);
-    return NextResponse.json({ ok: telegram.ok, retention, rates, catalog, externalCatalogs, telegram });
+    const ok = [retention, rates, catalog, externalCatalogs, telegram].every((result) => result.ok);
+    return NextResponse.json({ ok, retention, rates, catalog, externalCatalogs, telegram });
   }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Sync failed" }, { status: 500 }); }
 }

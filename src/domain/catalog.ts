@@ -32,13 +32,15 @@ const positiveNumber = (value: string | string[] | undefined) => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 };
 
+const MAX_CATALOG_PAGE = 5_000;
+
 export function parseCatalogParams(params: SearchParams): CatalogFilters {
   const rawSort = scalar(params.sort);
   const sort: CatalogSort = ["price-asc", "price-desc", "newest", "mileage"].includes(rawSort ?? "")
     ? rawSort as CatalogSort
     : "newest";
   const limit = Math.floor(Math.min(24, Math.max(1, positiveNumber(params.limit) ?? 24)));
-  const page = Math.floor(Math.max(1, positiveNumber(params.page) ?? 1));
+  const page = Math.floor(Math.min(MAX_CATALOG_PAGE, Math.max(1, positiveNumber(params.page) ?? 1)));
 
   return {
     q: scalar(params.q)?.trim() || undefined,

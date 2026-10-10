@@ -6,6 +6,10 @@ describe("resolveSiteUrl", () => {
     expect(resolveSiteUrl({ SITE_URL: "https://custom.example", VERCEL_PROJECT_PRODUCTION_URL: "project.vercel.app" })).toBe("https://custom.example");
   });
 
+  it("drops a trailing slash so generated URLs never contain //", () => {
+    expect(resolveSiteUrl({ SITE_URL: "https://www.asiatradecar.ru/" })).toBe("https://www.asiatradecar.ru");
+  });
+
   it("uses the Vercel production domain when SITE_URL is absent", () => {
     expect(resolveSiteUrl({ VERCEL_PROJECT_PRODUCTION_URL: "project.vercel.app" })).toBe("https://project.vercel.app");
   });

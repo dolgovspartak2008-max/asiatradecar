@@ -7,10 +7,12 @@ import { Icon } from "@/components/icons";
 export function CarGallery({ photos, name }: { photos: string[]; name: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [active, setActive] = useState(0);
-  const [availablePhotos, setAvailablePhotos] = useState(() => photos.filter(Boolean));
+  const [availablePhotos, setAvailablePhotos] = useState(() => [...new Set(photos.filter(Boolean))]);
   const removePhoto = (photo: string) => {
+    const index = availablePhotos.indexOf(photo);
+    if (index < 0) return;
     setAvailablePhotos((current) => current.filter((item) => item !== photo));
-    setActive(0);
+    setActive((current) => index < current ? current - 1 : index === current ? 0 : current);
   };
   if (!availablePhotos.length) return <div className="detail-placeholder"><Icon name="car" size={64}/><span>Фотографии обновляются из источника</span></div>;
   return <div className="car-gallery">

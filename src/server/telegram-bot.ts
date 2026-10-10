@@ -12,6 +12,7 @@ type TelegramUpdate = {
 const token = () => process.env.TELEGRAM_BOT_TOKEN || "";
 const ownerId = () => Number(process.env.TELEGRAM_OWNER_ID || process.env.TELEGRAM_CHAT_ID || 0);
 const money = (value: number) => Math.round(value).toLocaleString("ru-RU");
+const clip = (value: string, max: number) => value.length > max ? `${value.slice(0, max - 1)}…` : value;
 
 async function telegram(method: string, body: Record<string, unknown>) {
   if (!token()) throw new Error("TELEGRAM_BOT_TOKEN не настроен");
@@ -46,8 +47,8 @@ async function setSession(userId: number, action: string, state: ReviewDraft = {
 
 async function showLeads(chatId: number) {
   const result = await query<{ id: string; name: string; phone: string; city: string; wishes: string; car_name: string | null; created_at: Date }>("SELECT id,name,phone,city,wishes,car_name,created_at FROM leads ORDER BY created_at DESC LIMIT 10");
-  const text = result.rows.length ? result.rows.map((lead) => `#${lead.id} · ${new Date(lead.created_at).toLocaleString("ru-RU", { timeZone: "Asia/Yekaterinburg" })}\n${lead.name}, ${lead.phone}, ${lead.city}${lead.car_name ? `\nАвто: ${lead.car_name}` : ""}${lead.wishes ? `\n${lead.wishes}` : ""}`).join("\n\n") : "Заявок пока нет.";
-  await telegram("sendMessage", { chat_id: chatId, text: `<b>Последние заявки</b>\n\n${text.replace(/[<>&]/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[char]!)}`, parse_mode: "HTML" });
+  const text = result.rows.length ? result.rows.map((lead) => `#${lead.id} · ${new Date(lead.created_at).toLocaleString("ru-RU", { timeZone: "Asia/Yekaterinburg" })}\n${lead.name}, ${lead.phone}, ${lead.city}${lead.car_name ? `\nАвто: ${lead.car_name}` : ""}${lead.wishes ? `\n${clip(lead.wishes, 300)}` : ""}`).join("\n\n") : "Заявок пока нет.";
+  await telegram("sendMessage", { chat_id: chatId, text: `<b>Последние заявки</b>\n\n${clip(text, 3500).replace(/[<>&]/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[char]!)}`, parse_mode: "HTML" });
 }
 
 export async function handleTelegramUpdate(update: TelegramUpdate) {

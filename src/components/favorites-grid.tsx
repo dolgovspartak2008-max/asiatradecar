@@ -9,7 +9,7 @@ import { CatalogChooser } from "@/components/catalog-chooser";
 export function FavoritesGrid({ cars }: { cars: Car[] }) {
   const stored = useSyncExternalStore(
     (notify) => { window.addEventListener("favorites-change", notify); return () => window.removeEventListener("favorites-change", notify); },
-    () => localStorage.getItem("asia-trade-car-favorites") || "[]",
+    () => { try { return localStorage.getItem("asia-trade-car-favorites") || "[]"; } catch { return "[]"; } },
     () => "[]"
   );
   const selected = useMemo(() => {

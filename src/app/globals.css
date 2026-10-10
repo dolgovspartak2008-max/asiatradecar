@@ -251,7 +251,7 @@ h3 { font-size: 1.2rem; letter-spacing: -.02em; }
 .lead-form { display: grid; gap: 17px; }
 .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .lead-form label, .catalog-filters label, .brand-select-field { display: grid; gap: 7px; color: inherit; font-size: .8rem; font-weight: 750; }
-input, textarea, select { width: 100%; min-height: 50px; padding: 12px 14px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+input, textarea, select { width: 100%; min-height: 50px; padding: 12px 14px; font-size: 16px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 10px; }
 textarea { resize: vertical; }
 .request-section input, .request-section textarea { color: #fff; background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.18); }
 .consent { grid-template-columns: 22px 1fr !important; align-items: start; color: rgba(255,255,255,.65) !important; font-weight: 400 !important; line-height: 1.5; }
@@ -530,7 +530,7 @@ textarea { resize: vertical; }
 }
 
 @media (max-width: 540px) {
-  body, input, select, textarea, button { font-size: 15px; }
+  body, button { font-size: 15px; }
   .container { width: calc(100% - 24px); }
   .page-section > .container { padding: 22px 16px; border-radius: 20px; }
   h2 { font-size: 2.65rem; }

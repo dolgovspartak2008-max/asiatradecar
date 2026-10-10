@@ -1,7 +1,8 @@
 const productionSiteUrl = "https://www.asiatradecar.ru";
 
 export function resolveSiteUrl(env: Record<string, string | undefined> = process.env) {
-  if (env.SITE_URL) return env.SITE_URL;
+  const configured = env.SITE_URL?.trim().replace(/\/+$/, "");
+  if (configured) return configured;
   const vercelUrl = env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL;
   if (vercelUrl) return `https://${vercelUrl}`;
   return env.NODE_ENV === "production" ? productionSiteUrl : "http://localhost:3000";

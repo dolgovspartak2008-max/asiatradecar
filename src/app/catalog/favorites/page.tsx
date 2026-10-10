@@ -4,7 +4,7 @@ import { FavoritesGrid } from "@/components/favorites-grid";
 import { parseCatalogParams } from "@/domain/catalog";
 import { getCatalog } from "@/server/catalog";
 
-export const metadata: Metadata = { title: "Избранные автомобили", robots: { index: false, follow: true } };
+export const metadata: Metadata = { title: "Избранные автомобили", alternates: { canonical: "/catalog/favorites" }, robots: { index: false, follow: true } };
 export default async function FavoritesPage() {
   await connection();
   const { cars } = await getCatalog(parseCatalogParams({ country: "kr", limit: "24" })).catch(() => ({ cars: [] }));

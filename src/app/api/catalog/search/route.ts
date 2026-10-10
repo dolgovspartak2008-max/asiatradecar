@@ -4,5 +4,9 @@ import { searchCars } from "@/server/catalog";
 export async function GET(request: NextRequest) {
   const term = request.nextUrl.searchParams.get("q")?.slice(0, 100) || "";
   if (term.length < 2) return NextResponse.json({ items: [] });
-  return NextResponse.json({ items: await searchCars(term) }, { headers: { "Cache-Control": "private, max-age=30" } });
+  try {
+    return NextResponse.json({ items: await searchCars(term) }, { headers: { "Cache-Control": "private, max-age=30" } });
+  } catch {
+    return NextResponse.json({ items: [], message: "Поиск временно недоступен." }, { status: 502 });
+  }
 }

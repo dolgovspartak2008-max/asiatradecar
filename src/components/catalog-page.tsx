@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { parseCatalogParams } from "@/domain/catalog";
 import type { CatalogMarket } from "@/domain/seo";
 import { getCatalog } from "@/server/catalog";
@@ -15,6 +16,7 @@ export async function CatalogPageContent({ market, raw }: { market: CatalogMarke
   const { data: { cars, total, makes, models }, sourceError } = result;
   rememberCatalogPrices(cars);
   const page = Math.floor(filters.offset / filters.limit) + 1;
+  if (page > 1 && !sourceError && !cars.length) notFound();
   const query = new URLSearchParams();
   Object.entries(raw).forEach(([key, value]) => (Array.isArray(value) ? value : [value]).forEach((item) => { if (item !== undefined && key !== "country") query.append(key, item); }));
   query.set("country", market.country);

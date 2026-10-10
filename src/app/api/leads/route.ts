@@ -27,13 +27,15 @@ export async function POST(request: NextRequest) {
   }
   if (databaseReady) {
     try {
-      if (!await consumeLeadRateLimit(parsed.data.phone)) return NextResponse.json({ message: "Слишком много заявок для этого номера. Повторите через 10 минут." }, { status: 429 });
+      if (!await consumeLeadRateLimit(parsed.data.phone, ip)) return NextResponse.json({ message: "Слишком много заявок. Повторите через 10 минут." }, { status: 429 });
     } catch { return unavailable(); }
   }
-  const context = body as { formId?: string; carName?: string; calculationRub?: number; pageUrl?: string };
+  const context = body as { formId?: unknown; carName?: unknown; calculationRub?: unknown; pageUrl?: unknown };
   const formId = typeof context.formId === "string" ? context.formId.slice(0, 100) : "unknown";
+  const carName = typeof context.carName === "string" ? context.carName.trim().slice(0, 200) || undefined : undefined;
+  const calculationRub = typeof context.calculationRub === "number" && Number.isFinite(context.calculationRub) && context.calculationRub > 0 ? Math.round(context.calculationRub) : undefined;
   let pageUrl: string | undefined;
-  try { const candidate = new URL(context.pageUrl || ""); if (candidate.origin === new URL(site.url).origin) pageUrl = candidate.href.slice(0, 500); } catch { pageUrl = undefined; }
+  try { const candidate = new URL(typeof context.pageUrl === "string" ? context.pageUrl : ""); if (candidate.origin === new URL(site.url).origin) pageUrl = candidate.href.slice(0, 500); } catch { pageUrl = undefined; }
   const ipHash = createHash("sha256").update(`${process.env.CRON_SECRET || site.policyVersion}:${ip}`).digest("hex");
   let leadId: string | undefined;
   if (databaseReady) {
@@ -41,14 +43,14 @@ export async function POST(request: NextRequest) {
       leadId = await inTransaction(async (client) => {
         const lead = await client.query<{ id: string }>(
           "INSERT INTO leads (name, phone, city, wishes, page_url, car_name, calculation_rub) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
-          [parsed.data.name, parsed.data.phone, parsed.data.city, parsed.data.wishes, pageUrl, context.carName?.slice(0, 200) || null, Number.isFinite(context.calculationRub) ? Math.round(context.calculationRub!) : null]
+          [parsed.data.name, parsed.data.phone, parsed.data.city, parsed.data.wishes, pageUrl, carName ?? null, calculationRub ?? null]
         );
         await client.query("INSERT INTO consent_log (lead_id, form_id, policy_version, consent_text, ip_hash, user_agent) VALUES ($1,$2,$3,$4,$5,$6)", [lead.rows[0].id, formId, site.policyVersion, CONSENT_TEXT, ipHash, request.headers.get("user-agent")?.slice(0, 500) || null]);
         return lead.rows[0].id;
       });
     } catch { return unavailable(); }
   }
-  const message = buildTelegramMessage(parsed.data, { carName: context.carName, pageUrl, calculationRub: context.calculationRub });
+  const message = buildTelegramMessage(parsed.data, { carName, pageUrl, calculationRub });
   try {
     const telegram = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text: message, parse_mode: "HTML", disable_web_page_preview: true }), signal: AbortSignal.timeout(15_000) });
     if (!telegram.ok) throw new Error(`Telegram ${telegram.status}`);

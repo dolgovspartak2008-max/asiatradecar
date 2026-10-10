@@ -3,7 +3,7 @@ import { Icon } from "@/components/icons";
 import { LeadForm } from "@/components/lead-form";
 import { CatalogChooser } from "@/components/catalog-chooser";
 
-export const metadata: Metadata = { title: "Как заказать автомобиль", description: "Этапы подбора, проверки, выкупа, доставки и выдачи автомобиля из Южной Кореи, Японии и Китая.", alternates: { canonical: "/orders" } };
+export const metadata: Metadata = { title: "Как заказать автомобиль", description: "Этапы подбора, проверки, выкупа, доставки и выдачи автомобиля из Южной Кореи, Японии и Китая.", alternates: { canonical: "/orders" }, openGraph: { type: "website", locale: "ru_RU", siteName: "ASIA TRADE CAR", title: "Как заказать автомобиль — ASIA TRADE CAR", description: "Этапы подбора, проверки, выкупа, доставки и выдачи автомобиля из Южной Кореи, Японии и Китая.", url: "/orders", images: ["/media/hero-import.webp"] } };
 
 const steps = [
   ["Заявка", "Фиксируем бюджет, класс автомобиля, год, пробег и город получения."],

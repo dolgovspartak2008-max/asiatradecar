@@ -145,12 +145,12 @@ describe("requested mobile UI", () => {
     expect(menu.indexOf("<DeliveryPricesDialog />")).toBeGreaterThan(menu.indexOf("Мобильная навигация"));
     expect(dialog).toContain("Цена доставки по России");
     expect(dialog).toContain("Цены доставки по России");
-    expect(dialog).toContain("/media/delivery-prices.png");
+    expect(dialog).toContain("/media/delivery-prices.webp");
     expect(dialog).not.toContain('loading="eager"');
     expect(dialog).toContain("<table>");
     expect(dialog).toContain('className="delivery-prices-mobile"');
     expect(dialog.match(/\["[^"]+", \d+_\d{3}, \d+_\d{3}, \d+_\d{3}, \d+_\d{3}\]/g)).toHaveLength(26);
-    expect(existsSync(new URL("../../public/media/delivery-prices.png", import.meta.url))).toBe(true);
+    expect(existsSync(new URL("../../public/media/delivery-prices.webp", import.meta.url))).toBe(true);
   });
 
   it("shows every mobile menu destination in the desktop navigation", () => {

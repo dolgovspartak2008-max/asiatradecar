@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const leadSchema = z.object({
   name: z.string().trim().min(2).max(80),
-  phone: z.string().trim().regex(/^\+?[\d\s()-]{10,20}$/),
+  phone: z.string().trim().regex(/^\+?[\d\s()-]{10,20}$/).refine((value) => /^\d{10,15}$/.test(value.replace(/\D/g, ""))),
   city: z.string().trim().min(2).max(100),
   wishes: z.string().trim().max(1500).default(""),
   consent: z.literal(true),
