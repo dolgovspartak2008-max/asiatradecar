@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseCatalogParams } from "../domain/catalog";
 import { applyCommission, getCarBySlug, getCatalog, getLatestCars, type Car } from "./catalog";
+import { rememberCatalogPrices } from "./catalog-price-cache";
 
 describe("live Trust Encar catalog", () => {
   afterEach(() => {
@@ -54,7 +55,7 @@ describe("live Trust Encar catalog", () => {
     expect(fetchMock).toHaveBeenLastCalledWith("https://trust-encar.ru/catalog/?page=1", expect.objectContaining({ cache: "no-store" }));
   });
 
-  it("loads the turnkey price from the vehicle page when a leasing card omits it", async () => {
+  it("does not open vehicle pages while listing the Korea catalog", async () => {
     vi.stubEnv("DATABASE_URL", "");
     const catalog = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>
       <script>window.TE_CATALOG_SSR = {"total":1,"facets":{"facets":{"marks":[{"value":"9","name":"Mercedes-Benz","count":1}]}}};</script>
@@ -65,16 +66,26 @@ describe("live Trust Encar catalog", () => {
           <p class="price auto-price">Стоимость авто в Корее: 3 823 857 ₽ (59 860 000 ₩)</p><p class="price">Лот: 42463638</p>
         </div>
       </article>`;
-    const vehicle = { "@type": "Vehicle", sku: "42463638", brand: { name: "Mercedes-Benz" }, model: "CLE-Class", productionDate: 2024, offers: { price: 6_892_604 } };
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(catalog, { status: 200 }))
-      .mockResolvedValueOnce(new Response(`<script type="application/ld+json">${JSON.stringify(vehicle)}</script>`, { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(catalog, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await getCatalog(parseCatalogParams({ country: "kr" }));
 
-    expect(result.cars[0].priceRub).toBe(6_942_604);
-    expect(fetchMock).toHaveBeenCalledWith("https://trust-encar.ru/auto/42463638/", expect.any(Object));
+    expect(result.cars[0]).toMatchObject({ id: "42463638", priceRub: null });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a listed Korea car from the catalog snapshot when the source rate-limits the vehicle page", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const listed = {
+      id: "43015629", slug: "cadillac-lyriq-43015629", sourceUrl: null, country: "kr", currencyCode: "KRW", make: "Cadillac", model: "Lyriq", trim: "Sport",
+      year: 2023, mileageKm: 15_025, engineCc: null, powerHp: null, fuel: null, transmission: null, drive: null,
+      bodyType: null, exteriorColor: null, interiorColor: null, vin: null, priceKrw: 69_900_000, priceRub: 8_295_884, photos: [], details: {}
+    } satisfies Car;
+    rememberCatalogPrices([listed]);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Слишком много прямых переходов", { status: 429 })));
+
+    await expect(getCarBySlug("cadillac-lyriq-43015629")).resolves.toMatchObject({ make: "Cadillac", model: "Lyriq", priceRub: 8_295_884 });
   });
 
   it("keeps the static home page buildable when the live source is unavailable", async () => {

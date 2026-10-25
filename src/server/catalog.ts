@@ -11,6 +11,7 @@ import { fetchBanzaiHomepage, fetchBanzaiMakes, fetchBanzaiModels, fetchBanzaiPa
 import { fetchDongchediPage, fetchDongchediUsedBrowsePage, fetchDongchediUsedPage, fetchDongchediUsedVehicle, fetchDongchediVehicle, fetchDongchediVehicleSpecs, getDongchediCityBySlug } from "./dongchedi";
 import { getDromCustomsCostsRub } from "./drom";
 import { ensureDatabaseSchema } from "./schema";
+import { catalogCarFor } from "./catalog-price-cache";
 
 const TRUST_ENCAR_BROKER_RUB = 60_000;
 
@@ -88,23 +89,6 @@ const fromExternalCar = (car: ExternalCatalogCar): Car => ({
   drive: car.drive, bodyType: car.bodyType, exteriorColor: car.exteriorColor, interiorColor: car.interiorColor,
   vin: car.vin, priceKrw: car.sourcePrice, priceRub: null, photos: car.photos.map(proxyBanzaiPhotoUrl), details: car.details
 });
-
-async function completeKoreaPrices(cars: Car[]) {
-  return Promise.all(cars.map(async (car) => {
-    if (car.priceRub || !car.id) return car;
-    try {
-      const response = await fetch(`https://trust-encar.ru/auto/${car.id}/`, {
-        next: { revalidate: 300, tags: [`trust-encar-car-${car.id}`] },
-        signal: AbortSignal.timeout(6_000)
-      });
-      if (!response.ok) return car;
-      const detail = parseTrustEncarVehiclePage(await response.text());
-      return detail?.priceRub ? { ...car, priceRub: detail.priceRub, details: { ...car.details, ...detail.details } } : car;
-    } catch {
-      return car;
-    }
-  }));
-}
 
 function applyExternalPricing(car: Car, rubPerUnit: number, customs: CustomsCostsRub = {}, commissionRub = DEFAULT_COMMISSION_RUB): Car {
   const country = car.country === "jp" ? "jp" : "cn";
@@ -365,7 +349,7 @@ async function getBrowseCatalog(filters: CatalogFilters) {
     return result;
   };
   const parsed = await load(false).catch(() => load(true));
-  return { cars: await completeKoreaPrices(parsed.cars.map(fromFeedCar)), total: parsed.total, makes: parsed.makes, models: [] as string[] };
+  return { cars: parsed.cars.map(fromFeedCar), total: parsed.total, makes: parsed.makes, models: [] as string[] };
 }
 
 async function getLiveCatalog(filters: CatalogFilters) {
@@ -446,7 +430,7 @@ async function getLiveCatalog(filters: CatalogFilters) {
   const total = count.status === "success" && Number.isFinite(Number(count.total)) ? Number(count.total) : bootstrap.total;
   const facets = modelsResponse?.ok ? await modelsResponse.json() : null;
   const models = parseTrustEncarModelsFacet(facets).map((model) => model.name);
-  return { cars: await completeKoreaPrices(cars), total, makes: bootstrap.makes.map((make) => make.name), models };
+  return { cars, total, makes: bootstrap.makes.map((make) => make.name), models };
 }
 
 async function getDatabaseCatalog(filters: CatalogFilters) {
@@ -594,14 +578,16 @@ export async function getCarBySlug(slug: string) {
   if (id && !slug.startsWith("cn-") && !slug.startsWith("jp-")) {
     try {
       const response = await fetch(`https://trust-encar.ru/auto/${id}/`, {
-        next: { revalidate: 300, tags: [`trust-encar-car-${id}`] },
+        next: { revalidate: 21_600, tags: [`trust-encar-car-${id}`] },
         signal: AbortSignal.timeout(6_000)
       });
       if (response.ok) {
         const live = parseTrustEncarVehiclePage(await response.text());
-        if (live) return applyCommission(fromFeedCar(live), (await getPricingSettings()).commissions.kr);
+        if (live) return applyCommission(fromFeedCar({ ...live, year: live.year || catalogCarFor<Car>(slug)?.year || 0 }), (await getPricingSettings()).commissions.kr);
       }
     } catch {}
+    const listed = catalogCarFor<Car>(slug);
+    if (listed) return listed;
   }
   if (slug.startsWith("jp-")) {
     const sourceId = slug.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i)?.[1];
