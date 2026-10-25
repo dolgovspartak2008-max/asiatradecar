@@ -32,6 +32,28 @@ describe("live Trust Encar catalog", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://trust-encar.ru/catalog/?page=1", expect.any(Object));
   });
 
+  it("refetches the Korea catalog without cache when the cached page is empty", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const config = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>`;
+    const empty = `${config}<script>window.TE_CATALOG_SSR = {"total":0,"facets":{"facets":{"marks":[]}}};</script>`;
+    const full = `${config}<script>window.TE_CATALOG_SSR = {"total":1,"facets":{"facets":{"marks":[{"value":"2","name":"Kia","count":1}]}}};</script>
+      <article class="auto-item" data-href="https://trust-encar.ru/auto/42569219/">
+        <img class="te-car-title__logo" alt="Kia" /><span class="te-car-title__text">Kia Sportage</span>
+        <div class="catalog-item-options"><p class="price">2023</p><p class="price">Лот: 42569219</p></div>
+        <div class="catalog-item-total">Стоимость до Владивостока: ~ 4 217 024 ₽</div>
+      </article>`;
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(empty, { status: 200 }))
+      .mockResolvedValueOnce(new Response(full, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getCatalog(parseCatalogParams({ country: "kr" }));
+
+    expect(result.total).toBe(1);
+    expect(result.cars[0]).toMatchObject({ id: "42569219", make: "Kia" });
+    expect(fetchMock).toHaveBeenLastCalledWith("https://trust-encar.ru/catalog/?page=1", expect.objectContaining({ cache: "no-store" }));
+  });
+
   it("loads the turnkey price from the vehicle page when a leasing card omits it", async () => {
     vi.stubEnv("DATABASE_URL", "");
     const catalog = `<script>var TE_CATALOG = {"ajaxUrl":"https://trust-encar.ru/wp-admin/admin-ajax.php","nonce":"public-nonce"};</script>

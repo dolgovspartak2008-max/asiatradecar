@@ -354,13 +354,17 @@ const isDefaultBrowse = (filters: CatalogFilters) => filters.country === "kr" &&
 
 async function getBrowseCatalog(filters: CatalogFilters) {
   const page = Math.floor(filters.offset / filters.limit) + 1;
-  const response = await fetch(`https://trust-encar.ru/catalog/?page=${page}`, {
-    next: { revalidate: 300, tags: [`trust-encar-page-${page}`] },
-    signal: AbortSignal.timeout(6_000)
-  });
-  if (!response.ok) throw new Error(`Trust Encar вернул ${response.status}`);
-  const parsed = parseTrustEncarCatalogPage(await response.text());
-  if (!parsed.cars.length && page <= Math.ceil(parsed.total / filters.limit)) throw new Error("Trust Encar вернул пустую страницу каталога");
+  const url = `https://trust-encar.ru/catalog/?page=${page}`;
+  const load = async (fresh: boolean) => {
+    const response = await fetch(url, fresh
+      ? { cache: "no-store", signal: AbortSignal.timeout(8_000) }
+      : { next: { revalidate: 300, tags: [`trust-encar-page-${page}`] }, signal: AbortSignal.timeout(6_000) });
+    if (!response.ok) throw new Error(`Trust Encar вернул ${response.status}`);
+    const result = parseTrustEncarCatalogPage(await response.text());
+    if (!result.total || (!result.cars.length && page <= Math.ceil(result.total / filters.limit))) throw new Error("Trust Encar вернул пустую страницу каталога");
+    return result;
+  };
+  const parsed = await load(false).catch(() => load(true));
   return { cars: await completeKoreaPrices(parsed.cars.map(fromFeedCar)), total: parsed.total, makes: parsed.makes, models: [] as string[] };
 }
 
