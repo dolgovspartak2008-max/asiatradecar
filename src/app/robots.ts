@@ -5,6 +5,8 @@ export default function robots(): MetadataRoute.Robots {
   return { rules: [
     { userAgent: "*", allow: "/", disallow: "/api/" },
     { userAgent: "ElevenLabsCrawler", disallow: "/" },
-    { userAgent: "SERankingBacklinksBot", disallow: "/" }
+    { userAgent: "SERankingBacklinksBot", disallow: "/" },
+    { userAgent: "SemrushBot", disallow: "/" },
+    { userAgent: "HeadlessChrome", disallow: "/" }
   ], sitemap: `${site.url}/sitemap.xml`, host: site.url };
 }
