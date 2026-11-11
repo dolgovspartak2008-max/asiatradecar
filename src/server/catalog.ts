@@ -526,6 +526,18 @@ async function hasSyncedJapanCatalog() {
   }
 }
 
+async function hasSyncedKoreaCatalog() {
+  if (!hasDatabase()) return false;
+  try {
+    const result = await query<{ ready: boolean }>(`SELECT (
+      count(*) FILTER (WHERE country = 'kr' AND status = 'active') >= 1000
+    ) AS ready FROM cars`, []);
+    return result.rows[0]?.ready === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function getCatalog(filters: CatalogFilters) {
   if (filters.country === "jp" || filters.country === "cn") {
     const databaseReady = filters.country === "jp" ? await hasSyncedJapanCatalog() : await hasSyncedChinaCatalog();
@@ -550,8 +562,17 @@ export async function getCatalog(filters: CatalogFilters) {
       throw error;
     }
   }
+
+  const settings = await getPricingSettings();
+  if (await hasSyncedKoreaCatalog()) {
+    try {
+      const database = await getDatabaseCatalog(adjustDatabasePriceFilters(filters, settings.commissions.kr));
+      const cars = database.cars.map((car) => applyCommission(car, settings.commissions.kr, false)).filter((car) => matchesFinalPrice(car, filters));
+      return { ...database, cars: mergeCatalogCars([], cars, filters.sort) };
+    } catch {}
+  }
+
   try {
-    const settings = await getPricingSettings();
     const catalog = await (isDefaultBrowse(filters) ? getBrowseCatalog(filters) : getLiveCatalog(adjustKoreaLivePriceFilters(filters, settings.commissions.kr)));
     const expected = Math.min(filters.limit, Math.max(0, catalog.total - filters.offset));
     const live = { ...catalog, cars: catalog.cars.map((car) => applyCommission(car, settings.commissions.kr)) };
@@ -567,7 +588,7 @@ export async function getCatalog(filters: CatalogFilters) {
   } catch (error) {
     if (!hasDatabase()) throw error;
   }
-  const settings = await getPricingSettings();
+
   const catalog = await getDatabaseCatalog(adjustDatabasePriceFilters(filters, settings.commissions.kr));
   const cars = catalog.cars.map((car) => applyCommission(car, settings.commissions.kr, false)).filter((car) => matchesFinalPrice(car, filters));
   return { ...catalog, cars: mergeCatalogCars([], cars, filters.sort) };
@@ -663,16 +684,23 @@ export async function getLatestCars(limit = 4) {
 
 export async function searchCars(term: string, limit = 20) {
   if (term.trim().length < 2) return [] as Array<{ slug: string; label: string }>;
+
+  const searchDatabase = async () => {
+    const result = await query<{ slug: string; make: string; model: string; trim: string | null; year: number }>(
+      `SELECT slug, make, model, trim, year FROM cars
+       WHERE status = 'active' AND country = 'kr' AND search_vector @@ plainto_tsquery('simple', $1)
+       ORDER BY year DESC, updated_at DESC LIMIT $2`, [term.trim(), Math.min(20, Math.max(1, limit))]
+    );
+    return result.rows.map((row) => ({ slug: row.slug, label: `${row.make} ${row.model}${row.trim ? ` ${row.trim}` : ""} · ${row.year}` }));
+  };
+
+  if (await hasSyncedKoreaCatalog()) return searchDatabase();
+
   try {
     const live = await getLiveCatalog(parseCatalogParams({ country: "kr", q: term }));
     return live.cars.slice(0, limit).map((car) => ({ slug: car.slug, label: `${car.make} ${car.model}${car.trim ? ` ${car.trim}` : ""} · ${car.year}` }));
   } catch (error) {
     if (!hasDatabase()) throw error;
   }
-  const result = await query<{ slug: string; make: string; model: string; trim: string | null; year: number }>(
-    `SELECT slug, make, model, trim, year FROM cars
-     WHERE status = 'active' AND country = 'kr' AND search_vector @@ plainto_tsquery('simple', $1)
-     ORDER BY year DESC, updated_at DESC LIMIT $2`, [term.trim(), Math.min(20, Math.max(1, limit))]
-  );
-  return result.rows.map((row) => ({ slug: row.slug, label: `${row.make} ${row.model}${row.trim ? ` ${row.trim}` : ""} · ${row.year}` }));
+  return searchDatabase();
 }
