@@ -11,7 +11,7 @@ export function Header() {
   return <header className="site-header">
     <div className="container header-inner">
       <Logo />
-      <nav className="desktop-nav" aria-label="Основная навигация">{nav.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}<DeliveryPricesDialog /></nav>
+      <nav className="desktop-nav" aria-label="Основная навигация">{nav.map(([label, href]) => <Link key={href} href={href} prefetch={href === "/catalog/favorites" ? false : undefined}>{label}</Link>)}<DeliveryPricesDialog /></nav>
       <div className="header-actions">
         <a className="icon-button header-call" href={site.phone ? `tel:${site.phone.replace(/[^+\d]/g, "")}` : "/#contacts"} aria-label={site.phone ? `Позвонить: ${site.phone}` : "Открыть контакты"}><Icon name="phone" /></a>
         {site.phone && <a className="header-phone" href={`tel:${site.phone.replace(/[^+\d]/g, "")}`}>{site.phone}</a>}
