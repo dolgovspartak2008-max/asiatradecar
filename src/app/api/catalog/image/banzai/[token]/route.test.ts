@@ -15,7 +15,7 @@ describe("Banzai image proxy", () => {
     expect(fetchBanzaiImage).toHaveBeenCalledWith("v2_token-1");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/webp");
-    expect(response.headers.get("cache-control")).toContain("s-maxage=86400");
+    expect(response.headers.get("cache-control")).toContain("s-maxage=2592000");
   });
 
   it("rejects tokens outside the fixed Banzai image path", async () => {

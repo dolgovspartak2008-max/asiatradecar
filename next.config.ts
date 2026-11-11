@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
         ]
       },
       {
+        source: "/catalog/:market(korea|japan|china)",
+        headers: [{ key: "Vercel-CDN-Cache-Control", value: "max-age=300, stale-while-revalidate=3600" }]
+      },
+      {
+        source: "/auto/:slug",
+        headers: [{ key: "Vercel-CDN-Cache-Control", value: "max-age=21600, stale-while-revalidate=86400" }]
+      },
+      {
         source: "/media/:path*",
         headers: [
           { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }

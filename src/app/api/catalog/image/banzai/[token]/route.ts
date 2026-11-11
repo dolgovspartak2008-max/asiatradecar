@@ -11,7 +11,7 @@ export async function GET(_request: Request, context: Context) {
     return new Response(image.body, {
       headers: {
         "Content-Type": image.headers.get("content-type") || "image/webp",
-        "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
+        "Cache-Control": "public, max-age=604800, s-maxage=2592000, immutable"
       }
     });
   } catch {
