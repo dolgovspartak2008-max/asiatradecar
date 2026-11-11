@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       total: result.total,
       page,
       hasMore: page * filters.limit < result.total && result.cars.length > 0
-    }, { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" } });
+    }, { headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600" } });
   } catch {
     return NextResponse.json({ message: "Источник не ответил. Уже загруженные автомобили остаются доступны." }, { status: 502 });
   }
