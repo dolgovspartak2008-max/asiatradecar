@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const term = request.nextUrl.searchParams.get("q")?.slice(0, 100) || "";
   if (term.length < 2) return NextResponse.json({ items: [] });
   try {
-    return NextResponse.json({ items: await searchCars(term) }, { headers: { "Cache-Control": "private, max-age=30" } });
+    return NextResponse.json({ items: await searchCars(term) }, { headers: { "Cache-Control": "public, max-age=30, s-maxage=300, stale-while-revalidate=3600" } });
   } catch {
     return NextResponse.json({ items: [], message: "Поиск временно недоступен." }, { status: 502 });
   }
